@@ -1,39 +1,45 @@
-"""Run untrusted Python (model-written code plus its tests) in a locked-down subprocess.
+"""Run untrusted Python (model-written code plus its tests) in a throwaway Docker container.
 
-Layers, each covering a different failure:
+Each call starts a fresh container from a pinned image (sandbox/Dockerfile), so
+nothing one run does can affect the next. What each container gets:
 
-1. macOS Seatbelt profile via `sandbox-exec`: no network, no writes outside a
-   fresh temp dir, no reads of anything under your home folder except the
-   Python install and venv, and no forking.
-2. Clean environment: the child gets no inherited variables, so it never sees
+1. No network, a read-only root file system, and a small writable tmpfs at
+   /work that disappears with the container.
+2. None of your folders. The program arrives on standard input, so no host
+   path is mounted, and the container's environment never includes
    ANTHROPIC_API_KEY (client.py loads it into this process's environment).
-3. Resource limits: a CPU-time cap, a wall-clock timeout that kills the whole
-   process group, and a file-size cap that also bounds captured output.
-
-Not covered: memory. macOS doesn't enforce address-space limits, so a runaway
-allocation is only stopped by the timeout. Docker (with --memory) would cover
-that if it ever matters.
+3. An unprivileged user with every capability dropped and no-new-privileges set.
+4. Limits: 512 MB of memory with no swap, a cap on how many processes it can
+   start, one CPU, a CPU-time limit, and a wall-clock timeout that
+   force-removes the container. The host stops reading output at
+   MAX_OUTPUT_BYTES per stream and removes the container if it keeps going.
 
 This module only reports what happened. Deciding what counts as a pass is the
 evaluator's job.
+
+Build the image once with:  uv run python -m harness.sandbox --build
 """
 
 import os
-import resource
 import shutil
-import signal
 import subprocess
 import sys
-import tempfile
+import threading
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-MAX_OUTPUT_BYTES = 1_000_000  # per stream; also the file-size cap inside the sandbox
+IMAGE = "api-cost-optimizer-sandbox:py3.13.13-numpy2.5.4"
+DOCKERFILE_DIR = Path(__file__).resolve().parent.parent / "sandbox"
 
-# Directories the child may read inside the home folder. sys.prefix is the
-# project venv (where numpy lives); sys.base_prefix is the Python install.
-_PYTHON_DIRS = sorted({os.path.realpath(sys.prefix), os.path.realpath(sys.base_prefix)})
+MAX_OUTPUT_BYTES = 1_000_000  # per stream
+MEMORY = "512m"
+PIDS_LIMIT = 64
+
+
+class SandboxError(RuntimeError):
+    """Docker itself failed, so the program never ran. Never score this as a model failure."""
 
 
 @dataclass
@@ -45,113 +51,159 @@ class ExecResult:
     duration_s: float
 
 
-def _symlink_hops(path: str) -> list[str]:
-    """Every symlink passed through while resolving `path`.
-
-    uv's venv python links through an intermediate folder link
-    (cpython-3.13-... -> cpython-3.13.13-...), and the sandbox must be allowed
-    to follow each hop.
-    """
-    hops = []
-    pending = os.path.abspath(path)
-    for _ in range(40):  # guard against link loops
-        parts = Path(pending).parts
-        for i in range(2, len(parts) + 1):
-            prefix = str(Path(*parts[:i]))
-            if os.path.islink(prefix):
-                hops.append(prefix)
-                target = os.path.join(os.path.dirname(prefix), os.readlink(prefix))
-                pending = os.path.normpath(os.path.join(target, *parts[i:]))
-                break
-        else:
-            return hops
-    raise RuntimeError(f"Too many symlink hops resolving {path}")
+def _docker() -> str:
+    path = shutil.which("docker")
+    if path is None:
+        raise SandboxError("docker CLI not found; install or start Docker Desktop")
+    return path
 
 
-_EXECUTABLE_HOPS = _symlink_hops(sys.executable)
+def _docker_env() -> dict[str, str]:
+    # The docker CLI needs HOME and PATH to find its config and context. Strip
+    # Anthropic variables anyway, so a stray `-e NAME` could never forward them.
+    return {k: v for k, v in os.environ.items() if not k.startswith("ANTHROPIC")}
 
 
-def _ancestors(path: str) -> list[str]:
-    parents = []
-    p = Path(path)
-    while p != p.parent:
-        p = p.parent
-        parents.append(str(p))
-    return parents
+_image_checked = False
 
 
-def _profile(workdir: str) -> str:
-    home = os.path.realpath(Path.home())
-    allowed_reads = "".join(f'(allow file-read* (subpath "{d}"))' for d in _PYTHON_DIRS)
-    # Resolving a path needs a metadata lookup on every folder above it, so the
-    # folders above each allowed dir get metadata access only (no listing, no contents).
-    lookups = sorted({a for d in [*_PYTHON_DIRS, *_EXECUTABLE_HOPS, workdir] for a in _ancestors(d)})
-    allowed_lookups = "".join(f'(allow file-read-metadata (literal "{a}"))' for a in lookups)
-    allowed_lookups += "".join(f'(allow file-read* (literal "{hop}"))' for hop in _EXECUTABLE_HOPS)
-    # Later rules override earlier ones, so each deny comes before its exceptions.
-    return (
-        "(version 1)"
-        "(allow default)"
-        "(deny network*)"
-        "(deny process-fork)"
-        "(deny file-write*)"
-        f'(allow file-write* (subpath "{workdir}"))'
-        '(allow file-write* (literal "/dev/null"))'
-        f'(deny file-read* (subpath "{home}"))'
-        f"{allowed_reads}"
-        f"{allowed_lookups}"
-        f'(allow file-read* (subpath "{workdir}"))'
+def _ensure_image() -> None:
+    global _image_checked
+    if _image_checked:
+        return
+    check = subprocess.run(
+        [_docker(), "image", "inspect", IMAGE], capture_output=True, text=True, env=_docker_env()
     )
+    if check.returncode != 0:
+        raise SandboxError(
+            f"Sandbox image {IMAGE} unavailable ({check.stderr.strip()}). "
+            "Start Docker Desktop, then build it with: uv run python -m harness.sandbox --build"
+        )
+    _image_checked = True
 
 
-def _limit_resources(cpu_seconds: int):
-    def apply():
-        resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
-        resource.setrlimit(resource.RLIMIT_FSIZE, (MAX_OUTPUT_BYTES, MAX_OUTPUT_BYTES))
+def _command(name: str, timeout_s: float) -> list[str]:
+    cpu_seconds = int(timeout_s) + 1
+    return [
+        _docker(), "run", "--rm", "-i",
+        "--name", name,
+        "--network", "none",
+        "--read-only",
+        "--tmpfs", "/work:rw,noexec,nosuid,nodev,size=64m,mode=1777",
+        "--workdir", "/work",
+        "--user", "10001:10001",
+        "--cap-drop", "ALL",
+        "--security-opt", "no-new-privileges",
+        "--memory", MEMORY, "--memory-swap", MEMORY,
+        "--pids-limit", str(PIDS_LIMIT),
+        "--cpus", "1",
+        "--ulimit", f"cpu={cpu_seconds}:{cpu_seconds}",
+        "--log-driver", "none",
+        "-e", "HOME=/work", "-e", "TMPDIR=/work", "-e", "LANG=C.UTF-8",
+        IMAGE,
+        # -I: ignore PYTHON* variables and the user site dir. -B: no .pyc writes.
+        # "-" reads the program from standard input.
+        "python", "-I", "-B", "-",
+    ]  # fmt: skip
 
-    return apply
+
+def _force_remove(name: str) -> None:
+    subprocess.run([_docker(), "rm", "-f", name], capture_output=True, env=_docker_env())
+
+
+def _exit_status(code: int) -> int:
+    # `docker run` passes the container's exit code through, and a process
+    # killed by signal N exits as 128 + N. Report that as -N, like subprocess does.
+    return -(code - 128) if 128 < code <= 128 + 64 else code
+
+
+def _read_capped(stream, sink: bytearray, on_overflow) -> None:
+    for chunk in iter(lambda: stream.read(65536), b""):
+        room = MAX_OUTPUT_BYTES - len(sink)
+        sink += chunk[:room]
+        if len(chunk) > room:
+            on_overflow()
+            # Keep draining so the docker CLI never blocks on a full pipe.
 
 
 def run_python(source: str, timeout_s: float = 10.0) -> ExecResult:
-    workdir = os.path.realpath(tempfile.mkdtemp(prefix="sandbox-"))
+    _ensure_image()
+    name = f"sandbox-{uuid.uuid4().hex[:12]}"
+    stdout, stderr = bytearray(), bytearray()
+    killed = threading.Event()
+    removers = []
+
+    def kill_once():
+        # Remove on a separate thread: Docker won't finish removing the
+        # container until its pending output is read, so the reader that hit
+        # the cap must keep draining instead of waiting here.
+        if not killed.is_set():
+            killed.set()
+            remover = threading.Thread(target=_force_remove, args=(name,))
+            remover.start()
+            removers.append(remover)
+
+    start = time.perf_counter()
+    process = subprocess.Popen(
+        _command(name, timeout_s),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=_docker_env(),
+    )
+
+    def feed():
+        try:
+            process.stdin.write(source.encode("utf-8"))
+            process.stdin.close()
+        except BrokenPipeError:
+            pass  # container already gone; the exit status says why
+
+    threads = [
+        threading.Thread(target=feed),
+        threading.Thread(target=_read_capped, args=(process.stdout, stdout, kill_once)),
+        threading.Thread(target=_read_capped, args=(process.stderr, stderr, kill_once)),
+    ]
+    for thread in threads:
+        thread.start()
+
+    timed_out = False
     try:
-        program = Path(workdir) / "program.py"
-        program.write_text(source)
-        stdout_path = Path(workdir) / "stdout.txt"
-        stderr_path = Path(workdir) / "stderr.txt"
+        code = process.wait(timeout=timeout_s)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        kill_once()
+        try:
+            code = process.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            process.kill()  # the CLI should exit once its container is gone; don't hang if not
+            code = process.wait()
+    for thread in threads + removers:
+        thread.join()
+    duration_s = time.perf_counter() - start
 
-        # -I: ignore PYTHON* variables and the user site dir. -B: no .pyc writes.
-        command = ["/usr/bin/sandbox-exec", "-p", _profile(workdir), sys.executable, "-I", "-B", str(program)]
-        env = {"PATH": "/usr/bin:/bin", "HOME": workdir, "LANG": "en_US.UTF-8", "TMPDIR": workdir}
+    err_text = stderr.decode("utf-8", errors="replace")
+    if code == 125 and not killed.is_set():
+        # 125 means `docker run` itself failed (daemon down, bad flag, missing image).
+        raise SandboxError(f"docker run failed: {err_text.strip()}")
 
-        start = time.perf_counter()
-        with open(stdout_path, "wb") as out, open(stderr_path, "wb") as err:
-            process = subprocess.Popen(
-                command,
-                cwd=workdir,
-                env=env,
-                stdin=subprocess.DEVNULL,
-                stdout=out,
-                stderr=err,
-                start_new_session=True,  # own process group, so a timeout kills everything it started
-                preexec_fn=_limit_resources(int(timeout_s) + 1),
-            )
-            try:
-                returncode = process.wait(timeout=timeout_s)
-                timed_out = False
-            except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
-                process.wait()
-                returncode = None
-                timed_out = True
-        duration_s = time.perf_counter() - start
+    return ExecResult(
+        returncode=None if timed_out else _exit_status(code),
+        timed_out=timed_out,
+        stdout=stdout.decode("utf-8", errors="replace"),
+        stderr=err_text,
+        duration_s=duration_s,
+    )
 
-        return ExecResult(
-            returncode=returncode,
-            timed_out=timed_out,
-            stdout=stdout_path.read_bytes()[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace"),
-            stderr=stderr_path.read_bytes()[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace"),
-            duration_s=duration_s,
-        )
-    finally:
-        shutil.rmtree(workdir, ignore_errors=True)
+
+def build_image() -> None:
+    subprocess.run(
+        [_docker(), "build", "-t", IMAGE, str(DOCKERFILE_DIR)], check=True, env=_docker_env()
+    )
+
+
+if __name__ == "__main__":
+    if "--build" in sys.argv:
+        build_image()
+    else:
+        print(__doc__)

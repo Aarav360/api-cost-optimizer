@@ -20,10 +20,17 @@ REVISIONS = {
 }
 
 # Items dropped from the pools, with the reason, so the write-up can list them.
+# Adding an entry changes the pilot draw for that source, so after the pilot
+# is frozen, new exclusions belong in the Stage 1 split builder instead.
 EXCLUDED = {
-    "mbppplus:590": "reference solution fails its own test on this machine "
-    "(last-digit float difference in cmath.polar output; same result outside the sandbox)",
+    "mbppplus:590": "reference solution fails its own test on both macOS and Linux "
+    "(last-digit float difference in cmath.polar output)",
 }
+
+# Known issues to settle in Stage 1 (not in the pilot, so the pilot is unaffected):
+# - mbppplus:255: the reference solution's tests peak at ~2.2 GB, over the
+#   sandbox's 512 MB cap, so even a correct answer is killed. Exclude it, or
+#   raise the cap with fewer parallel containers.
 
 MATH_SUBJECTS = [
     "algebra",

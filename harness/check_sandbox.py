@@ -2,7 +2,7 @@
 
 Run from the project root:  uv run python -m harness.check_sandbox
 
-Re-run after OS or Python upgrades, since Seatbelt behavior can change.
+Re-run after Docker Desktop upgrades or after rebuilding the sandbox image.
 """
 
 import os
@@ -15,67 +15,136 @@ from pathlib import Path
 import harness.client  # noqa: F401  (loads .env, so the key is in this process's environment)
 from harness.client import PROJECT_ROOT
 from harness.loaders import load_mbppplus
-from harness.sandbox import MAX_OUTPUT_BYTES, run_python
+from harness.sandbox import MAX_OUTPUT_BYTES, PIDS_LIMIT, SandboxError, run_python
 
 OUTSIDE_FILE = Path("/tmp") / "sandbox-escape-test.txt"
 
-# (name, source, check on the result)
+FORK_BOMB = """
+import os, time
+started = 0
+try:
+    while True:
+        if os.fork() == 0:
+            time.sleep(30)
+            os._exit(0)
+        started += 1
+except OSError as e:
+    print("blocked after", started, type(e).__name__)
+"""
+
+CHILD_PROCESS = """
+import subprocess
+child = subprocess.run(
+    ["python", "-c", "import os, socket; print(os.getuid(), os.path.exists('/Users')); socket.create_connection(('1.1.1.1', 443), timeout=3)"],
+    capture_output=True, text=True,
+)
+print(child.stdout.strip(), child.returncode != 0 and "unreachable" in child.stderr)
+"""
+
+# (name, source, timeout_s, check on the result)
 ESCAPES = [
-    ("runs plain code", "print('hello')", lambda r: r.returncode == 0 and r.stdout.strip() == "hello"),
-    ("numpy is importable", "import numpy; print(numpy.__name__)", lambda r: r.stdout.strip() == "numpy"),
+    ("runs plain code", "print('hello')", 3, lambda r: r.returncode == 0 and r.stdout.strip() == "hello"),
+    ("numpy is importable", "import numpy; print(numpy.__name__)", 3, lambda r: r.stdout.strip() == "numpy"),
     (
         "API key not in environment",
         "import os; print('ANTHROPIC_API_KEY' in os.environ, len(os.environ))",
+        3,
         lambda r: r.stdout.startswith("False"),
     ),
-    ("cannot read project .env", f"open({str(PROJECT_ROOT / '.env')!r}).read()", lambda r: "PermissionError" in r.stderr),
+    # Your files aren't blocked, they're absent: nothing from the host is mounted.
+    (
+        "cannot read project .env",
+        f"open({str(PROJECT_ROOT / '.env')!r}).read()",
+        3,
+        lambda r: "FileNotFoundError" in r.stderr,
+    ),
     (
         "cannot read other files in home",
         f"open({str(PROJECT_ROOT / 'PLAN_v4.md')!r}).read()",
-        lambda r: "PermissionError" in r.stderr,
+        3,
+        lambda r: "FileNotFoundError" in r.stderr,
     ),
-    ("cannot list home folder", f"import os; os.listdir({str(Path.home())!r})", lambda r: "PermissionError" in r.stderr),
     (
-        "cannot write outside its temp dir",
+        "cannot list home folder",
+        f"import os; os.listdir({str(Path.home())!r})",
+        3,
+        lambda r: "FileNotFoundError" in r.stderr,
+    ),
+    (
+        "no host folders mounted",
+        "import os; mounts = open('/proc/mounts').read(); "
+        "print(os.path.exists('/Users'), os.path.exists('/host_mnt'), '/Users' in mounts or 'host_mnt' in mounts)",
+        3,
+        lambda r: r.stdout.strip() == "False False False",
+    ),
+    (
+        "cannot write outside its work dir",
         f"open({str(OUTSIDE_FILE)!r}, 'w').write('x')",
-        lambda r: "PermissionError" in r.stderr and not OUTSIDE_FILE.exists(),
+        3,
+        lambda r: "Read-only file system" in r.stderr and not OUTSIDE_FILE.exists(),
     ),
     (
         "cannot write into the project",
         f"open({str(PROJECT_ROOT / 'escape.txt')!r}, 'w').write('x')",
-        lambda r: "PermissionError" in r.stderr and not (PROJECT_ROOT / "escape.txt").exists(),
+        3,
+        lambda r: r.returncode != 0 and not (PROJECT_ROOT / "escape.txt").exists(),
     ),
     (
         "no network (raw socket)",
         "import socket; socket.create_connection(('1.1.1.1', 443), timeout=3)",
-        lambda r: r.returncode != 0 and ("PermissionError" in r.stderr or "OSError" in r.stderr),
+        5,
+        lambda r: r.returncode != 0 and "Network is unreachable" in r.stderr,
     ),
     (
         "no network (DNS + HTTP)",
         "import urllib.request; urllib.request.urlopen('https://example.com', timeout=3)",
+        5,
         lambda r: r.returncode != 0 and "URLError" in r.stderr,
     ),
-    ("cannot fork", "import os; os.fork()", lambda r: r.returncode != 0 and "Error" in r.stderr),
     (
-        "cannot start other programs",
-        "import subprocess; subprocess.run(['/bin/ls'])",
-        lambda r: r.returncode != 0 and "Error" in r.stderr,
+        "runs unprivileged",
+        "import os; s = open('/proc/self/status').read(); "
+        "print(os.getuid(), 'CapEff:\\t0000000000000000' in s, 'NoNewPrivs:\\t1' in s)",
+        3,
+        lambda r: r.stdout.strip() == "10001 True True",
+    ),
+    # Forking is allowed (the container confines children too), so instead of
+    # "cannot fork", check that a child process is exactly as confined.
+    (
+        "child processes stay confined",
+        CHILD_PROCESS,
+        8,
+        lambda r: r.stdout.strip() == "10001 False True",
+    ),
+    (
+        "fork bomb hits the process limit",
+        FORK_BOMB,
+        10,
+        lambda r: r.stdout.startswith("blocked after") and int(r.stdout.split()[2]) < PIDS_LIMIT,
+    ),
+    (
+        "memory bomb is killed",
+        "chunks = []\nwhile True: chunks.append(b'x' * 50_000_000)",
+        15,
+        lambda r: not r.timed_out and (r.returncode == -signal.SIGKILL or "MemoryError" in r.stderr),
     ),
     (
         "infinite loop is killed",
         "while True: pass",
+        3,
         lambda r: r.timed_out or r.returncode == -signal.SIGXCPU,
     ),
     (
         "output flood is capped",
         "while True: print('x' * 1000)",
-        # Python ignores SIGXFSZ, so hitting the cap raises "File too large" instead of killing it.
-        lambda r: (r.returncode == -signal.SIGXFSZ or "File too large" in r.stderr)
-        and 0 < len(r.stdout) <= MAX_OUTPUT_BYTES,
+        10,
+        # The host stops at the cap and removes the container.
+        lambda r: r.returncode != 0 and not r.timed_out and len(r.stdout) == MAX_OUTPUT_BYTES,
     ),
     (
-        "can write in its own temp dir",
+        "can write in its own work dir",
         "open('scratch.txt', 'w').write('ok'); print(open('scratch.txt').read())",
+        3,
         lambda r: r.stdout.strip() == "ok",
     ),
 ]
@@ -85,11 +154,16 @@ def check_escapes() -> int:
     if "ANTHROPIC_API_KEY" not in os.environ:
         print("NOTE  key not loaded in this process, so the environment check proves less")
     failures = 0
-    for name, source, ok in ESCAPES:
-        result = run_python(source, timeout_s=3)
-        # If the sandbox itself failed to start, the code never ran, so a
-        # "blocked" outcome proves nothing.
-        passed = "sandbox-exec:" not in result.stderr and ok(result)
+    for name, source, timeout_s, ok in ESCAPES:
+        # If Docker itself fails, the code never ran, so a "blocked" outcome
+        # would prove nothing; run_python raises instead of returning.
+        try:
+            result = run_python(source, timeout_s=timeout_s)
+        except SandboxError as e:
+            failures += 1
+            print(f"FAIL  {name:36s} sandbox error: {e}")
+            continue
+        passed = ok(result)
         failures += not passed
         detail = f"rc={result.returncode} timed_out={result.timed_out} {result.duration_s:.2f}s"
         print(f"{'PASS' if passed else 'FAIL'}  {name:36s} {detail}")
