@@ -101,3 +101,9 @@ docs/history/        earlier versions of the plan
 - [ ] Pilot run: lock 3–4 task types, set output caps, check the budget
 - [ ] Stages 1–8: benchmark and splits, collection run, references, routers, gates and cascades,
       final evaluation on the sealed test split
+
+## License
+
+The code and documentation are released under the [MIT License](LICENSE). Dataset items in
+`data/`, and anything the loaders download, remain under their original licenses, listed in the
+[pilot datasets table](#pilot-candidate-datasets) above.
