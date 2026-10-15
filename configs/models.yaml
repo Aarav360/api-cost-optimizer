@@ -23,7 +23,7 @@ prices:
 configs:
   haiku:
     model: claude-haiku-5-5
-    effort: medium
+    effort: high
   sonnet:
     model: claude-sonnet-5-5
     effort: high

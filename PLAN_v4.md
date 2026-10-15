@@ -5,7 +5,7 @@
 | Version | v4 |
 | Status | Final — frozen for Stage 0 |
 | Date | 2026-10-12 |
-| Amended | 2026-10-14: Amendment A1, implementation decisions (below) |
+| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort |
 | Supersedes | [PLAN_v3.md](docs/history/PLAN_v3.md) — earlier versions in [docs/history/](docs/history/) |
 
 ## What changed from v3
@@ -28,6 +28,7 @@
 | v3 | 2026-10-09 | Sealed test split; matched-quality oracle frontier; convex random reference; 0–1 item scoring; offline-cascade boundary; 3–4 core tasks; Jev docs update |
 | v4 | 2026-10-12 | Final: changes 1–8 above |
 | v4-A1 | 2026-10-14 | Amendment A1: model lineup, 40/30/30 splits, cost controls |
+| v4-A2 | 2026-10-15 | Amendment A2: `haiku` config runs at high effort |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -37,7 +38,7 @@ Made before Stage 0, so no data has been collected and the freeze still holds. E
 
    | Config | Model ID | Effort | Role |
    |---|---|---|---|
-   | `haiku` | `claude-haiku-5-5` | medium (its default) | cheap |
+   | `haiku` | `claude-haiku-5-5` | high (A2; was medium, its default) | cheap |
    | `sonnet` | `claude-sonnet-5-5` | high (its default) | medium |
    | `opus_low` | `claude-opus-5-5` | low | medium alternative |
    | `opus` | `claude-opus-5-5` | medium (its default) | frontier, always the fallback |
@@ -62,6 +63,12 @@ Made before Stage 0, so no data has been collected and the freeze still holds. E
 
    If the pilot's token counts put the plan-size estimate over $150, use the small size or drop whichever config the pilot shows is redundant (`sonnet` or `opus_low`).
 10. **Open question 3 (deliverable) stays open.** Working assumption: write-up first, with S4 as a stretch goal.
+
+## Amendment A2 — Haiku effort (2026-10-15)
+
+Made before any pilot or collection calls, so the freeze still holds. Applied in the A1 lineup table and `configs/models.yaml`.
+
+1. **The `haiku` config runs at high effort instead of medium (its default).** Haiku 5.5 is expected to gain substantial quality going from medium to high at little added cost: thinking tokens bill as output at Haiku's $0.50 per 1M, so 1,000 extra thinking tokens per item across the plan-size benchmark (2,400 items) adds about $1.20 at standard prices, $0.60 through the Batches API. The A1 budget estimate is effectively unchanged.
 
 ---
 
