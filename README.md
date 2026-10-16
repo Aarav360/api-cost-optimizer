@@ -72,7 +72,20 @@ uv run python -m harness.smoke_test        # one Haiku call: checks the key and 
 uv run python -m harness.sandbox --build   # build the pinned sandbox image
 uv run python -m harness.check_sandbox     # escape checks + every MBPP+ reference solution
 uv run python -m harness.build_pilot       # regenerate data/pilot.jsonl (same seed, same items)
+uv run python -m harness.check_evaluators  # every evaluator against the reference answers (needs the sandbox)
+uv run python -m harness.run_pilot --configs haiku --per-source 3   # 18-item trial
+uv run python -m harness.run_pilot         # full pilot: 120 items x 4 configs, then the Stage 0 summary
 ```
+
+Every answer is scored right or wrong (`quality` 1 or 0), and IFEval counts as right only when
+every instruction is followed. An answer missing the format its prompt asks for (`Answer: X`,
+`\boxed{}`, a code block) scores as a format failure, which is counted separately from a wrong
+answer.
+
+The pilot runs Banking77, MMLU-Pro, MATH and CRUXEval twice: once in free text, and once with
+the answer requested as JSON through the API's structured outputs. The JSON run removes format
+failures but also changes where the model writes its working, so the pilot compares the two
+formats on the same items before one is chosen for the collection run.
 
 Every API response is cached on disk under `results/` (not committed), keyed by a hash of the
 full request, so re-running analysis never pays for the same call twice.
@@ -85,7 +98,9 @@ system, none of your files, an unprivileged user, and caps on memory, processes,
 ```text
 PLAN_v4.md           study design (frozen for Stage 0, with amendments A1 and A2)
 configs/models.yaml  pinned model configs and price snapshot
-harness/             API client, response store, dataset loaders, code sandbox, pilot builder
+harness/             API client, response store, dataset loaders, evaluators, code sandbox, pilot
+                     builder and runner
+harness/ifeval/      Google's IFEval instruction checkers, vendored at a pinned commit
 sandbox/             Dockerfile for the code sandbox image
 data/pilot.jsonl     the 120 Stage 0 pilot items (20 per candidate dataset)
 docs/history/        earlier versions of the plan
@@ -97,13 +112,17 @@ docs/history/        earlier versions of the plan
 - [x] Harness: API client, on-disk response store, pinned model configs
 - [x] Dataset loaders at pinned revisions, and 120 pilot items
 - [x] Docker code sandbox (18/18 escape checks; 376/378 MBPP+ reference solutions pass)
-- [ ] Evaluators for the six candidate datasets
+- [x] Evaluators for the six candidate datasets, checked against every reference answer in the
+      candidate pools
+- [x] Pilot runner, tested on an 18-item Haiku trial
 - [ ] Pilot run: lock 3–4 task types, set output caps, check the budget
 - [ ] Stages 1–8: benchmark and splits, collection run, references, routers, gates and cascades,
       final evaluation on the sealed test split
 
 ## License
 
-The code and documentation are released under the [MIT License](LICENSE). Dataset items in
+The code and documentation are released under the [MIT License](LICENSE), except
+`harness/ifeval/`, which is Google's code and stays under the Apache License 2.0 (a copy is in that
+folder). Dataset items in
 `data/`, and anything the loaders download, remain under their original licenses, listed in the
 [pilot datasets table](#pilot-candidate-datasets) above.

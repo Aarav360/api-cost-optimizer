@@ -14,6 +14,7 @@ from pathlib import Path
 
 import harness.client  # noqa: F401  (loads .env, so the key is in this process's environment)
 from harness.client import PROJECT_ROOT
+from harness.evaluators import mbppplus_program
 from harness.loaders import load_mbppplus
 from harness.sandbox import MAX_OUTPUT_BYTES, PIDS_LIMIT, SandboxError, run_python
 
@@ -182,8 +183,7 @@ def check_mbppplus_references() -> int:
     reference = {f"mbppplus:{row['task_id']}": row["code"] for row in rows}
 
     def run(item):
-        tests = item["expected_answer"]
-        program = "\n".join(tests["test_imports"]) + "\n" + reference[item["item_id"]] + "\n\n" + tests["test"]
+        program = mbppplus_program(reference[item["item_id"]], item["expected_answer"])
         return item["item_id"], run_python(program, timeout_s=20)
 
     with ThreadPoolExecutor(max_workers=8) as pool:

@@ -83,6 +83,62 @@ Task: {description}
 Return the complete function, with any imports it needs, in a single ```python code block."""
 
 
+# Structured-output variants of the four short-answer tasks, for the pilot's
+# format comparison: the same prompt with its format instruction swapped for one
+# that asks for the answer as JSON, plus the schema sent as output_config.format.
+# IFEval has no variant (its instructions are about the free-text shape) and
+# neither does MBPP+ (code stays in a code block). The schema asks for a short
+# explanation, never for reasoning: a `reasoning` field can draw a
+# `reasoning_extraction` refusal.
+STRUCTURED_INSTRUCTIONS = {
+    # source: (free-text instruction, its structured replacement)
+    "banking77": (
+        "Reply with only the intent name, exactly as written in the list.",
+        "Give the intent name as the answer.",
+    ),
+    "mmlu_pro": (
+        'End your response with a final line of the form "Answer: X", where X is the letter of the correct option.',
+        "Give a short explanation, then the letter of the correct option as the answer.",
+    ),
+    "math": (
+        "Put your final answer in \\boxed{}.",
+        "Give a short explanation, then the final answer in LaTeX, without \\boxed{}.",
+    ),
+    "cruxeval": (
+        'End your response with a final line of the form "Answer: <value>", where <value> is the returned value '
+        "written as a Python literal, for example 'abc', [1, 2] or {'a': 1}.",
+        "Give a short explanation, then the returned value as the answer, written as a Python literal, "
+        "for example 'abc', [1, 2] or {'a': 1}.",
+    ),
+}
+
+
+def banking77_labels(prompt: str) -> list[str]:
+    """The intent labels listed in a Banking77 prompt, in order."""
+    head = BANKING77_PROMPT.split("{labels}")[0]
+    if not prompt.startswith(head):
+        raise ValueError("prompt does not follow BANKING77_PROMPT")
+    return prompt[len(head) : prompt.index("\n\nQuery: ", len(head))].split("\n")
+
+
+def structured_variant(item: dict) -> dict:
+    """The item asking for its answer as JSON, with the schema in `output_schema`."""
+    free_text, structured = STRUCTURED_INSTRUCTIONS[item["source"]]
+    if item["prompt"].count(free_text) != 1:
+        raise ValueError(f"{item['item_id']}: format instruction not found exactly once")
+    if item["source"] == "banking77":
+        answer = {"type": "string", "enum": banking77_labels(item["prompt"])}
+    elif item["source"] == "mmlu_pro":
+        answer = {"type": "string", "enum": list("ABCDEFGHIJ"[: item["meta"]["num_options"]])}
+    else:
+        answer = {"type": "string"}
+    # Banking77's free-text prompt asks for the label alone, so its schema has no explanation either.
+    properties = {} if item["source"] == "banking77" else {"explanation": {"type": "string"}}
+    properties["answer"] = answer
+    schema = {"type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
+    return {**item, "prompt": item["prompt"].replace(free_text, structured), "output_schema": schema}
+
+
 def _load(name: str, split: str, config: str | None = None):
     return load_dataset(name, config, split=split, revision=REVISIONS[name])
 
