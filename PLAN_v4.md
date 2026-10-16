@@ -5,7 +5,7 @@
 | Version | v4 |
 | Status | Final — frozen for Stage 0 |
 | Date | 2026-10-12 |
-| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, and A4, larger pools tested |
+| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen |
 | Supersedes | [PLAN_v3.md](docs/history/PLAN_v3.md) — earlier versions in [docs/history/](docs/history/) |
 
 ## What changed from v3
@@ -31,6 +31,7 @@
 | v4-A2 | 2026-10-15 | Amendment A2: `haiku` config runs at high effort |
 | v4-A3 | 2026-10-16 | Amendment A3: pilot decisions: core tasks, structured outputs, output caps, budget |
 | v4-A4 | 2026-10-16 | Amendment A4: IFBench and LiveCodeBench tested as additions, not adopted; `haiku` cap 64,000 |
+| v4-A5 | 2026-10-16 | Amendment A5: benchmark and splits frozen; cross-fitting for the trained router; task mixes |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -122,6 +123,55 @@ Both graders were first checked by `harness/check_evaluators.py`: every item loa
 2. **The code stays, unused.** The loaders, the vendored checkers, the runner and the pilot file remain so this test can be reproduced. Neither source enters Stage 1.
 3. **IFEval and MBPP+ use every available item.** How their splits handle the smaller pools is still open for Stage 1 (A3 item 5).
 4. **`haiku`'s output cap is 64,000** (from 32,000 in A3). On hard problems `haiku` thinks past 32,000 tokens: both LiveCodeBench misses above, and up to 29,950 tokens on IFBench. A cap stop scores as a failure, but only generated tokens are billed, so a 64,000-token response costs $0.032 at `haiku`'s price. The other caps are unchanged.
+
+## Amendment A5 — Benchmark and splits frozen (2026-10-16)
+
+Stage 1's decisions, made before any collection call, so the freeze on Stages 2–8 still holds. Applied in §5, §8 and `configs/task_mix.yaml`. `harness/build_benchmark.py` builds the benchmark and `harness/check_benchmark.py` checks it.
+
+1. **Items.** `data/benchmark.jsonl` holds 2,478 items:
+   - IFEval: all 521 items outside the pilots.
+   - MBPP+: all 357 items outside the pilots.
+   - Banking77 and MMLU-Pro: 800 each, seeded draws from the 3,056 and 12,012 items outside the pilots. They are stored in their structured-output form (A3).
+
+   Every item in a `data/pilot*.jsonl` file is excluded. `mbppplus:255`, whose tests need about 2.2 GB of memory, stays in and is graded with a 3 GB limit; its reference solution passes at 3 GB.
+2. **Groups.** Items whose question text matches after normalizing case, punctuation and spacing share a `source_group`, and a group never straddles splits. That covers 17 MMLU-Pro pairs (the same question with different answer options; one is an 1,800-character legal scenario) and one MBPP+ pair with identical task text.
+3. **Splits: 40/30/30 for every task**, stratified within each task by Banking77 intent and MMLU-Pro subject, so every split holds all 77 intents.
+
+   | Task | Train | Dev | Test |
+   |---|---|---|---|
+   | IFEval | 208 | 157 | 156 |
+   | Banking77 | 320 | 240 | 240 |
+   | MMLU-Pro | 320 | 240 | 240 |
+   | MBPP+ | 143 | 107 | 107 |
+
+   The small tasks keep the standard split. To keep the trained router from running short of training data on them, it uses cross-fitting over dev instead (§8, 3b). Test-heavier splits (20/40/40, 30/35/35) were considered; their test error bars differed by only about ±1 point.
+4. **Noise subset:** 75 dev items, about 10% of each task's dev split, listed in the manifest. Each runs three times in Stage 2 (§6).
+5. **Scoring and success rules.** Every item scores 1 or 0, so quality and success coincide.
+   - IFEval: every instruction is followed under Google's strict checks.
+   - Banking77: the JSON `answer` names the reference intent, ignoring case.
+   - MMLU-Pro: the JSON `answer` is the reference letter.
+   - MBPP+: the last Python code block passes every hidden test in the sandbox, within 20 s and 512 MB (3 GB for `mbppplus:255`).
+   - Any task: a refusal or a `max_tokens` stop is a failure. A reply missing its requested format is a failure, also counted separately as a format failure.
+6. **Task mixes** (`configs/task_mix.yaml`):
+   - **Uniform:** 25% per task.
+   - **Realistic:** MBPP+ 65%, Banking77 20%, IFEval 10%, MMLU-Pro 5%.
+
+   **Source.** The realistic weights come from the Anthropic Economic Index, January 2026 report: first-party API traffic sampled 2025-11-13 to 2025-11-20. Each task stands in for its closest occupational category:
+
+   | Task | Category | Share of API traffic |
+   |---|---|---|
+   | MBPP+ | Computer & Mathematical | 52% |
+   | Banking77 | Office & Administrative Support | 15% |
+   | IFEval | Arts, Design, Entertainment & Media | 6% |
+   | MMLU-Pro | Educational Instruction | 4% |
+
+   Those shares cover 77% of traffic. They are renormalized to 100% and rounded to the nearest 5, because the mapping is approximate.
+
+   **How results combine.** Quality is the weighted mean of the task means. Cost is the weighted mean cost per request, and savings are computed from those weighted dollar costs, never by averaging per-task savings.
+
+   **Caveat.** The realistic mix is two-thirds coding, while MBPP+ is easier than typical coding traffic, so the realistic headline likely overstates coding savings. Per-task results are always reported.
+7. **Freeze.** The build is seeded and reproduces its files byte for byte. `data/benchmark_manifest.json` records the counts, the groups and the noise subset. It also records the sha256 of `data/benchmark.jsonl`, of each split's ID list, of `configs/task_mix.yaml` and of every pilot file. `harness/check_benchmark.py` verifies them before the Stage 2 collection run, and again in Stage 8 before test is scored.
+8. **Budget.** The pilot's per-item costs put the collection run's model calls at these counts at about $30: IFEval $13.77, Banking77 $7.32, MMLU-Pro $6.74, MBPP+ $2.00. The noise subset's extra runs add a few dollars.
 
 ---
 
@@ -289,6 +339,7 @@ test   30%   sealed until Stage 8
 ```
 
 - Stratify by task type; keep each source group in one split; freeze splits with a file hash before routing work begins.
+- Within a task, stratify by Banking77 intent and MMLU-Pro subject. The frozen benchmark is `data/benchmark.jsonl` with its manifest (Amendment A5).
 - Pilot items are separate from all three splits.
 - The frontier config runs only on dev and test, so thresholds are selected on dev (§8, Amendment A1).
 - Raw test answers are collected with the dev matrix but sealed (§6). Before Stage 8, nothing reads, scores, or inspects test answers, grades, or gate verdicts.
@@ -304,6 +355,10 @@ Report under two mixes, documented before Stage 8:
 
 1. **Uniform** — each task type weighted equally.
 2. **Realistic** — a weighting that resembles a plausible production workload.
+
+Fixed in Amendment A5 (`configs/task_mix.yaml`):
+- Uniform: 25% per task.
+- Realistic: MBPP+ 65%, Banking77 20%, IFEval 10%, MMLU-Pro 5%, from first-party API traffic shares in the Anthropic Economic Index.
 
 Re-weighting is offline and needs no new model calls.
 
@@ -432,7 +487,7 @@ Shared decision rule: **pick the cheapest config whose score ≥ t.** Sweeping `
 
 For each headline quality target (§11), choose `t` where estimated quality **clears the target by a stated margin** — default: at least one standard error of the quality estimate. A threshold where dev quality only just meets the target would miss on test about half the time from noise alone. The same rule applies to gate cutoffs in cascades (§9).
 
-- Select on dev. v4 also allowed cross-validation over train+dev; Amendment A1 drops it because the frontier config doesn't run on train, and every threshold replay needs frontier outcomes for the items it escalates. The larger 30% dev split offsets most of the lost precision.
+- Select on dev; for the trained router, on its out-of-fold dev predictions (cross-fitting, Amendment A5). v4 also allowed cross-validation over train+dev; Amendment A1 drops it because the frontier config doesn't run on train, and every threshold replay needs frontier outcomes for the items it escalates. The larger 30% dev split offsets most of the lost precision.
 - Record the margin, selection method, and chosen thresholds before Stage 8.
 
 ## 3a — Rules router
@@ -464,6 +519,7 @@ prompt → embedding → one classifier per non-frontier config → P(config suc
 ```
 
 - Start with logistic regression on a sentence embedding. Cheap and hard to beat.
+- **Cross-fitting (Amendment A5):** split dev into k folds (e.g., 5). Train on train plus k−1 folds, predict the held-out fold, and rotate until every dev item has a prediction from a router that never saw it. Thresholds are selected on these out-of-fold predictions. Test is untouched.
 - Optionally add a RouteLLM router as a second trained baseline.
 
 This is Jev's real competition: Jev has no training on your data, while this router learns your exact workload.

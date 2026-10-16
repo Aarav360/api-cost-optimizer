@@ -50,10 +50,8 @@ EXCLUDED = {
     "(last-digit float difference in cmath.polar output)",
 }
 
-# Known issues to settle in Stage 1 (not in the pilot, so the pilot is unaffected):
-# - mbppplus:255: the reference solution's tests peak at ~2.2 GB, over the
-#   sandbox's 512 MB cap, so even a correct answer is killed. Exclude it, or
-#   raise the cap with fewer parallel containers.
+# mbppplus:255's tests peak at ~2.2 GB, over the sandbox's default 512 MB, so
+# its grader gets 3 GB (evaluators.CODE_MEMORY) instead of excluding the item.
 
 MATH_SUBJECTS = [
     "algebra",

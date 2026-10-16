@@ -8,8 +8,9 @@ model per request) and cascades (which try a cheap model first and escalate when
 fails) against two references: a hindsight oracle that shows the most any strategy could save,
 and random mixtures that show what you get with no routing intelligence at all.
 
-**Status:** Stage 0 (pilot) is done: four tasks are chosen ([Amendment A3](PLAN_v4.md)). Stage 1,
-building the benchmark and its splits, is next. There are no study results yet.
+**Status:** Stages 0 and 1 are done. The pilot chose four tasks ([Amendment A3](PLAN_v4.md)), and the
+benchmark of 2,478 items is split and frozen ([Amendment A5](PLAN_v4.md)). Stage 2, the
+collection run, is next. There are no study results yet.
 
 ## Approach
 
@@ -84,6 +85,8 @@ uv run python -m harness.run_pilot --configs haiku --per-source 3   # 18-item tr
 uv run python -m harness.run_pilot         # full pilot: 120 items x 4 configs, then the Stage 0 summary
 uv run python -m harness.run_pilot --pilot-file data/pilot_math_level5.jsonl --formats structured
 uv run python -m harness.run_pilot --pilot-file data/pilot_added_sources.jsonl --formats free
+uv run python -m harness.build_benchmark   # rebuild the frozen benchmark (seeded; byte-identical)
+uv run python -m harness.check_benchmark   # verify it against its manifest hashes
 ```
 
 The first LiveCodeBench load downloads about 690 MB and writes its decoded tests (about 500 MB)
@@ -110,12 +113,14 @@ system, none of your files, an unprivileged user, and caps on memory, processes,
 
 ```text
 PLAN_v4.md           study design (frozen for Stage 0, with amendments A1–A4)
-configs/models.yaml  pinned model configs and price snapshot
+configs/models.yaml  pinned model configs, output caps and price snapshot
+configs/task_mix.yaml  the uniform and realistic task mixes
 harness/             API client, response store, dataset loaders, evaluators, code sandbox, pilot
                      builder and runner
 harness/ifeval/      Google's IFEval instruction checkers, vendored at a pinned commit
 harness/ifbench/     AI2's IFBench instruction checkers, vendored at a pinned commit
 sandbox/             Dockerfile for the code sandbox image
+data/benchmark.jsonl the frozen benchmark: 2,478 items split 40/30/30, plus its hash manifest
 data/pilot*.jsonl    Stage 0 pilot items: 20 per candidate dataset, 20 MATH Level 5 items, and
                      20 each from IFBench and LiveCodeBench
 .cache/              downloaded tool data and LiveCodeBench's decoded tests (not committed)
@@ -134,8 +139,10 @@ docs/history/        earlier versions of the plan
 - [x] Pilot run ($4.72): four tasks chosen, JSON answers for Banking77 and MMLU-Pro, output caps
       set, collection run projected at about $26–30 against the $150 ceiling
 - [x] IFBench and LiveCodeBench tested as extra items for the two smallest tasks ($3.89); not added
-- [ ] Stages 1–8: benchmark and splits, collection run, references, routers, gates and cascades,
-      final evaluation on the sealed test split
+- [x] Stage 1: benchmark frozen. IFEval 521, Banking77 800, MMLU-Pro 800 and MBPP+ 357 items, split
+      40/30/30 and stratified, with a noise subset, the two task mixes and hashes
+- [ ] Stages 2–8: collection run, references, routers, gates and cascades, final evaluation on
+      the sealed test split
 
 ## License
 

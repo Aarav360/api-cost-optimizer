@@ -42,6 +42,9 @@ from harness.sandbox import run_python
 
 NLTK_DATA = PROJECT_ROOT / ".cache" / "nltk_data"
 CODE_TIMEOUT_S = 20.0  # the limit the MBPP+ reference solutions were checked under
+# MBPP+ items whose own tests need more than the sandbox's default 512 MB. The
+# reference solution of mbppplus:255 peaks at about 2.2 GB and passes at 3 GB.
+CODE_MEMORY = {"mbppplus:255": "3g"}
 LCB_TEST_TIMEOUT_S = 6  # LiveCodeBench's per-test limit
 LCB_MEMORY = "2g"  # LiveCodeBench allows 4 GB; some inputs are tens of MB
 LCB_RUNNER = (PROJECT_ROOT / "harness" / "livecodebench_runner.py").read_text()
@@ -301,7 +304,8 @@ def code_tests(item: dict, text: str) -> Score:
     if code is None or not code.strip():
         return Score("no_answer")
     # A SandboxError (Docker failed) propagates: it is never a model failure.
-    result = run_python(mbppplus_program(code, item["expected_answer"]), timeout_s=CODE_TIMEOUT_S)
+    memory = CODE_MEMORY.get(item["item_id"], "512m")
+    result = run_python(mbppplus_program(code, item["expected_answer"]), timeout_s=CODE_TIMEOUT_S, memory=memory)
     passed = result.returncode == 0 and not result.timed_out
     detail = {
         "returncode": result.returncode,

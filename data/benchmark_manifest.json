@@ -1,0 +1,171 @@
+{
+  "built_by": "harness/build_benchmark.py",
+  "seed": 20261016,
+  "split_shares": {
+    "train": 0.4,
+    "dev": 0.3,
+    "test": 0.3
+  },
+  "excluded_pilot_items": 180,
+  "pilot_files": {
+    "pilot.jsonl": "3be20c7d71f82a7d6b0308cef9bf2aeb8e03b1a8f7b81011b6a6031c3d26d962",
+    "pilot_added_sources.jsonl": "c0c63bd6a8274458b90511d6baca7f86101e516c3fa5484caf2be628b0b6784e",
+    "pilot_math_level5.jsonl": "17336d9fdd66d26e6572feaed82a4bc22caed863fae28a773c156cd5646fab21"
+  },
+  "tasks": {
+    "ifeval": {
+      "available": 521,
+      "drawn": 521,
+      "answer_format": "free",
+      "splits": {
+        "train": 208,
+        "dev": 157,
+        "test": 156
+      },
+      "noise_subset": 16,
+      "duplicate_groups": 0,
+      "items_in_duplicate_groups": 0,
+      "stratified_by": null
+    },
+    "banking77": {
+      "available": 3056,
+      "drawn": 800,
+      "answer_format": "structured",
+      "splits": {
+        "train": 320,
+        "dev": 240,
+        "test": 240
+      },
+      "noise_subset": 24,
+      "duplicate_groups": 0,
+      "items_in_duplicate_groups": 0,
+      "stratified_by": "intent"
+    },
+    "mmlu_pro": {
+      "available": 12012,
+      "drawn": 800,
+      "answer_format": "structured",
+      "splits": {
+        "train": 320,
+        "dev": 240,
+        "test": 240
+      },
+      "noise_subset": 24,
+      "duplicate_groups": 17,
+      "items_in_duplicate_groups": 34,
+      "stratified_by": "subject"
+    },
+    "mbppplus": {
+      "available": 357,
+      "drawn": 357,
+      "answer_format": "free",
+      "splits": {
+        "train": 143,
+        "dev": 107,
+        "test": 107
+      },
+      "noise_subset": 11,
+      "duplicate_groups": 1,
+      "items_in_duplicate_groups": 2,
+      "stratified_by": null
+    }
+  },
+  "noise_subset": [
+    "ifeval:1580",
+    "ifeval:1592",
+    "ifeval:1653",
+    "ifeval:1897",
+    "ifeval:2162",
+    "ifeval:2169",
+    "ifeval:2207",
+    "ifeval:2662",
+    "ifeval:2765",
+    "ifeval:2853",
+    "ifeval:2889",
+    "ifeval:2985",
+    "ifeval:301",
+    "ifeval:3221",
+    "ifeval:357",
+    "ifeval:3757",
+    "banking77:test-0251",
+    "banking77:test-0261",
+    "banking77:test-0414",
+    "banking77:test-0439",
+    "banking77:test-0578",
+    "banking77:test-0633",
+    "banking77:test-0664",
+    "banking77:test-0801",
+    "banking77:test-1333",
+    "banking77:test-1840",
+    "banking77:test-1854",
+    "banking77:test-1879",
+    "banking77:test-1978",
+    "banking77:test-2055",
+    "banking77:test-2084",
+    "banking77:test-2140",
+    "banking77:test-2322",
+    "banking77:test-2334",
+    "banking77:test-2448",
+    "banking77:test-2593",
+    "banking77:test-2640",
+    "banking77:test-2787",
+    "banking77:test-2950",
+    "banking77:test-3009",
+    "mmlu_pro:11348",
+    "mmlu_pro:11483",
+    "mmlu_pro:11493",
+    "mmlu_pro:1525",
+    "mmlu_pro:1788",
+    "mmlu_pro:2133",
+    "mmlu_pro:2589",
+    "mmlu_pro:2752",
+    "mmlu_pro:2821",
+    "mmlu_pro:3006",
+    "mmlu_pro:3161",
+    "mmlu_pro:3529",
+    "mmlu_pro:4289",
+    "mmlu_pro:4725",
+    "mmlu_pro:5048",
+    "mmlu_pro:5250",
+    "mmlu_pro:5556",
+    "mmlu_pro:6586",
+    "mmlu_pro:7030",
+    "mmlu_pro:7544",
+    "mmlu_pro:8384",
+    "mmlu_pro:8603",
+    "mmlu_pro:9530",
+    "mmlu_pro:9671",
+    "mbppplus:235",
+    "mbppplus:240",
+    "mbppplus:475",
+    "mbppplus:557",
+    "mbppplus:618",
+    "mbppplus:626",
+    "mbppplus:730",
+    "mbppplus:777",
+    "mbppplus:786",
+    "mbppplus:8",
+    "mbppplus:84"
+  ],
+  "task_mixes": {
+    "uniform": {
+      "ifeval": 0.25,
+      "banking77": 0.25,
+      "mmlu_pro": 0.25,
+      "mbppplus": 0.25
+    },
+    "realistic": {
+      "mbppplus": 0.65,
+      "banking77": 0.2,
+      "ifeval": 0.1,
+      "mmlu_pro": 0.05
+    }
+  },
+  "sha256": {
+    "benchmark.jsonl": "7b2ab45dca7efae470b541e4e08cc680fdd672ef6555d39b61a72cb0455cf0d2",
+    "configs/task_mix.yaml": "4f73726ceafa095660ee9d7e06369635a538788f77bb1773c93fd78e0c903b28",
+    "train_ids": "30f061a04d189646135eb6d6d04616a7fc6d187b8ea4a7eb6f13ca784b37db12",
+    "dev_ids": "1de55e5aca7bd1784d62bb7fa6716d97351a3a2e8a5d6fbe927f31f0e7856785",
+    "test_ids": "65339a6cdf66b8feb930d484cbed12cb16777db9d694dbf4d28e71dc2970a31c"
+  }
+}

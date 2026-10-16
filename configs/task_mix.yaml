@@ -1,0 +1,25 @@
+# The two predeclared task mixes (PLAN_v4.md §5, Amendment A5), fixed before any
+# collection call. Weights are shares of requests.
+#
+# How results combine under a mix:
+#   quality = sum over tasks of weight x the task's mean item score
+#   cost    = sum over tasks of weight x the task's mean cost per request, and
+#             savings = 1 - cost(strategy) / cost(always-frontier), computed from
+#             those weighted dollar costs, never by averaging per-task savings.
+
+uniform:
+  ifeval: 0.25
+  banking77: 0.25
+  mmlu_pro: 0.25
+  mbppplus: 0.25
+
+# Anthropic Economic Index, January 2026 report: first-party API traffic sampled
+# 2025-11-13 to 2025-11-20 (anthropic.com/research/anthropic-economic-index-january-2026-report).
+# Each task stands in for its closest occupational category. The four categories'
+# shares (52 + 15 + 6 + 4 = 77% of traffic) are renormalized to 100% and rounded
+# to the nearest 5, because the task-to-category mapping is approximate.
+realistic:
+  mbppplus: 0.65  # Computer & Mathematical, 52% of API traffic (67.5% renormalized)
+  banking77: 0.20  # Office & Administrative Support, 15% (19.5%)
+  ifeval: 0.10  # Arts, Design, Entertainment & Media (writing, editing), 6% (7.8%)
+  mmlu_pro: 0.05  # Educational Instruction, 4% (5.2%)
