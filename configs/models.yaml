@@ -20,16 +20,25 @@ prices:
 # Effort is always set explicitly, because Opus 5.5 and Haiku 5.5 default to
 # medium while Sonnet 5.5 defaults to high. No temperature (these models reject it)
 # and no refusal fallbacks, so every row comes from its own config's model.
+#
+# max_tokens is the collection run's output cap (Amendment A3): at least 3x the
+# longest output each config gave on the four chosen tasks in the pilot (Haiku
+# 10,637 on IFEval; Sonnet 4,739, Opus low 3,089, Opus 4,235). The pilot itself
+# ran every config at 32,000. Only generated tokens are billed, so headroom is free.
 configs:
   haiku:
     model: claude-haiku-5-5
     effort: high
+    max_tokens: 32000
   sonnet:
     model: claude-sonnet-5-5
     effort: high
+    max_tokens: 16000
   opus_low:
     model: claude-opus-5-5
     effort: low
+    max_tokens: 16000
   opus:
     model: claude-opus-5-5
     effort: medium
+    max_tokens: 16000

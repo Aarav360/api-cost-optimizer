@@ -3,6 +3,7 @@
 Run from the project root:
   uv run python -m harness.run_pilot --configs haiku --per-source 3   # trial (Amendment A1, item 8)
   uv run python -m harness.run_pilot                                  # full pilot, both answer formats
+  uv run python -m harness.run_pilot --pilot-file data/pilot_math_level5.jsonl --formats structured
 
 Every item runs in free text, as its prompt was written. Banking77, MMLU-Pro,
 MATH and CRUXEval also run as structured outputs (loaders.structured_variant),
@@ -13,8 +14,8 @@ Calls use the standard API, because the pilot is where per-config latency is
 measured, and go through the response store: a re-run only pays for calls not
 already stored, and re-scoring after an evaluator fix costs nothing.
 
-Writes one row per (item, format, config) to results/pilot/rows.jsonl, answer
-text included for hand review, and prints what Stage 0 needs: accuracy and
+Writes one row per (item, format, config) to results/pilot/<pilot file
+name>.rows.jsonl (e.g. pilot.rows.jsonl), answer text included for hand review, and prints what Stage 0 needs: accuracy and
 format failures per task and config, the format comparison, token counts and
 output lengths (for the max_tokens caps), latency, cost, and the projected
 collection-run cost.
@@ -34,7 +35,7 @@ from harness.store import ResponseStore
 
 PILOT_FILE = PROJECT_ROOT / "data" / "pilot.jsonl"
 STORE_ROOT = PROJECT_ROOT / "results" / "responses" / "pilot"
-ROWS_FILE = PROJECT_ROOT / "results" / "pilot" / "rows.jsonl"
+ROWS_DIR = PROJECT_ROOT / "results" / "pilot"
 FORMATS = ("free", "structured")
 
 # Generous, so no pilot answer is cut short: the collection run's per-config
@@ -119,7 +120,7 @@ def print_table(header: list[str], rows: list[list]) -> None:
             print("  " + "  ".join("-" * w for w in widths))
 
 
-def summarize(rows: list[dict], configs: list[str], models: dict) -> None:
+def summarize(rows: list[dict], configs: list[str], models: dict, rows_file) -> None:
     tasks = sorted(dict.fromkeys(task_label(row) for row in rows))
     cell = defaultdict(list)
     for row in rows:
@@ -193,7 +194,7 @@ def summarize(rows: list[dict], configs: list[str], models: dict) -> None:
 
     spent = sum(row["cost_usd"] for row in rows)
     print(f"\nPilot calls in these rows cost ${spent:.2f} at standard prices (stored calls included).")
-    print(f"Rows, with answers for hand review: {ROWS_FILE.relative_to(PROJECT_ROOT)}")
+    print(f"Rows, with answers for hand review: {rows_file.relative_to(PROJECT_ROOT)}")
 
 
 def print_format_comparison(rows: list[dict], configs: list[str]) -> None:
@@ -252,6 +253,7 @@ def print_projection(cell: dict, tasks: list[str], configs: list[str], models: d
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--pilot-file", default=str(PILOT_FILE), help="pilot items (default: data/pilot.jsonl)")
     parser.add_argument("--configs", default=None, help="comma-separated config names (default: all)")
     parser.add_argument("--per-source", type=int, default=20, help="pilot items per dataset (default: all 20)")
     parser.add_argument("--formats", default=",".join(FORMATS), help="free, structured, or both (default)")
@@ -267,7 +269,8 @@ def main() -> int:
 
     taken = Counter()
     items = []
-    for line in PILOT_FILE.open():
+    pilot_file = PROJECT_ROOT / args.pilot_file
+    for line in pilot_file.open():
         item = json.loads(line)
         if taken[item["source"]] < args.per_source:
             taken[item["source"]] += 1
@@ -298,12 +301,13 @@ def main() -> int:
         for name in configs
         if (item["item_id"], fmt, name) in records
     ]
-    ROWS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    ROWS_FILE.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows))
+    rows_file = ROWS_DIR / f"{pilot_file.stem}.rows.jsonl"
+    rows_file.parent.mkdir(parents=True, exist_ok=True)
+    rows_file.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows))
 
     new_calls = sum(not from_cache for _, from_cache in records.values())
     print(f"{new_calls} new API calls this run, {len(records) - new_calls} served from the store")
-    summarize(rows, configs, models)
+    summarize(rows, configs, models, rows_file)
     if errors:
         print(f"\n{len(errors)} calls failed and were not stored; re-run to retry them:")
         for item_id, fmt, name, error in errors:

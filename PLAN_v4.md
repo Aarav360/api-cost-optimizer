@@ -5,7 +5,7 @@
 | Version | v4 |
 | Status | Final — frozen for Stage 0 |
 | Date | 2026-10-12 |
-| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort |
+| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendment A3, pilot decisions |
 | Supersedes | [PLAN_v3.md](docs/history/PLAN_v3.md) — earlier versions in [docs/history/](docs/history/) |
 
 ## What changed from v3
@@ -29,6 +29,7 @@
 | v4 | 2026-10-12 | Final: changes 1–8 above |
 | v4-A1 | 2026-10-14 | Amendment A1: model lineup, 40/30/30 splits, cost controls |
 | v4-A2 | 2026-10-15 | Amendment A2: `haiku` config runs at high effort |
+| v4-A3 | 2026-10-16 | Amendment A3: pilot decisions: core tasks, structured outputs, output caps, budget |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -69,6 +70,31 @@ Made before Stage 0, so no data has been collected and the freeze still holds. E
 Made before any pilot or collection calls, so the freeze still holds. Applied in the A1 lineup table and `configs/models.yaml`.
 
 1. **The `haiku` config runs at high effort instead of medium (its default).** Haiku 5.5 is expected to gain substantial quality going from medium to high at little added cost: thinking tokens bill as output at Haiku's $0.50 per 1M, so 1,000 extra thinking tokens per item across the plan-size benchmark (2,400 items) adds about $1.20 at standard prices, $0.60 through the Batches API. The A1 budget estimate is effectively unchanged.
+
+## Amendment A3 — Pilot decisions (2026-10-16)
+
+Stage 0's decisions, made from the pilot before any benchmark item is drawn or any collection call is made, so the freeze on Stages 1–8 still holds. Applied in §5 and `configs/models.yaml`.
+
+**The pilot.** 20 items from each of the six candidate datasets (`data/pilot.jsonl`) ran through all four configs on the standard API with a 32,000-token output cap. Banking77, MMLU-Pro, MATH and CRUXEval ran twice, in free text and as structured outputs (item 2), so 800 calls in all. A supplement of 20 MATH Level 5 items (`data/pilot_math_level5.jsonl`) ran as structured outputs only. Together they cost $4.72. No call errored, was refused, or hit the output cap, and every response reported its pinned model ID. Rows with answers are in `results/pilot/` (not committed). Every evaluator was first checked against the reference answers of the full candidate pools (`harness/check_evaluators.py`), and the pilot's format failures and every item that all four configs got wrong were read by hand.
+
+Correct answers out of 20 (Banking77 and MMLU-Pro as structured outputs):
+
+| Task | `haiku` | `sonnet` | `opus_low` | `opus` |
+|---|---|---|---|---|
+| IFEval | 14 | 18 | 18 | 20 |
+| Banking77 | 10 | 10 | 13 | 14 |
+| MMLU-Pro | 12 | 14 | 13 | 14 |
+| MBPP+ | 17 | 17 | 18 | 17 |
+| MATH (structured) | 20 | 20 | 20 | 20 |
+| MATH Level 5 (structured) | 20 | 20 | 20 | 20 |
+| CRUXEval (both formats) | 20 | 20 | 20 | 20 |
+
+1. **Core tasks: IFEval, Banking77, MMLU-Pro, MBPP+.** CRUXEval and MATH are dropped as saturated (§5, ceiling effects): every config answered every item correctly, so there is no routing decision to study. MATH's main pilot items were mostly Levels 2–4, so the Level 5 supplement tested whether hard MATH still separates the configs, under a rule fixed before it ran: Level 5 MATH would be the fourth task unless every config scored 19/20 or better, and MBPP+ otherwise. Every config scored 20/20, so MBPP+ is the fourth task. With 20 items per cell, gaps of 2–3 items are within noise; only saturation is a clear signal.
+2. **Banking77 and MMLU-Pro answer as structured outputs.** Their requests set `output_config.format` to a JSON schema (`loaders.structured_variant`): an enum of the item's labels or option letters as `answer`, after a short `explanation` field for MMLU-Pro. IFEval (its instructions are about the free-text shape) and MBPP+ (code stays in a code block) remain free text. On the 320 paired answers of the four tasks that ran in both formats, structured outputs were right where free text was wrong 13 times and the reverse twice, and format failures fell from 10 to 0. All six of Haiku's free-text MATH format failures held the correct answer without the requested `\boxed{}`, so free text understated a cheap config for a reason a production app would remove by requesting JSON. Structured outputs also produced fewer output tokens, though each request carries about 540 more input tokens of injected format instructions. No schema field asks for reasoning, because a `reasoning` field can draw a `reasoning_extraction` refusal.
+3. **Output caps (`max_tokens`, collection run):** `haiku` 32,000; `sonnet`, `opus_low`, `opus` 16,000. Each is at least 3× the config's longest pilot output on the four chosen tasks (`haiku` 10,637 on IFEval; `sonnet` 4,739; `opus_low` 3,089; `opus` 4,235). Only generated tokens are billed, so the headroom costs nothing (Amendment A1, item 7).
+4. **Budget.** From the pilot's measured costs, the collection run's model calls (Batches API; train without `opus`, dev and test with it) come to about $30 for 600 items of each chosen task, and about $26 at the item counts available (item 5). This replaces the A1 estimate ($84–184), which assumed longer outputs. It leaves the $150 ceiling ample room for the Sonnet verifier gate, the noise-subset re-runs, Jev, and the Stage 8 live replay.
+5. **Open for Stage 1: two pools are smaller than the plan size.** IFEval has 541 items and MBPP+ 377 (after the A1 exclusion), so 521 and 357 remain outside the pilot, short of 600 per task; at 40/30/30, IFEval's test split would hold about 156 items, below §5's "a few hundred test items per task type before making per-task claims". Whether to accept this, adjust those tasks' splits, or add items from similar sources is decided before the Stage 1 freeze.
+6. **Known item noise, kept.** Some Banking77 queries fit more than one label (on 5 pilot items all four configs agreed on a label other than the key), some MMLU-Pro answer keys look wrong (e.g. `mmlu_pro:4346`), and two MBPP+ items' hidden tests encode quirks of the reference solution that the task statement doesn't give (`mbppplus:448`, `mbppplus:620`). This noise lowers every config's score alike rather than favoring one. It is reported in the write-up, not corrected.
 
 ---
 
@@ -207,7 +233,9 @@ The benchmark decides the headline number: savings depend heavily on the mix of 
 
 ## Core task types
 
-Choose **3–4** in Stage 0 from these objective-evaluator candidates:
+Choose **3–4** in Stage 0 from these objective-evaluator candidates.
+
+**Chosen (Amendment A3): IFEval (instruction following), Banking77 (classification), MMLU-Pro (multiple choice), MBPP+ (coding).** Banking77 and MMLU-Pro answer as structured outputs. CRUXEval and MATH were dropped as saturated.
 
 | Task | Candidate datasets |
 |---|---|
