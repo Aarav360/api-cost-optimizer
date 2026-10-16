@@ -11,6 +11,10 @@ Re-run after changing an evaluator, a prompt template, or a dependency in uv.loc
   from their stored arguments, and hand-written cases must pass or fail.
 - MBPP+: the 20 pilot items' reference solutions, written as a model reply,
   must pass in the sandbox (check_sandbox covers the whole pool).
+- IFBench: every item's instructions build, and hand-written cases pass or fail.
+- LiveCodeBench: every problem's cached tests load and match their hash, and
+  hand-written solutions to two problems (stdin and functional) pass, while
+  wrong, crashing and looping ones fail.
 - Every task: hand-written wrong and malformed replies, and stop reasons.
 - Structured-output variants (Banking77, MMLU-Pro, MATH, CRUXEval): every pool
   item converts, its schema allows the reference answer, and a JSON reply with
@@ -28,7 +32,7 @@ from math_verify import LatexExtractionConfig, parse
 
 from harness.client import PROJECT_ROOT
 from harness.evaluators import score
-from harness.loaders import REVISIONS, STRUCTURED_INSTRUCTIONS, load_all, structured_variant
+from harness.loaders import REVISIONS, STRUCTURED_INSTRUCTIONS, livecodebench_tests, load_all, structured_variant
 
 
 def reply(text: str, stop: str = "end_turn") -> dict:
@@ -202,6 +206,73 @@ def check_ifeval(r: Results, pool: list[dict]) -> None:
     case([("punctuation:no_comma", {})], "   ", "wrong")
 
 
+def check_ifbench(r: Results, pool: list[dict]) -> None:
+    for item in pool:
+        try:
+            score(item, reply("x"))
+            r.groups.setdefault("ifbench instructions build", []).append(None)
+        except Exception as e:  # noqa: BLE001
+            r.groups.setdefault("ifbench instructions build", []).append(f"{item['item_id']}: {e!r}")
+
+    def case(instruction_id, kwargs, text, expected):
+        item = {
+            "item_id": f"ifbench-case:{instruction_id}",
+            "prompt": "(hand-written case)",
+            "evaluation_method": "ifbench_strict",
+            "expected_answer": {"instruction_id_list": [instruction_id], "kwargs": [kwargs]},
+        }
+        r.check("ifbench hand-written cases", item, text, expected)
+
+    case("count:numbers", {"N": 2}, "I have 3 cats and 4 dogs.", "correct")
+    case("count:numbers", {"N": 2}, "I have 3 cats, 4 dogs and 5 fish.", "wrong")
+    case("format:no_whitespace", {}, "Hello-world!", "correct")
+    case("format:no_whitespace", {}, "Hello world", "wrong")
+    # These three need nltk's tokenizer, stopword list and part-of-speech tagger.
+    case("count:pronouns", {"N": 3}, "I told her that they would come with me.", "correct")
+    case("count:pronouns", {"N": 3}, "The dog ran.", "wrong")
+    case("ratio:stop_words", {"percentage": 30}, "Bright red apples taste sweet.", "correct")
+    case("ratio:stop_words", {"percentage": 30}, "It is the one that is in the box.", "wrong")
+    case("words:start_verb", {}, "Go to the store.", "correct")
+    case("words:start_verb", {}, "The report is ready.", "wrong")
+    keywords = {"keyword1": "a1", "keyword2": "b2", "keyword3": "c3", "keyword4": "d4", "keyword5": "e5"}
+    case("count:keywords_multiple", keywords, "a1 b2 b2 c3 c3 c3 d4 d4 d4 d4 d4 e5 e5 e5 e5 e5 e5 e5", "correct")
+    case("count:keywords_multiple", keywords, "a1 a1 b2 b2 c3 c3 c3 d4 d4 d4 d4 d4 e5 e5 e5 e5 e5 e5 e5", "wrong")
+
+
+LCB_MULTIPLICATION = "X = int(input())\nprint(sum(i * j for i in range(1, 10) for j in range(1, 10) if i * j != X))\n"
+LCB_ZIGZAG = """class Solution:
+    def zigzagTraversal(self, grid: List[List[int]]) -> List[int]:
+        seq = []
+        for r, row in enumerate(grid):
+            seq.extend(row if r % 2 == 0 else row[::-1])
+        return seq[::2]
+"""
+
+
+def check_livecodebench(r: Results, pool: list[dict]) -> None:
+    for item in pool:
+        spec = item["expected_answer"]
+        try:
+            tests = livecodebench_tests(item)
+            ok = len(tests) == spec["num_tests"] > 0
+            if spec["kind"] == "functional":
+                ok = ok and bool(spec["fn_name"]) and "class Solution" in item["prompt"]
+            r.groups.setdefault("livecodebench tests load", []).append(None if ok else f"{item['item_id']}: bad spec")
+        except Exception as e:  # noqa: BLE001
+            r.groups.setdefault("livecodebench tests load", []).append(f"{item['item_id']}: {e!r}")
+
+    by_id = {x["item_id"]: x for x in pool}
+    stdin_item, functional_item = by_id["livecodebench:abc387_b"], by_id["livecodebench:3708"]
+    block = "Here is my solution.\n\n```python\n{}```\n"
+    r.check("livecodebench runner", stdin_item, block.format(LCB_MULTIPLICATION), "correct")
+    r.check("livecodebench runner", stdin_item, block.format(LCB_MULTIPLICATION.replace(" if i * j != X", "")), "wrong")
+    r.check("livecodebench runner", stdin_item, block.format("raise ValueError('boom')\n"), "wrong")
+    r.check("livecodebench runner", stdin_item, LCB_MULTIPLICATION, "no_answer")  # no code block
+    r.check("livecodebench runner", functional_item, block.format(LCB_ZIGZAG), "correct")
+    r.check("livecodebench runner", functional_item, block.format(LCB_ZIGZAG.replace("seq[::2]", "seq[1::2]")), "wrong")
+    r.check("livecodebench runner", functional_item, block.format(LCB_ZIGZAG.replace("return seq[::2]", "while True: pass")), "wrong")
+
+
 def check_mbppplus(r: Results, pilot: list[dict]) -> None:
     rows = load_dataset("evalplus/mbppplus", split="test", revision=REVISIONS["evalplus/mbppplus"])
     reference = {f"mbppplus:{row['task_id']}": row["code"] for row in rows}
@@ -244,6 +315,8 @@ def main() -> int:
     check_bad_replies(r, pools)
     check_structured(r, pools)
     check_ifeval(r, pools["ifeval"])
+    check_ifbench(r, pools["ifbench"])
+    check_livecodebench(r, pools["livecodebench"])
     check_mbppplus(r, PILOT)
     failures = r.report()
     print()

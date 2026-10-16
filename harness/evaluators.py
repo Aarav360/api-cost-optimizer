@@ -23,9 +23,11 @@ only works there.
 """
 
 import ast
+import base64
 import functools
 import json
 import re
+import zlib
 from dataclasses import dataclass, field
 
 import langdetect
@@ -33,12 +35,16 @@ import nltk
 from math_verify import LatexExtractionConfig, parse, verify
 
 from harness.client import PROJECT_ROOT, answer_text
-from harness.ifeval import instructions_registry
-from harness.loaders import banking77_labels, last_boxed
+from harness.ifbench import instructions_registry as ifbench_registry
+from harness.ifeval import instructions_registry as ifeval_registry
+from harness.loaders import banking77_labels, last_boxed, livecodebench_tests
 from harness.sandbox import run_python
 
 NLTK_DATA = PROJECT_ROOT / ".cache" / "nltk_data"
 CODE_TIMEOUT_S = 20.0  # the limit the MBPP+ reference solutions were checked under
+LCB_TEST_TIMEOUT_S = 6  # LiveCodeBench's per-test limit
+LCB_MEMORY = "2g"  # LiveCodeBench allows 4 GB; some inputs are tens of MB
+LCB_RUNNER = (PROJECT_ROOT / "harness" / "livecodebench_runner.py").read_text()
 
 # Seeded, so a language check gives the same verdict on the same text every run.
 langdetect.DetectorFactory.seed = 0
@@ -218,37 +224,59 @@ def grade_literal(item: dict, value: str) -> Score:
     return Score("correct" if correct else "wrong", value)
 
 
-# ifeval_strict (IFEval)
+# ifeval_strict (IFEval) and ifbench_strict (IFBench)
+
+# nltk data the checkers use: sentence and word tokenizers (both), and for
+# IFBench a stopword list and a part-of-speech tagger. Kept in the project
+# (.cache/, not committed), downloaded on first use. None of these is a pickle.
+NLTK_PACKAGES = {
+    "punkt_tab": "tokenizers/punkt_tab/english/",
+    "stopwords": "corpora/stopwords",
+    "averaged_perceptron_tagger_eng": "taggers/averaged_perceptron_tagger_eng/",
+}
 
 
 @functools.cache
-def _ensure_punkt() -> None:
-    # The sentence and word counters need nltk's punkt_tab data. It is kept in
-    # the project (.cache/, not committed) and downloaded on first use.
+def _ensure_nltk_data() -> None:
     nltk.data.path.insert(0, str(NLTK_DATA))
-    try:
-        nltk.data.find("tokenizers/punkt_tab/english/")
-    except LookupError:
-        nltk.download("punkt_tab", download_dir=str(NLTK_DATA), quiet=True)
-        nltk.data.find("tokenizers/punkt_tab/english/")
+    for package, resource in NLTK_PACKAGES.items():
+        try:
+            nltk.data.find(resource)
+        except LookupError:
+            nltk.download(package, download_dir=str(NLTK_DATA), quiet=True)
+            nltk.data.find(resource)
 
 
-def ifeval_strict(item: dict, text: str) -> Score:
-    """Upstream's test_instruction_following_strict (evaluation_lib.py), per item."""
-    _ensure_punkt()
+def _strict_instructions(registry, item: dict, text: str) -> Score:
+    """Upstream's test_instruction_following_strict (both evaluation_lib.py files), per item."""
+    _ensure_nltk_data()
     spec = item["expected_answer"]
     results = []
     for instruction_id, kwargs in zip(spec["instruction_id_list"], spec["kwargs"], strict=True):
-        instruction = instructions_registry.INSTRUCTION_DICT[instruction_id](instruction_id)
+        instruction = registry.INSTRUCTION_DICT[instruction_id](instruction_id)
         # Some copies of the dataset fill every unused argument with None, which
         # build_description rejects; upstream's own data omits them.
         instruction.build_description(**{k: v for k, v in kwargs.items() if v is not None})
         args = instruction.get_instruction_args()
         if args and "prompt" in args:
             instruction.build_description(prompt=item["prompt"])
-        results.append([instruction_id, bool(text.strip() and instruction.check_following(text))])
-    status = "correct" if all(followed for _, followed in results) else "wrong"
+        try:
+            followed = bool(text.strip() and instruction.check_following(text))
+        except Exception as e:  # a checker crashing on odd text; upstream would stop the whole run
+            followed = False
+            results.append([instruction_id, followed, f"checker error: {e!r}"[:200]])
+            continue
+        results.append([instruction_id, followed])
+    status = "correct" if all(result[1] for result in results) else "wrong"
     return Score(status, None, {"instructions": results})
+
+
+def ifeval_strict(item: dict, text: str) -> Score:
+    return _strict_instructions(ifeval_registry, item, text)
+
+
+def ifbench_strict(item: dict, text: str) -> Score:
+    return _strict_instructions(ifbench_registry, item, text)
 
 
 # code_tests (MBPP+)
@@ -285,13 +313,47 @@ def code_tests(item: dict, text: str) -> Score:
 
 
 # Free-text evaluators: find the answer in the reply, then grade it.
+# lcb_tests (LiveCodeBench)
+
+
+def lcb_tests(item: dict, text: str) -> Score:
+    """Run the extracted code against every test in the sandbox (see livecodebench_runner.py)."""
+    code = extract_code(text)
+    if code is None or not code.strip():
+        return Score("no_answer")
+    spec = item["expected_answer"]
+    tests = livecodebench_tests(item)
+    packed = base64.b64encode(zlib.compress(json.dumps(tests).encode("utf-8"), 6)).decode("ascii")
+    program = (
+        f"KIND = {spec['kind']!r}\nFN_NAME = {spec['fn_name']!r}\nTIMEOUT = {LCB_TEST_TIMEOUT_S}\n"
+        f"SOLUTION = {code!r}\nTESTS = {packed!r}\n\n" + LCB_RUNNER
+    )
+    # LiveCodeBench's own overall limit, (per-test limit + 1) per test plus 5 s,
+    # plus 10 s for the container to start.
+    budget_s = (LCB_TEST_TIMEOUT_S + 1) * len(tests) + 15
+    # A SandboxError (Docker failed) propagates: it is never a model failure.
+    result = run_python(program, timeout_s=budget_s, memory=LCB_MEMORY)
+    try:
+        report = json.loads(result.stdout.strip().splitlines()[-1])
+    except (IndexError, ValueError):  # the runner itself died: out of memory, a crash, the overall limit
+        detail = {"runner": "no report", "returncode": result.returncode, "timed_out": result.timed_out,
+                  "stderr_tail": result.stderr.strip().splitlines()[-1:], "duration_s": round(result.duration_s, 2)}  # fmt: skip
+        return Score("wrong", code, detail)
+    passed = report["passed"] == report["total"] == len(tests)
+    detail = {"passed": report["passed"], "total": report["total"], "failure": report["failure"],
+              "duration_s": round(result.duration_s, 2)}  # fmt: skip
+    return Score("correct" if passed else "wrong", code, detail)
+
+
 EVALUATORS = {
     "exact_label": exact_label,
     "choice_letter": choice_letter,
     "math_equivalence": math_equivalence,
     "python_literal": python_literal,
     "ifeval_strict": ifeval_strict,
+    "ifbench_strict": ifbench_strict,
     "code_tests": code_tests,
+    "lcb_tests": lcb_tests,
 }
 
 # Graders for an answer already extracted, used for structured-output items.

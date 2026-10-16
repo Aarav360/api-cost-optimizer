@@ -6,10 +6,12 @@ requires-python = ">=3.13"
 dependencies = [
     "anthropic>=1.14.0",
     "datasets>=5.1.0",
+    "emoji>=2.16.0",
     "immutabledict>=4.3.1",
     "langdetect>=1.0.9",
     "math-verify[antlr4-13-2]>=0.9.0",
     "nltk>=3.10.3",
     "python-dotenv>=1.2.4",
     "pyyaml>=6.0.3",
+    "syllapy>=0.8.0",
 ]

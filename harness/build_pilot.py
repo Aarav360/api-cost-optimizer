@@ -3,7 +3,7 @@
 Run from the project root:  uv run python -m harness.build_pilot
 
 Pilot items are kept out of train / dev / test (PLAN_v4.md §5), so Stage 1
-reads both pilot files and excludes their IDs. Each source gets its own seeded
+reads every data/pilot*.jsonl file and excludes their IDs. Each source gets its own seeded
 generator, so adding or dropping a source never changes another source's draw.
 """
 
@@ -24,6 +24,16 @@ OUTPUT = PROJECT_ROOT / "data" / "pilot.jsonl"
 # still separates the configs. Its own file, so pilot.jsonl stays as it was.
 LEVEL5_OUTPUT = PROJECT_ROOT / "data" / "pilot_math_level5.jsonl"
 
+# The six candidate datasets of the main draw. Sources added later get their own
+# file, so the main draw (and pilot.jsonl) never changes.
+MAIN_SOURCES = ("banking77", "cruxeval", "ifeval", "math", "mbppplus", "mmlu_pro")
+
+# Supplement (Amendment A4): IFBench and LiveCodeBench, tested as additions to
+# the instruction-following and coding tasks with the same 20-item check. Not
+# adopted; kept so the test can be reproduced.
+ADDED_SOURCES = ("ifbench", "livecodebench")
+ADDED_OUTPUT = PROJECT_ROOT / "data" / "pilot_added_sources.jsonl"
+
 
 def write_items(path, items) -> None:
     path.parent.mkdir(exist_ok=True)
@@ -35,7 +45,7 @@ def write_items(path, items) -> None:
 def main() -> None:
     pools, dropped = load_all()
     pilot = []
-    for source in sorted(pools):
+    for source in MAIN_SOURCES:
         pool = sorted(pools[source], key=lambda x: x["item_id"])
         rng = random.Random(f"{PILOT_SEED}:{source}")
         for item in rng.sample(pool, ITEMS_PER_SOURCE):
@@ -56,6 +66,13 @@ def main() -> None:
     )
     rng = random.Random(f"{PILOT_SEED}:math-level5")
     write_items(LEVEL5_OUTPUT, [{**item, "split": "pilot"} for item in rng.sample(level5, ITEMS_PER_SOURCE)])
+
+    added = []
+    for source in ADDED_SOURCES:
+        pool = sorted(pools[source], key=lambda x: x["item_id"])
+        rng = random.Random(f"{PILOT_SEED}:{source}")
+        added += [{**item, "split": "pilot"} for item in rng.sample(pool, ITEMS_PER_SOURCE)]
+    write_items(ADDED_OUTPUT, added)
     for item_id, reason in dropped.items():
         print(f"dropped from pools: {item_id}: {reason}")
 

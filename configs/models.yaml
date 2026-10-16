@@ -25,11 +25,13 @@ prices:
 # longest output each config gave on the four chosen tasks in the pilot (Haiku
 # 10,637 on IFEval; Sonnet 4,739, Opus low 3,089, Opus 4,235). The pilot itself
 # ran every config at 32,000. Only generated tokens are billed, so headroom is free.
+# Haiku's cap is 64,000 (Amendment A4): on hard problems it can think past
+# 32,000 tokens, and a cap stop scores as a failure.
 configs:
   haiku:
     model: claude-haiku-5-5
     effort: high
-    max_tokens: 32000
+    max_tokens: 64000
   sonnet:
     model: claude-sonnet-5-5
     effort: high

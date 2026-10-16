@@ -5,7 +5,7 @@
 | Version | v4 |
 | Status | Final — frozen for Stage 0 |
 | Date | 2026-10-12 |
-| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendment A3, pilot decisions |
+| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, and A4, larger pools tested |
 | Supersedes | [PLAN_v3.md](docs/history/PLAN_v3.md) — earlier versions in [docs/history/](docs/history/) |
 
 ## What changed from v3
@@ -30,6 +30,7 @@
 | v4-A1 | 2026-10-14 | Amendment A1: model lineup, 40/30/30 splits, cost controls |
 | v4-A2 | 2026-10-15 | Amendment A2: `haiku` config runs at high effort |
 | v4-A3 | 2026-10-16 | Amendment A3: pilot decisions: core tasks, structured outputs, output caps, budget |
+| v4-A4 | 2026-10-16 | Amendment A4: IFBench and LiveCodeBench tested as additions, not adopted; `haiku` cap 64,000 |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -91,10 +92,36 @@ Correct answers out of 20 (Banking77 and MMLU-Pro as structured outputs):
 
 1. **Core tasks: IFEval, Banking77, MMLU-Pro, MBPP+.** CRUXEval and MATH are dropped as saturated (§5, ceiling effects): every config answered every item correctly, so there is no routing decision to study. MATH's main pilot items were mostly Levels 2–4, so the Level 5 supplement tested whether hard MATH still separates the configs, under a rule fixed before it ran: Level 5 MATH would be the fourth task unless every config scored 19/20 or better, and MBPP+ otherwise. Every config scored 20/20, so MBPP+ is the fourth task. With 20 items per cell, gaps of 2–3 items are within noise; only saturation is a clear signal.
 2. **Banking77 and MMLU-Pro answer as structured outputs.** Their requests set `output_config.format` to a JSON schema (`loaders.structured_variant`): an enum of the item's labels or option letters as `answer`, after a short `explanation` field for MMLU-Pro. IFEval (its instructions are about the free-text shape) and MBPP+ (code stays in a code block) remain free text. On the 320 paired answers of the four tasks that ran in both formats, structured outputs were right where free text was wrong 13 times and the reverse twice, and format failures fell from 10 to 0. All six of Haiku's free-text MATH format failures held the correct answer without the requested `\boxed{}`, so free text understated a cheap config for a reason a production app would remove by requesting JSON. Structured outputs also produced fewer output tokens, though each request carries about 540 more input tokens of injected format instructions. No schema field asks for reasoning, because a `reasoning` field can draw a `reasoning_extraction` refusal.
-3. **Output caps (`max_tokens`, collection run):** `haiku` 32,000; `sonnet`, `opus_low`, `opus` 16,000. Each is at least 3× the config's longest pilot output on the four chosen tasks (`haiku` 10,637 on IFEval; `sonnet` 4,739; `opus_low` 3,089; `opus` 4,235). Only generated tokens are billed, so the headroom costs nothing (Amendment A1, item 7).
+3. **Output caps (`max_tokens`, collection run):** `haiku` 32,000 (raised to 64,000 by Amendment A4); `sonnet`, `opus_low`, `opus` 16,000. Each is at least 3× the config's longest pilot output on the four chosen tasks (`haiku` 10,637 on IFEval; `sonnet` 4,739; `opus_low` 3,089; `opus` 4,235). Only generated tokens are billed, so the headroom costs nothing (Amendment A1, item 7).
 4. **Budget.** From the pilot's measured costs, the collection run's model calls (Batches API; train without `opus`, dev and test with it) come to about $30 for 600 items of each chosen task, and about $26 at the item counts available (item 5). This replaces the A1 estimate ($84–184), which assumed longer outputs. It leaves the $150 ceiling ample room for the Sonnet verifier gate, the noise-subset re-runs, Jev, and the Stage 8 live replay.
 5. **Open for Stage 1: two pools are smaller than the plan size.** IFEval has 541 items and MBPP+ 377 (after the A1 exclusion), so 521 and 357 remain outside the pilot, short of 600 per task; at 40/30/30, IFEval's test split would hold about 156 items, below §5's "a few hundred test items per task type before making per-task claims". Whether to accept this, adjust those tasks' splits, or add items from similar sources is decided before the Stage 1 freeze.
 6. **Known item noise, kept.** Some Banking77 queries fit more than one label (on 5 pilot items all four configs agreed on a label other than the key), some MMLU-Pro answer keys look wrong (e.g. `mmlu_pro:4346`), and two MBPP+ items' hidden tests encode quirks of the reference solution that the task statement doesn't give (`mbppplus:448`, `mbppplus:620`). This noise lowers every config's score alike rather than favoring one. It is reported in the write-up, not corrected.
+
+## Amendment A4 — Larger pools tested, not adopted (2026-10-16)
+
+Made in Stage 0, before any benchmark item is drawn or any collection call is made, so the freeze on Stages 1–8 still holds. Applied in `configs/models.yaml`.
+
+**The test.** A3 item 5 left IFEval (521 items outside the pilot) and MBPP+ (357) short of 600. Two sources of the same task types were tried as additions:
+
+- **IFBench** (AI2, 2025): 300 prompts using 58 new checkable instruction types, newer than IFEval. Data under ODC-BY, checker code under Apache 2.0, vendored at a pinned commit in `harness/ifbench/` with five marked patches.
+- **LiveCodeBench** releases v5 and v6: 342 contest problems from LeetCode and AtCoder, dated 2024-09 to 2025-04, the newest available. They are graded in the sandbox by `harness/livecodebench_runner.py`, which follows LiveCodeBench's grading rules. The hidden tests are stored as pickles, so they are decoded by an unpickler that refuses to load any code.
+
+Both graders were first checked by `harness/check_evaluators.py`: every item loads and builds, and hand-written right, wrong, crashing and looping answers score as expected. Then 20 items of each (`data/pilot_added_sources.jsonl`) ran through all four configs in free text, for $3.89. That brings Stage 0's spending to $8.61.
+
+| Source | `haiku` | `sonnet` | `opus_low` | `opus` |
+|---|---|---|---|---|
+| IFBench | 10 | 7 | 8 | 9 |
+| LiveCodeBench | 18 | 20 | 20 | 20 |
+
+1. **Neither source is added.**
+   - **LiveCodeBench is saturated.** `sonnet`, `opus_low` and `opus` solved all 20 problems, including the six hard AtCoder ones, and each solution passed every test of its problem. `haiku`'s two misses were hard problems on which it hit the 32,000-token output cap. These problems predate the models' training data, so their recency doesn't keep them out of it.
+   - **IFBench doesn't separate the configs.** Every config scored 35–50%, and `haiku` scored highest. The failures were read by hand and are genuine misses of the strict rules.
+   - **IFBench also drew refusals.** 8 of its 80 responses were classifier refusals in the `bio` category on benign prompts, 4 of them from `opus`. Refusals are an effect this study doesn't measure.
+
+   Under §5's ceiling-effects rule, and given that the extra items carry no routing signal, adding either source would mainly add noise.
+2. **The code stays, unused.** The loaders, the vendored checkers, the runner and the pilot file remain so this test can be reproduced. Neither source enters Stage 1.
+3. **IFEval and MBPP+ use every available item.** How their splits handle the smaller pools is still open for Stage 1 (A3 item 5).
+4. **`haiku`'s output cap is 64,000** (from 32,000 in A3). On hard problems `haiku` thinks past 32,000 tokens: both LiveCodeBench misses above, and up to 29,950 tokens on IFBench. A cap stop scores as a failure, but only generated tokens are billed, so a 64,000-token response costs $0.032 at `haiku`'s price. The other caps are unchanged.
 
 ---
 

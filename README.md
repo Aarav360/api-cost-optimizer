@@ -49,7 +49,10 @@ Bulk runs use the Message Batches API at half price. The working budget is $150.
 
 The pilot ran 20 items from each candidate through every config, plus 20 MATH Level 5 items,
 and kept four task types. MATH and CRUXEval were dropped because every config answered every
-item correctly, which leaves no routing decision to study.
+item correctly, which leaves no routing decision to study. IFBench and LiveCodeBench were then
+tested as ways to add items to the two smallest tasks and left out ([Amendment A4](PLAN_v4.md)):
+LiveCodeBench was saturated too, and IFBench scored every config about the same while drawing
+refusals.
 
 | Dataset | Task type | Scoring | License | Pilot outcome |
 |---|---|---|---|---|
@@ -59,6 +62,8 @@ item correctly, which leaves no routing decision to study.
 | [MBPP+](https://huggingface.co/datasets/evalplus/mbppplus) | coding | run the tests | Apache 2.0 | **kept** |
 | [MATH](https://huggingface.co/datasets/EleutherAI/hendrycks_math) | math | answer equivalence | MIT | dropped: saturated, Level 5 too |
 | [CRUXEval](https://huggingface.co/datasets/cruxeval-org/cruxeval) | code reasoning (output prediction) | Python literal | MIT | dropped: saturated |
+| [IFBench](https://huggingface.co/datasets/allenai/IFBench_test) | instruction following | strict instruction checks | ODC-BY | not added: no separation, refusals |
+| [LiveCodeBench](https://huggingface.co/datasets/livecodebench/code_generation_lite) v5–v6 | coding | run the tests | see card | not added: saturated |
 
 Dataset revisions are pinned in [harness/loaders.py](harness/loaders.py), so an item ID always
 means the same item.
@@ -78,7 +83,11 @@ uv run python -m harness.check_evaluators  # every evaluator against the referen
 uv run python -m harness.run_pilot --configs haiku --per-source 3   # 18-item trial
 uv run python -m harness.run_pilot         # full pilot: 120 items x 4 configs, then the Stage 0 summary
 uv run python -m harness.run_pilot --pilot-file data/pilot_math_level5.jsonl --formats structured
+uv run python -m harness.run_pilot --pilot-file data/pilot_added_sources.jsonl --formats free
 ```
+
+The first LiveCodeBench load downloads about 690 MB and writes its decoded tests (about 500 MB)
+to `.cache/`.
 
 Every answer is scored right or wrong (`quality` 1 or 0), and IFEval counts as right only when
 every instruction is followed. An answer missing the format its prompt asks for (`Answer: X`,
@@ -100,19 +109,22 @@ system, none of your files, an unprivileged user, and caps on memory, processes,
 ## Layout
 
 ```text
-PLAN_v4.md           study design (frozen for Stage 0, with amendments A1–A3)
+PLAN_v4.md           study design (frozen for Stage 0, with amendments A1–A4)
 configs/models.yaml  pinned model configs and price snapshot
 harness/             API client, response store, dataset loaders, evaluators, code sandbox, pilot
                      builder and runner
 harness/ifeval/      Google's IFEval instruction checkers, vendored at a pinned commit
+harness/ifbench/     AI2's IFBench instruction checkers, vendored at a pinned commit
 sandbox/             Dockerfile for the code sandbox image
-data/pilot*.jsonl    Stage 0 pilot items: 20 per candidate dataset, plus 20 MATH Level 5 items
+data/pilot*.jsonl    Stage 0 pilot items: 20 per candidate dataset, 20 MATH Level 5 items, and
+                     20 each from IFBench and LiveCodeBench
+.cache/              downloaded tool data and LiveCodeBench's decoded tests (not committed)
 docs/history/        earlier versions of the plan
 ```
 
 ## Progress
 
-- [x] Study plan frozen (v4, amendments A1–A3)
+- [x] Study plan frozen (v4, amendments A1–A4)
 - [x] Harness: API client, on-disk response store, pinned model configs
 - [x] Dataset loaders at pinned revisions, and 120 pilot items
 - [x] Docker code sandbox (18/18 escape checks; 376/378 MBPP+ reference solutions pass)
@@ -121,13 +133,14 @@ docs/history/        earlier versions of the plan
 - [x] Pilot runner, tested on an 18-item Haiku trial
 - [x] Pilot run ($4.72): four tasks chosen, JSON answers for Banking77 and MMLU-Pro, output caps
       set, collection run projected at about $26–30 against the $150 ceiling
+- [x] IFBench and LiveCodeBench tested as extra items for the two smallest tasks ($3.89); not added
 - [ ] Stages 1–8: benchmark and splits, collection run, references, routers, gates and cascades,
       final evaluation on the sealed test split
 
 ## License
 
 The code and documentation are released under the [MIT License](LICENSE), except
-`harness/ifeval/`, which is Google's code and stays under the Apache License 2.0 (a copy is in that
-folder). Dataset items in
+`harness/ifeval/` (Google's code) and `harness/ifbench/` (AI2's code), which stay under the Apache
+License 2.0 (a copy is in each folder). Dataset items in
 `data/`, and anything the loaders download, remain under their original licenses, listed in the
 [pilot datasets table](#pilot-candidate-datasets) above.
