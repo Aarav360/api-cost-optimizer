@@ -71,12 +71,14 @@ def _ensure_image() -> None:
     global _image_checked
     if _image_checked:
         return
+    # `image ls`, not `image inspect <name>`: on Docker Desktop 29.5.3, inspect by
+    # name sometimes reports "No such image" for an image that is there and runs.
     check = subprocess.run(
-        [_docker(), "image", "inspect", IMAGE], capture_output=True, text=True, env=_docker_env()
+        [_docker(), "image", "ls", "--quiet", IMAGE], capture_output=True, text=True, env=_docker_env()
     )
-    if check.returncode != 0:
+    if check.returncode != 0 or not check.stdout.strip():
         raise SandboxError(
-            f"Sandbox image {IMAGE} unavailable ({check.stderr.strip()}). "
+            f"Sandbox image {IMAGE} unavailable ({check.stderr.strip() or 'not built'}). "
             "Start Docker Desktop, then build it with: uv run python -m harness.sandbox --build"
         )
     _image_checked = True
