@@ -9,7 +9,7 @@ nothing one run does can affect the next. What each container gets:
    path is mounted, and the container's environment never includes
    ANTHROPIC_API_KEY (client.py loads it into this process's environment).
 3. An unprivileged user with every capability dropped and no-new-privileges set.
-4. Limits: 512 MB of memory with no swap, a cap on how many processes it can
+4. Limits: 512 MB of memory by default (callers may raise it) with no swap, a cap on how many processes it can
    start, one CPU, a CPU-time limit, and a wall-clock timeout that
    force-removes the container. The host stops reading output at
    MAX_OUTPUT_BYTES per stream and removes the container if it keeps going.
@@ -71,18 +71,20 @@ def _ensure_image() -> None:
     global _image_checked
     if _image_checked:
         return
+    # `image ls`, not `image inspect <name>`: on Docker Desktop 29.5.3, inspect by
+    # name sometimes reports "No such image" for an image that is there and runs.
     check = subprocess.run(
-        [_docker(), "image", "inspect", IMAGE], capture_output=True, text=True, env=_docker_env()
+        [_docker(), "image", "ls", "--quiet", IMAGE], capture_output=True, text=True, env=_docker_env()
     )
-    if check.returncode != 0:
+    if check.returncode != 0 or not check.stdout.strip():
         raise SandboxError(
-            f"Sandbox image {IMAGE} unavailable ({check.stderr.strip()}). "
+            f"Sandbox image {IMAGE} unavailable ({check.stderr.strip() or 'not built'}). "
             "Start Docker Desktop, then build it with: uv run python -m harness.sandbox --build"
         )
     _image_checked = True
 
 
-def _command(name: str, timeout_s: float) -> list[str]:
+def _command(name: str, timeout_s: float, memory: str) -> list[str]:
     cpu_seconds = int(timeout_s) + 1
     return [
         _docker(), "run", "--rm", "-i",
@@ -94,7 +96,7 @@ def _command(name: str, timeout_s: float) -> list[str]:
         "--user", "10001:10001",
         "--cap-drop", "ALL",
         "--security-opt", "no-new-privileges",
-        "--memory", MEMORY, "--memory-swap", MEMORY,
+        "--memory", memory, "--memory-swap", memory,
         "--pids-limit", str(PIDS_LIMIT),
         "--cpus", "1",
         "--ulimit", f"cpu={cpu_seconds}:{cpu_seconds}",
@@ -126,7 +128,7 @@ def _read_capped(stream, sink: bytearray, on_overflow) -> None:
             # Keep draining so the docker CLI never blocks on a full pipe.
 
 
-def run_python(source: str, timeout_s: float = 10.0) -> ExecResult:
+def run_python(source: str, timeout_s: float = 10.0, memory: str = MEMORY) -> ExecResult:
     _ensure_image()
     name = f"sandbox-{uuid.uuid4().hex[:12]}"
     stdout, stderr = bytearray(), bytearray()
@@ -145,7 +147,7 @@ def run_python(source: str, timeout_s: float = 10.0) -> ExecResult:
 
     start = time.perf_counter()
     process = subprocess.Popen(
-        _command(name, timeout_s),
+        _command(name, timeout_s, memory),
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

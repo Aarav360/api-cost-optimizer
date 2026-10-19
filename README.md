@@ -8,7 +8,11 @@ model per request) and cascades (which try a cheap model first and escalate when
 fails) against two references: a hindsight oracle that shows the most any strategy could save,
 and random mixtures that show what you get with no routing intelligence at all.
 
-**Status:** Stage 0 (pilot) in progress. There are no results yet.
+**Status:** Stages 0–2 are done. The pilot chose four tasks ([Amendment A3](PLAN_v4.md)), the
+benchmark of 2,478 items is split and frozen ([Amendment A5](PLAN_v4.md)), and the collection run
+has answered every item through every config for $29.37: train and dev are scored, and test is
+sealed until Stage 8 ([Amendment A6](PLAN_v4.md)). Stage 3, the offline simulator and reference
+baselines, is next. There are no study results yet.
 
 ## Approach
 
@@ -46,17 +50,23 @@ Bulk runs use the Message Batches API at half price. The working budget is $150.
 
 ## Pilot candidate datasets
 
-The pilot runs 20 items from each candidate through every config, then 3–4 task types are locked
-in, dropping any that every model aces.
+The pilot ran 20 items from each candidate through every config, plus 20 MATH Level 5 items,
+and kept four task types. MATH and CRUXEval were dropped because every config answered every
+item correctly, which leaves no routing decision to study. IFBench and LiveCodeBench were then
+tested as ways to add items to the two smallest tasks and left out ([Amendment A4](PLAN_v4.md)):
+LiveCodeBench was saturated too, and IFBench scored every config about the same while drawing
+refusals.
 
-| Dataset | Task type | Scoring | License |
-|---|---|---|---|
-| [Banking77](https://huggingface.co/datasets/PolyAI/banking77) ([copy used](https://huggingface.co/datasets/mteb/banking77)) | classification | exact label | CC BY 4.0 |
-| [MMLU-Pro](https://huggingface.co/datasets/TIGER-Lab/MMLU-Pro) | multiple choice | answer letter | MIT |
-| [MATH](https://huggingface.co/datasets/EleutherAI/hendrycks_math) | math | answer equivalence | MIT |
-| [CRUXEval](https://huggingface.co/datasets/cruxeval-org/cruxeval) | code reasoning (output prediction) | Python literal | MIT |
-| [IFEval](https://huggingface.co/datasets/google/IFEval) | instruction following | strict instruction checks | Apache 2.0 |
-| [MBPP+](https://huggingface.co/datasets/evalplus/mbppplus) | coding | run the tests | Apache 2.0 |
+| Dataset | Task type | Scoring | License | Pilot outcome |
+|---|---|---|---|---|
+| [IFEval](https://huggingface.co/datasets/google/IFEval) | instruction following | strict instruction checks | Apache 2.0 | **kept** |
+| [Banking77](https://huggingface.co/datasets/PolyAI/banking77) ([copy used](https://huggingface.co/datasets/mteb/banking77)) | classification | exact label | CC BY 4.0 | **kept**, JSON answer |
+| [MMLU-Pro](https://huggingface.co/datasets/TIGER-Lab/MMLU-Pro) | multiple choice | answer letter | MIT | **kept**, JSON answer |
+| [MBPP+](https://huggingface.co/datasets/evalplus/mbppplus) | coding | run the tests | Apache 2.0 | **kept** |
+| [MATH](https://huggingface.co/datasets/EleutherAI/hendrycks_math) | math | answer equivalence | MIT | dropped: saturated, Level 5 too |
+| [CRUXEval](https://huggingface.co/datasets/cruxeval-org/cruxeval) | code reasoning (output prediction) | Python literal | MIT | dropped: saturated |
+| [IFBench](https://huggingface.co/datasets/allenai/IFBench_test) | instruction following | strict instruction checks | ODC-BY | not added: no separation, refusals |
+| [LiveCodeBench](https://huggingface.co/datasets/livecodebench/code_generation_lite) v5–v6 | coding | run the tests | see card | not added: saturated |
 
 Dataset revisions are pinned in [harness/loaders.py](harness/loaders.py), so an item ID always
 means the same item.
@@ -71,8 +81,31 @@ uv sync
 uv run python -m harness.smoke_test        # one Haiku call: checks the key and the response store
 uv run python -m harness.sandbox --build   # build the pinned sandbox image
 uv run python -m harness.check_sandbox     # escape checks + every MBPP+ reference solution
-uv run python -m harness.build_pilot       # regenerate data/pilot.jsonl (same seed, same items)
+uv run python -m harness.build_pilot       # regenerate the pilot files (same seed, same items)
+uv run python -m harness.check_evaluators  # every evaluator against the reference answers (needs the sandbox)
+uv run python -m harness.run_pilot --configs haiku --per-source 3   # 18-item trial
+uv run python -m harness.run_pilot         # full pilot: 120 items x 4 configs, then the Stage 0 summary
+uv run python -m harness.run_pilot --pilot-file data/pilot_math_level5.jsonl --formats structured
+uv run python -m harness.run_pilot --pilot-file data/pilot_added_sources.jsonl --formats free
+uv run python -m harness.build_benchmark   # rebuild the frozen benchmark (seeded; byte-identical)
+uv run python -m harness.check_benchmark   # verify it against its manifest hashes
+uv run python -m harness.check_collect     # the collection runner end to end against a fake Batches API (no calls)
+uv run python -m harness.collect plan      # Stage 2 request counts and projected cost; then submit, wait, score, seal
 ```
+
+The first LiveCodeBench load downloads about 690 MB and writes its decoded tests (about 500 MB)
+to `.cache/`.
+
+Every answer is scored right or wrong (`quality` 1 or 0), and IFEval counts as right only when
+every instruction is followed. An answer missing the format its prompt asks for (`Answer: X`,
+`\boxed{}`, a code block) scores as a format failure, which is counted separately from a wrong
+answer.
+
+The pilot ran Banking77, MMLU-Pro, MATH and CRUXEval twice on the same items: once in free text,
+and once with the answer requested as JSON through the API's structured outputs. JSON removed
+every format failure without costing accuracy, so Banking77 and MMLU-Pro answer as JSON from
+here on. IFEval and MBPP+ stay free text, since IFEval's instructions are about the text's shape
+and code belongs in a code block.
 
 Every API response is cached on disk under `results/` (not committed), keyed by a hash of the
 full request, so re-running analysis never pays for the same call twice.
@@ -83,27 +116,48 @@ system, none of your files, an unprivileged user, and caps on memory, processes,
 ## Layout
 
 ```text
-PLAN_v4.md           study design (frozen for Stage 0, with amendments A1 and A2)
-configs/models.yaml  pinned model configs and price snapshot
-harness/             API client, response store, dataset loaders, code sandbox, pilot builder
+PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A7)
+WRITEUP.md           the final write-up (to come) and running notes for it
+configs/models.yaml  pinned model configs, output caps and price snapshot
+configs/task_mix.yaml  the uniform and realistic task mixes
+harness/             API client, response store, dataset loaders, evaluators, code sandbox, pilot
+                     builder and runner, benchmark builder and checker, collection runner, check
+                     and review scripts, LiveCodeBench test runner (unused; Amendment A4)
+harness/ifeval/      Google's IFEval instruction checkers, vendored at a pinned commit
+harness/ifbench/     AI2's IFBench instruction checkers, vendored at a pinned commit
 sandbox/             Dockerfile for the code sandbox image
-data/pilot.jsonl     the 120 Stage 0 pilot items (20 per candidate dataset)
+data/benchmark.jsonl the frozen benchmark: 2,478 items split 40/30/30, plus its hash manifest
+data/pilot*.jsonl    Stage 0 pilot items: 20 per candidate dataset, 20 MATH Level 5 items, and
+                     20 each from IFBench and LiveCodeBench
+data/collection_manifest.json  batch IDs, counts and the sealed test store's hash (Amendment A6)
+results/             response store, dev matrix and sealed test store (not committed)
+.cache/              downloaded tool data and LiveCodeBench's decoded tests (not committed)
 docs/history/        earlier versions of the plan
 ```
 
 ## Progress
 
-- [x] Study plan frozen (v4, amendments A1 and A2)
+- [x] Study plan frozen (v4, amendments A1–A7)
 - [x] Harness: API client, on-disk response store, pinned model configs
 - [x] Dataset loaders at pinned revisions, and 120 pilot items
-- [x] Docker code sandbox (18/18 escape checks; 376/378 MBPP+ reference solutions pass)
-- [ ] Evaluators for the six candidate datasets
-- [ ] Pilot run: lock 3–4 task types, set output caps, check the budget
-- [ ] Stages 1–8: benchmark and splits, collection run, references, routers, gates and cascades,
-      final evaluation on the sealed test split
+- [x] Docker code sandbox (18/18 escape checks; 377/377 MBPP+ reference solutions pass under the
+      grader's limits, with 1 excluded)
+- [x] Evaluators for the six candidate datasets, checked against every reference answer in the
+      candidate pools
+- [x] Pilot runner, tested on an 18-item Haiku trial
+- [x] Pilot run ($4.72): four tasks chosen, JSON answers for Banking77 and MMLU-Pro, output caps
+      set, collection run projected at about $26–30 against the $150 ceiling
+- [x] IFBench and LiveCodeBench tested as extra items for the two smallest tasks ($3.89); not added
+- [x] Stage 1: benchmark frozen. IFEval 521, Banking77 800, MMLU-Pro 800 and MBPP+ 357 items, split
+      40/30/30 and stratified, with a noise subset, the two task mixes and hashes
+- [x] Stage 2: collection run ($29.37); train and dev scored, test sealed
+- [ ] Stages 3–8: references, routers, gates and cascades, final evaluation on the sealed test
+      split
 
 ## License
 
-The code and documentation are released under the [MIT License](LICENSE). Dataset items in
+The code and documentation are released under the [MIT License](LICENSE), except
+`harness/ifeval/` (Google's code) and `harness/ifbench/` (AI2's code), which stay under the Apache
+License 2.0 (a copy is in each folder). Dataset items in
 `data/`, and anything the loaders download, remain under their original licenses, listed in the
 [pilot datasets table](#pilot-candidate-datasets) above.

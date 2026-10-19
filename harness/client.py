@@ -30,16 +30,21 @@ def make_client(max_retries: int = 5) -> anthropic.Anthropic:
     return anthropic.Anthropic(max_retries=max_retries)
 
 
-def build_request(config: dict, prompt: str, max_tokens: int, system: str | None = None) -> dict:
+def build_request(
+    config: dict, prompt: str, max_tokens: int, system: str | None = None, output_schema: dict | None = None
+) -> dict:
     # No `temperature` (Claude 5.5 models reject it) and no `thinking` field
     # (omitting it runs adaptive thinking on all three models). Effort is the
-    # only knob, and it is always set explicitly.
+    # only knob, and it is always set explicitly. `output_schema` turns on
+    # structured outputs: the answer text is then JSON matching the schema.
     request = {
         "model": config["model"],
         "max_tokens": max_tokens,
         "output_config": {"effort": config["effort"]},
         "messages": [{"role": "user", "content": prompt}],
     }
+    if output_schema is not None:
+        request["output_config"]["format"] = {"type": "json_schema", "schema": output_schema}
     if system is not None:
         request["system"] = system
     return request
@@ -56,15 +61,19 @@ def call(client: anthropic.Anthropic, store: ResponseStore, request: dict, run: 
     if cached is not None:
         return cached, True
 
+    # Streamed, because the SDK refuses non-streaming requests whose max_tokens
+    # could run past 10 minutes (about 21K tokens). The stored response is the
+    # same final message either way, and latency is still request to last token.
     start = time.perf_counter()
-    response = client.messages.create(**request)
+    with client.messages.stream(**request) as stream:
+        response = stream.get_final_message()
     latency_s = time.perf_counter() - start
 
     record = {
         "run": run,
         "request": request,
         "response": response.to_dict(mode="json"),
-        "request_id": response._request_id,
+        "request_id": stream.request_id,
         "latency_s": latency_s,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }

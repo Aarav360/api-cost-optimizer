@@ -8,3 +8,6 @@ __pycache__/
 
 # Results (sealed test answers must never be committed or read early)
 results/
+
+# Downloaded tool data (nltk punkt_tab for the IFEval checkers)
+.cache/

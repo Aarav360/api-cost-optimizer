@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Version | v4 |
-| Status | Final — frozen for Stage 0 |
+| Status | Final — frozen before Stage 0, then changed only by the amendments below |
 | Date | 2026-10-12 |
-| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort |
+| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed |
 | Supersedes | [PLAN_v3.md](docs/history/PLAN_v3.md) — earlier versions in [docs/history/](docs/history/) |
 
 ## What changed from v3
@@ -29,6 +29,11 @@
 | v4 | 2026-10-12 | Final: changes 1–8 above |
 | v4-A1 | 2026-10-14 | Amendment A1: model lineup, 40/30/30 splits, cost controls |
 | v4-A2 | 2026-10-15 | Amendment A2: `haiku` config runs at high effort |
+| v4-A3 | 2026-10-16 | Amendment A3: pilot decisions: core tasks, structured outputs, output caps, budget |
+| v4-A4 | 2026-10-16 | Amendment A4: IFBench and LiveCodeBench tested as additions, not adopted; `haiku` cap 64,000 |
+| v4-A5 | 2026-10-16 | Amendment A5: benchmark and splits frozen; cross-fitting for the trained router; task mixes |
+| v4-A6 | 2026-10-18 | Amendment A6: collection-run decisions: noise runs and how they're used, sealed test store, batch safeguards; the collection run's record |
+| v4-A7 | 2026-10-19 | Amendment A7: pilot latency and cost per item recorded; claims on the mixes, per-task warnings for IFEval and MBPP+; freeze hashes; MBPP+ reference check under the grader's limits |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -69,6 +74,176 @@ Made before Stage 0, so no data has been collected and the freeze still holds. E
 Made before any pilot or collection calls, so the freeze still holds. Applied in the A1 lineup table and `configs/models.yaml`.
 
 1. **The `haiku` config runs at high effort instead of medium (its default).** Haiku 5.5 is expected to gain substantial quality going from medium to high at little added cost: thinking tokens bill as output at Haiku's $0.50 per 1M, so 1,000 extra thinking tokens per item across the plan-size benchmark (2,400 items) adds about $1.20 at standard prices, $0.60 through the Batches API. The A1 budget estimate is effectively unchanged.
+
+## Amendment A3 — Pilot decisions (2026-10-16)
+
+Stage 0's decisions, made from the pilot before any benchmark item is drawn or any collection call is made, so the freeze on Stages 1–8 still holds. Applied in §5 and `configs/models.yaml`.
+
+**The pilot.** 20 items from each of the six candidate datasets (`data/pilot.jsonl`) ran through all four configs on the standard API with a 32,000-token output cap. Banking77, MMLU-Pro, MATH and CRUXEval ran twice, in free text and as structured outputs (item 2), so 800 calls in all. A supplement of 20 MATH Level 5 items (`data/pilot_math_level5.jsonl`) ran as structured outputs only. Together they cost $4.72. No call errored, was refused, or hit the output cap, and every response reported its pinned model ID. Rows with answers are in `results/pilot/` (not committed). Every evaluator was first checked against the reference answers of the full candidate pools (`harness/check_evaluators.py`; for MBPP+, `harness/check_sandbox.py`, Amendment A7), and the pilot's format failures and every item that all four configs got wrong were read by hand.
+
+Correct answers out of 20 (Banking77 and MMLU-Pro as structured outputs):
+
+| Task | `haiku` | `sonnet` | `opus_low` | `opus` |
+|---|---|---|---|---|
+| IFEval | 14 | 18 | 18 | 20 |
+| Banking77 | 10 | 10 | 13 | 14 |
+| MMLU-Pro | 12 | 14 | 13 | 14 |
+| MBPP+ | 17 | 17 | 18 | 17 |
+| MATH (structured) | 20 | 20 | 20 | 20 |
+| MATH Level 5 (structured) | 20 | 20 | 20 | 20 |
+| CRUXEval (both formats) | 20 | 20 | 20 | 20 |
+
+1. **Core tasks: IFEval, Banking77, MMLU-Pro, MBPP+.** CRUXEval and MATH are dropped as saturated (§5, ceiling effects): every config answered every item correctly, so there is no routing decision to study. MATH's main pilot items were mostly Levels 2–4, so the Level 5 supplement tested whether hard MATH still separates the configs, under a rule fixed before it ran: Level 5 MATH would be the fourth task unless every config scored 19/20 or better, and MBPP+ otherwise. Every config scored 20/20, so MBPP+ is the fourth task. With 20 items per cell, gaps of 2–3 items are within noise; only saturation is a clear signal.
+2. **Banking77 and MMLU-Pro answer as structured outputs.** Their requests set `output_config.format` to a JSON schema (`loaders.structured_variant`): an enum of the item's labels or option letters as `answer`, after a short `explanation` field for MMLU-Pro. IFEval (its instructions are about the free-text shape) and MBPP+ (code stays in a code block) remain free text. On the 320 paired answers of the four tasks that ran in both formats, structured outputs were right where free text was wrong 13 times and the reverse twice, and format failures fell from 10 to 0. All six of Haiku's free-text MATH format failures held the correct answer without the requested `\boxed{}`, so free text understated a cheap config for a reason a production app would remove by requesting JSON. Structured outputs also produced fewer output tokens, though each request carries about 540 more input tokens of injected format instructions. No schema field asks for reasoning, because a `reasoning` field can draw a `reasoning_extraction` refusal.
+3. **Output caps (`max_tokens`, collection run):** `haiku` 32,000 (raised to 64,000 by Amendment A4); `sonnet`, `opus_low`, `opus` 16,000. Each is at least 3× the config's longest pilot output on the four chosen tasks (`haiku` 10,637 on IFEval; `sonnet` 4,739; `opus_low` 3,089; `opus` 4,235). Only generated tokens are billed, so the headroom costs nothing (Amendment A1, item 7).
+4. **Budget.** From the pilot's measured costs, the collection run's model calls (Batches API; train without `opus`, dev and test with it) come to about $30 for 600 items of each chosen task, and about $26 at the item counts available (item 5). This replaces the A1 estimate ($84–184), which assumed longer outputs. It leaves the $150 ceiling ample room for the Sonnet verifier gate, the noise-subset re-runs, Jev, and the Stage 8 live replay.
+5. **Open for Stage 1: two pools are smaller than the plan size.** IFEval has 541 items and MBPP+ 377 (after the A1 exclusion), so 521 and 357 remain outside the pilot, short of 600 per task; at 40/30/30, IFEval's test split would hold about 156 items, below §5's "a few hundred test items per task type before making per-task claims". Whether to accept this, adjust those tasks' splits, or add items from similar sources is decided before the Stage 1 freeze.
+6. **Known item noise, kept.** Some Banking77 queries fit more than one label (on 5 pilot items all four configs agreed on a label other than the key), some MMLU-Pro answer keys look wrong (e.g. `mmlu_pro:4346`), and two MBPP+ items' hidden tests encode quirks of the reference solution that the task statement doesn't give (`mbppplus:448`, `mbppplus:620`). This noise lowers every config's score alike rather than favoring one. It is reported in the write-up, not corrected.
+
+## Amendment A4 — Larger pools tested, not adopted (2026-10-16)
+
+Made in Stage 0, before any benchmark item is drawn or any collection call is made, so the freeze on Stages 1–8 still holds. Applied in `configs/models.yaml`.
+
+**The test.** A3 item 5 left IFEval (521 items outside the pilot) and MBPP+ (357) short of 600. Two sources of the same task types were tried as additions:
+
+- **IFBench** (AI2, 2025): 300 prompts using 58 new checkable instruction types, newer than IFEval. Data under ODC-BY, checker code under Apache 2.0, vendored at a pinned commit in `harness/ifbench/` with five marked patches.
+- **LiveCodeBench** releases v5 and v6: 342 contest problems from LeetCode and AtCoder, dated 2024-09 to 2025-04, the newest available. They are graded in the sandbox by `harness/livecodebench_runner.py`, which follows LiveCodeBench's grading rules. The hidden tests are stored as pickles, so they are decoded by an unpickler that refuses to load any code.
+
+Both graders were first checked by `harness/check_evaluators.py`: every item loads and builds, and hand-written right, wrong, crashing and looping answers score as expected. Then 20 items of each (`data/pilot_added_sources.jsonl`) ran through all four configs in free text, for $3.89. That brings Stage 0's spending to $8.61.
+
+| Source | `haiku` | `sonnet` | `opus_low` | `opus` |
+|---|---|---|---|---|
+| IFBench | 10 | 7 | 8 | 9 |
+| LiveCodeBench | 18 | 20 | 20 | 20 |
+
+1. **Neither source is added.**
+   - **LiveCodeBench is saturated.** `sonnet`, `opus_low` and `opus` solved all 20 problems, including the six hard AtCoder ones, and each solution passed every test of its problem. `haiku`'s two misses were hard problems on which it hit the 32,000-token output cap. These problems predate the models' training data, so their recency doesn't keep them out of it.
+   - **IFBench doesn't separate the configs.** Every config scored 35–50%, and `haiku` scored highest. The failures were read by hand and are genuine misses of the strict rules.
+   - **IFBench also drew refusals.** 8 of its 80 responses were classifier refusals in the `bio` category on benign prompts, 4 of them from `opus`. Refusals are an effect this study doesn't measure.
+
+   Under §5's ceiling-effects rule, and given that the extra items carry no routing signal, adding either source would mainly add noise.
+2. **The code stays, unused.** The loaders, the vendored checkers, the runner and the pilot file remain so this test can be reproduced. Neither source enters Stage 1.
+3. **IFEval and MBPP+ use every available item.** How their splits handle the smaller pools is still open for Stage 1 (A3 item 5).
+4. **`haiku`'s output cap is 64,000** (from 32,000 in A3). On hard problems `haiku` thinks past 32,000 tokens: both LiveCodeBench misses above, and up to 29,950 tokens on IFBench. A cap stop scores as a failure, but only generated tokens are billed, so a 64,000-token response costs $0.032 at `haiku`'s price. The other caps are unchanged.
+
+## Amendment A5 — Benchmark and splits frozen (2026-10-16)
+
+Stage 1's decisions, made before any collection call, so the freeze on Stages 2–8 still holds. Applied in §5, §8 and `configs/task_mix.yaml`. `harness/build_benchmark.py` builds the benchmark and `harness/check_benchmark.py` checks it.
+
+1. **Items.** `data/benchmark.jsonl` holds 2,478 items:
+   - IFEval: all 521 items outside the pilots.
+   - MBPP+: all 357 items outside the pilots.
+   - Banking77 and MMLU-Pro: 800 each, seeded draws from the 3,056 and 12,012 items outside the pilots. They are stored in their structured-output form (A3).
+
+   Every item in a `data/pilot*.jsonl` file is excluded. `mbppplus:255`, whose tests need about 2.2 GB of memory, stays in and is graded with a 3 GB limit; its reference solution passes at 3 GB.
+2. **Groups.** Items whose question text matches after normalizing case, punctuation and spacing share a `source_group`, and a group never straddles splits. That covers 17 MMLU-Pro pairs (the same question with different answer options; one is an 1,800-character legal scenario) and one MBPP+ pair with identical task text.
+3. **Splits: 40/30/30 for every task**, stratified within each task by Banking77 intent and MMLU-Pro subject, so every split holds all 77 intents.
+
+   | Task | Train | Dev | Test |
+   |---|---|---|---|
+   | IFEval | 208 | 157 | 156 |
+   | Banking77 | 320 | 240 | 240 |
+   | MMLU-Pro | 320 | 240 | 240 |
+   | MBPP+ | 143 | 107 | 107 |
+
+   The small tasks keep the standard split. To keep the trained router from running short of training data on them, it uses cross-fitting over dev instead (§8, 3b). Test-heavier splits (20/40/40, 30/35/35) were considered; their test error bars differed by only about ±1 point.
+4. **Noise subset:** 75 dev items, about 10% of each task's dev split, listed in the manifest. Each runs three times in Stage 2 (§6).
+5. **Scoring and success rules.** Every item scores 1 or 0, so quality and success coincide.
+   - IFEval: every instruction is followed under Google's strict checks.
+   - Banking77: the JSON `answer` names the reference intent, ignoring case.
+   - MMLU-Pro: the JSON `answer` is the reference letter.
+   - MBPP+: the last Python code block passes every hidden test in the sandbox, within 20 s and 512 MB (3 GB for `mbppplus:255`).
+   - Any task: a refusal or a `max_tokens` stop is a failure. A reply missing its requested format is a failure, also counted separately as a format failure.
+6. **Task mixes** (`configs/task_mix.yaml`):
+   - **Uniform:** 25% per task.
+   - **Realistic:** MBPP+ 65%, Banking77 20%, IFEval 10%, MMLU-Pro 5%.
+
+   **Source.** The realistic weights come from the Anthropic Economic Index, January 2026 report: first-party API traffic sampled 2025-11-13 to 2025-11-20. Each task stands in for its closest occupational category:
+
+   | Task | Category | Share of API traffic |
+   |---|---|---|
+   | MBPP+ | Computer & Mathematical | 52% |
+   | Banking77 | Office & Administrative Support | 15% |
+   | IFEval | Arts, Design, Entertainment & Media | 6% |
+   | MMLU-Pro | Educational Instruction | 4% |
+
+   Those shares cover 77% of traffic. They are renormalized to 100% and rounded to the nearest 5, because the mapping is approximate.
+
+   **How results combine.** Quality is the weighted mean of the task means. Cost is the weighted mean cost per request, and savings are computed from those weighted dollar costs, never by averaging per-task savings.
+
+   **Caveat.** The realistic mix is two-thirds coding, while MBPP+ is easier than typical coding traffic, so the realistic headline likely overstates coding savings. Per-task results are always reported.
+7. **Freeze.** The build is seeded and reproduces its files byte for byte. `data/benchmark_manifest.json` records the counts, the groups and the noise subset. It also records the sha256 of `data/benchmark.jsonl`, of each split's ID list, of `configs/task_mix.yaml` and of every pilot file. `harness/check_benchmark.py` verifies them before the Stage 2 collection run, and again in Stage 8 before test is scored.
+8. **Budget.** The pilot's per-item costs put the collection run's model calls at these counts at about $30: IFEval $13.77, Banking77 $7.32, MMLU-Pro $6.74, MBPP+ $2.00. The noise subset's extra runs add a few dollars.
+
+## Amendment A6 — Collection-run decisions (2026-10-18)
+
+Stage 2's decisions, made before any collection call, so the freeze on Stages 2–8 still holds. Applied in §6 and `harness/collect.py`.
+
+1. **Noise subset: three runs in all.** The 75 noise-subset items (A5 item 4) run through every config as run 0 with the rest of dev, then twice more as runs 1 and 2: 600 extra requests, about $2–3. Every strategy, reference and threshold uses run 0 only. Runs 1 and 2 feed only the noise measure.
+2. **How the noise measure is used.** Without `temperature`, each stored answer is one draw, and a lucky or unlucky draw looks the same as a real strength or weakness. The hindsight oracle is the most exposed: it sends each item to the cheapest config that succeeded on run 0, so a lucky draw counts as savings no deployable system could rely on. Fixed before any data:
+   - The **flip rate** is the share of (item, config) pairs in the noise subset whose success differs across the three runs. It is reported per config and per task next to the confidence intervals.
+   - If any config's flip rate is 5% or more, the write-up and charts describe the oracle curve as an optimistic upper bound.
+3. **What may be seen of test before Stage 8.** For test, the collection run reports only request outcomes (succeeded, errored, expired, canceled), how many responses report a model other than the pinned one, and total cost. It reports no stop reasons, per-config token counts, answers or grades.
+4. **Where test answers live.** Test results are written only to `results/test_sealed.sqlite`, never to the JSON response store. Once every test request has a result, the file is made read-only and its sha256 is recorded, with the batch IDs and counts, in the committed `data/collection_manifest.json`. `harness/collect.py` is the only module that names the path. Stage 8 verifies the hash before scoring.
+5. **Batch request IDs.** Each request's `custom_id` is its item ID with `:` replaced by `-`, then the config and run, e.g. `mmlu_pro-4346_opus_low_r0`. Results are matched by `custom_id`, never by order (A1 item 5).
+6. **Safeguards.**
+   - Each batch's ID is saved as soon as the batch is created, so a re-run never resubmits a request that is stored or still in flight. Only errored and expired requests are resubmitted.
+   - Submission runs `check_benchmark` first (A5 item 7) and refuses to go ahead if the cost projected from pilot rates exceeds a stated cap.
+   - Before the collection run, at most 20 pilot items run on `haiku` through the Batches API (A1 item 8).
+
+**The collection run (2026-10-18).** The smoke run (20 pilot items on `haiku`, $0.004) went through end to end. Then all 9,521 requests ran as three batches, one per split, and every one succeeded the first time, in about 10 minutes, so nothing was resent. The batch IDs are in `data/collection_manifest.json`.
+
+- **Cost:** $29.37 (train $7.57, dev with the noise runs $12.02, test $9.78), against $32.03 projected. That brings spending to about $38 of the $150 ceiling.
+- **Models:** every response reports its pinned model ID.
+- **Sealed store:** 2,972 test responses, sha256 `2ea23b7e20a847d2f18a8efa2b1d19c4205b10145ddd52e69f84b405fa2d2d58`, read-only.
+- **Train/dev stops:** none of the 6,549 scored rows is a format failure.
+  - `mmlu_pro:6586` (dev, noise subset), a benign question on where the Lassa and Ebola viruses come from, drew a `bio` refusal from `opus` and `opus_low` on all three runs, before any output. `haiku` and `sonnet` answered it correctly every time.
+  - `sonnet` hit its 16,000-token cap once, on `mmlu_pro:9170`.
+- **Noise measure (item 2):** flip rates are `haiku` 5/75 (6.7%), `sonnet` 3/75 (4.0%), `opus_low` 4/75 (5.3%) and `opus` 3/75 (4.0%). IFEval flips most. `haiku` and `opus_low` are at or over 5%, so the oracle curve is described as an optimistic upper bound.
+- **Evaluator hand check (§14):** `harness/review_collection.py` sampled 20 run-0 wrong answers per task. All 80 were graded correctly:
+  - Banking77 and MMLU-Pro: the grader read the JSON `answer` exactly.
+  - IFEval: each failed instruction was confirmed from the answer text.
+  - MBPP+: none of the 116 MBPP+ failures is a `NameError`, `SyntaxError` or import error, so the grader never picked the wrong code block. One sampled item is item noise like A3 item 6: `mbppplus:800` asks to remove all whitespace, but its tests expect newlines kept.
+
+## Amendment A7 — Stage 0–1 records completed (2026-10-19)
+
+From a review of Stages 0 and 1, made after the collection run and before Stage 3. It changes no item, split, mix, evaluator, output cap or stored answer, so the A5 hashes and the A6 sealed store stand. Applied in A3, §5, §10, §11 and `harness/check_sandbox.py`.
+
+1. **Pilot latency and cost per item.** Stage 0 was to record both (§14), and offline latency estimates use the pilot's (A1 item 5), but A3 gave only totals. From the pilot's rows (`results/pilot/pilot.rows.jsonl`, not committed): the four core tasks in the formats the collection run uses, 20 items per task and config, on the standard API with 8 calls in flight. Latency runs from request to last token, SDK retries included.
+
+   Latency in seconds, median (p90):
+
+   | Task | `haiku` | `sonnet` | `opus_low` | `opus` |
+   |---|---|---|---|---|
+   | All four (80 calls) | 2.8 (10.8) | 2.5 (10.6) | 3.1 (11.7) | 3.7 (16.9) |
+   | IFEval | 6.9 (15.5) | 10.0 (19.6) | 11.1 (19.3) | 14.0 (32.8) |
+   | Banking77 | 2.0 (2.8) | 1.5 (1.8) | 1.7 (2.6) | 2.2 (3.7) |
+   | MMLU-Pro | 4.0 (6.9) | 3.0 (4.7) | 3.4 (8.4) | 4.5 (6.3) |
+   | MBPP+ | 1.6 (3.6) | 2.1 (3.8) | 2.3 (4.7) | 3.4 (5.5) |
+
+   Cost per item in dollars, standard API (the Batches API is half):
+
+   | Task | `haiku` | `sonnet` | `opus_low` | `opus` |
+   |---|---|---|---|---|
+   | IFEval | 0.00110 | 0.01291 | 0.02107 | 0.02964 |
+   | Banking77 | 0.00028 | 0.00408 | 0.00816 | 0.00963 |
+   | MMLU-Pro | 0.00040 | 0.00401 | 0.00739 | 0.00842 |
+   | MBPP+ | 0.00020 | 0.00274 | 0.00443 | 0.00635 |
+
+   These per-item costs reproduce A5 item 8's projection to the cent.
+2. **Claims rest on the two mixes; IFEval and MBPP+ per-task results carry a warning.** §5 asks for "a few hundred test items per task type before making per-task claims". A5 kept 40/30/30, so IFEval has 156 test items and MBPP+ 107 (A3 item 5 read IFEval's as short), while Banking77 and MMLU-Pro have 240 each. Fixed before Stage 3, so before any routing result exists:
+   - **Headline claims are made on the two mixes.** Quality-target verdicts ("met" or "not met", §11) are given only for the mixes: a single task's confidence interval is several points wide, too wide to confirm a target within 1–3 points of frontier quality.
+   - **Per-task results are always shown**, with their confidence intervals, in the per-task tables (§10) and the per-task chart (§12), so a mix can't hide a task where routing does badly (§4).
+   - **IFEval and MBPP+ carry a warning** wherever their per-task results appear, e.g. "Only 107 test items, below the plan's minimum of a few hundred; indicative." The write-up draws no per-task conclusion from them. Banking77 and MMLU-Pro carry no warning.
+   - **The realistic-mix headline carries a note** that the mix is two-thirds MBPP+, so it leans on the smallest test split and its confidence interval is wider than the uniform mix's. It sits beside A5 item 6's caveat.
+
+   This only narrows what is claimed.
+3. **Freeze hashes, recorded outside the manifest.** The benchmark's hashes lived only in `data/benchmark_manifest.json`, and nothing hashed the manifest itself, which holds the noise subset. At the A5 freeze:
+   - `data/benchmark.jsonl`: `7b2ab45dca7efae470b541e4e08cc680fdd672ef6555d39b61a72cb0455cf0d2`
+   - `data/benchmark_manifest.json`: `c67caa9493c9344aab40d4fcbab99f1a982f62e2e57780280e43bab94db77921`
+
+   Stage 8 compares both files against these values, as well as running `check_benchmark` (A5 item 7), before test is scored.
+4. **MBPP+ reference check under the grader's limits.** A5 item 1 says `mbppplus:255`'s reference solution passes at 3 GB, but no committed check ran it there. `harness/check_sandbox.py` ran every reference at the sandbox default of 512 MB, so it reported 376/378, failing `mbppplus:255` and the excluded `mbppplus:590`, and `harness/check_evaluators.py` covers only pilot items. `check_sandbox` now uses the grader's own time and memory limits (`evaluators.CODE_TIMEOUT_S` and `CODE_MEMORY`) and skips excluded items: 377/377 pass, and the 18 escape checks still pass (2026-10-19). `mbppplus:255` is in test, so no collection-run score depended on it.
 
 ---
 
@@ -207,7 +382,9 @@ The benchmark decides the headline number: savings depend heavily on the mix of 
 
 ## Core task types
 
-Choose **3–4** in Stage 0 from these objective-evaluator candidates:
+Choose **3–4** in Stage 0 from these objective-evaluator candidates.
+
+**Chosen (Amendment A3): IFEval (instruction following), Banking77 (classification), MMLU-Pro (multiple choice), MBPP+ (coding).** Banking77 and MMLU-Pro answer as structured outputs. CRUXEval and MATH were dropped as saturated.
 
 | Task | Candidate datasets |
 |---|---|
@@ -234,6 +411,7 @@ test   30%   sealed until Stage 8
 ```
 
 - Stratify by task type; keep each source group in one split; freeze splits with a file hash before routing work begins.
+- Within a task, stratify by Banking77 intent and MMLU-Pro subject. The frozen benchmark is `data/benchmark.jsonl` with its manifest (Amendment A5).
 - Pilot items are separate from all three splits.
 - The frontier config runs only on dev and test, so thresholds are selected on dev (§8, Amendment A1).
 - Raw test answers are collected with the dev matrix but sealed (§6). Before Stage 8, nothing reads, scores, or inspects test answers, grades, or gate verdicts.
@@ -241,7 +419,7 @@ test   30%   sealed until Stage 8
 ## Size
 
 - Enough items for overall quality CIs around ±1–2 points; the pilot gives the variance.
-- A few hundred test items per task type before making per-task claims.
+- A few hundred test items per task type before making per-task claims. IFEval (156) and MBPP+ (107) fall short: their per-task results are shown with a warning and draw no conclusions, and quality-target verdicts are given only for the mixes (Amendment A7).
 
 ## Task mix
 
@@ -249,6 +427,10 @@ Report under two mixes, documented before Stage 8:
 
 1. **Uniform** — each task type weighted equally.
 2. **Realistic** — a weighting that resembles a plausible production workload.
+
+Fixed in Amendment A5 (`configs/task_mix.yaml`):
+- Uniform: 25% per task.
+- Realistic: MBPP+ 65%, Banking77 20%, IFEval 10%, MMLU-Pro 5%, from first-party API traffic shares in the Anthropic Economic Index.
 
 Re-weighting is offline and needs no new model calls.
 
@@ -299,7 +481,7 @@ Dev matrix row (illustrative values):
 Notes:
 
 - **Four configs** (Amendment A1): `haiku`, `sonnet`, `opus_low`, `opus`. Add more only if the pilot and budget support them, up to about 5–6.
-- **Nondeterminism:** the Claude 5.5 models reject `temperature`, so it isn't set. Re-run ~10% of dev 3× to measure run-to-run noise.
+- **Nondeterminism:** the Claude 5.5 models reject `temperature`, so it isn't set. Re-run ~10% of dev 3× to measure run-to-run noise (three runs in all, run 0 included; Amendment A6).
 
 Output (illustrative):
 
@@ -377,7 +559,7 @@ Shared decision rule: **pick the cheapest config whose score ≥ t.** Sweeping `
 
 For each headline quality target (§11), choose `t` where estimated quality **clears the target by a stated margin** — default: at least one standard error of the quality estimate. A threshold where dev quality only just meets the target would miss on test about half the time from noise alone. The same rule applies to gate cutoffs in cascades (§9).
 
-- Select on dev. v4 also allowed cross-validation over train+dev; Amendment A1 drops it because the frontier config doesn't run on train, and every threshold replay needs frontier outcomes for the items it escalates. The larger 30% dev split offsets most of the lost precision.
+- Select on dev; for the trained router, on its out-of-fold dev predictions (cross-fitting, Amendment A5). v4 also allowed cross-validation over train+dev; Amendment A1 drops it because the frontier config doesn't run on train, and every threshold replay needs frontier outcomes for the items it escalates. The larger 30% dev split offsets most of the lost precision.
 - Record the margin, selection method, and chosen thresholds before Stage 8.
 
 ## 3a — Rules router
@@ -409,6 +591,7 @@ prompt → embedding → one classifier per non-frontier config → P(config suc
 ```
 
 - Start with logistic regression on a sentence embedding. Cheap and hard to beat.
+- **Cross-fitting (Amendment A5):** split dev into k folds (e.g., 5). Train on train plus k−1 folds, predict the held-out fold, and rotate until every dev item has a prediction from a router that never saw it. Thresholds are selected on these out-of-fold predictions. Test is untouched.
 - Optionally add a RouteLLM router as a second trained baseline.
 
 This is Jev's real competition: Jev has no training on your data, while this router learns your exact workload.
@@ -513,7 +696,7 @@ Development experiments run offline from the dev matrix and stored gate verdicts
 | J | I + provider caching/batch *(stretch S1, modeled)* | curves |
 | K | + semantic cache / context optimizer *(stretch S2–S3)* | curves |
 
-Final results table (test split, realistic mix; repeat for the uniform mix and per task; each policy at its pre-selected threshold):
+Final results table (test split, realistic mix; repeat for the uniform mix and per task, with IFEval's and MBPP+'s marked indicative per Amendment A7; each policy at its pre-selected threshold):
 
 | System | Quality (95% CI) | Cost / 1k | Savings vs A | % of oracle savings at matched quality | Estimated p50 latency |
 |---|---:|---:|---:|---:|---:|
@@ -539,7 +722,7 @@ at  99% of frontier quality:  savings ?   (Δ ≈ −0.9 pts)
 at  97% of frontier quality:  savings ?   (Δ ≈ −2.8 pts)
 ```
 
-Thresholds come from §8, with the safety margin. If a policy misses its target on test, mark it **not met** and report its achieved quality and cost. Never sweep thresholds on test to claim savings at an exact target.
+Thresholds come from §8, with the safety margin. If a policy misses its target on test, mark it **not met** and report its achieved quality and cost. Verdicts are given for the two mixes only; per-task results are shown without one (Amendment A7). Never sweep thresholds on test to claim savings at an exact target.
 
 ---
 

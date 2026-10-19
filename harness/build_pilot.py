@@ -3,7 +3,7 @@
 Run from the project root:  uv run python -m harness.build_pilot
 
 Pilot items are kept out of train / dev / test (PLAN_v4.md §5), so Stage 1
-reads this file and excludes these IDs. Each source gets its own seeded
+reads every data/pilot*.jsonl file and excludes their IDs. Each source gets its own seeded
 generator, so adding or dropping a source never changes another source's draw.
 """
 
@@ -19,11 +19,33 @@ PILOT_SEED = 20261015
 ITEMS_PER_SOURCE = 20
 OUTPUT = PROJECT_ROOT / "data" / "pilot.jsonl"
 
+# Supplement (Amendment A3): the main draw's MATH items were mostly Levels 2-4,
+# and every config solved all 20, so 20 Level 5 items test whether hard MATH
+# still separates the configs. Its own file, so pilot.jsonl stays as it was.
+LEVEL5_OUTPUT = PROJECT_ROOT / "data" / "pilot_math_level5.jsonl"
+
+# The six candidate datasets of the main draw. Sources added later get their own
+# file, so the main draw (and pilot.jsonl) never changes.
+MAIN_SOURCES = ("banking77", "cruxeval", "ifeval", "math", "mbppplus", "mmlu_pro")
+
+# Supplement (Amendment A4): IFBench and LiveCodeBench, tested as additions to
+# the instruction-following and coding tasks with the same 20-item check. Not
+# adopted; kept so the test can be reproduced.
+ADDED_SOURCES = ("ifbench", "livecodebench")
+ADDED_OUTPUT = PROJECT_ROOT / "data" / "pilot_added_sources.jsonl"
+
+
+def write_items(path, items) -> None:
+    path.parent.mkdir(exist_ok=True)
+    path.write_text("".join(json.dumps(item, sort_keys=True, ensure_ascii=False) + "\n" for item in items))
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    print(f"wrote {len(items)} items to {path.relative_to(PROJECT_ROOT)} (sha256 {digest[:16]}...)")
+
 
 def main() -> None:
     pools, dropped = load_all()
     pilot = []
-    for source in sorted(pools):
+    for source in MAIN_SOURCES:
         pool = sorted(pools[source], key=lambda x: x["item_id"])
         rng = random.Random(f"{PILOT_SEED}:{source}")
         for item in rng.sample(pool, ITEMS_PER_SOURCE):
@@ -34,10 +56,23 @@ def main() -> None:
             f"prompt chars median {statistics.median(lengths):5.0f}, max {max(lengths):5d}"
         )
 
-    OUTPUT.parent.mkdir(exist_ok=True)
-    OUTPUT.write_text("".join(json.dumps(item, sort_keys=True, ensure_ascii=False) + "\n" for item in pilot))
-    digest = hashlib.sha256(OUTPUT.read_bytes()).hexdigest()
-    print(f"\nwrote {len(pilot)} items to {OUTPUT.relative_to(PROJECT_ROOT)} (sha256 {digest[:16]}...)")
+    print()
+    write_items(OUTPUT, pilot)
+
+    drawn = {item["item_id"] for item in pilot}
+    level5 = sorted(
+        (x for x in pools["math"] if x["meta"]["level"] == "Level 5" and x["item_id"] not in drawn),
+        key=lambda x: x["item_id"],
+    )
+    rng = random.Random(f"{PILOT_SEED}:math-level5")
+    write_items(LEVEL5_OUTPUT, [{**item, "split": "pilot"} for item in rng.sample(level5, ITEMS_PER_SOURCE)])
+
+    added = []
+    for source in ADDED_SOURCES:
+        pool = sorted(pools[source], key=lambda x: x["item_id"])
+        rng = random.Random(f"{PILOT_SEED}:{source}")
+        added += [{**item, "split": "pilot"} for item in rng.sample(pool, ITEMS_PER_SOURCE)]
+    write_items(ADDED_OUTPUT, added)
     for item_id, reason in dropped.items():
         print(f"dropped from pools: {item_id}: {reason}")
 

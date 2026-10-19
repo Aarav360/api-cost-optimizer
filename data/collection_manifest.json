@@ -1,0 +1,47 @@
+{
+  "built_by": "harness/collect.py",
+  "sealed_at": "2026-10-19T02:43:27+00:00",
+  "benchmark_sha256": "7b2ab45dca7efae470b541e4e08cc680fdd672ef6555d39b61a72cb0455cf0d2",
+  "price_snapshot": "2026-10-12",
+  "test_sealed": {
+    "file": "test_sealed.sqlite",
+    "sha256": "2ea23b7e20a847d2f18a8efa2b1d19c4205b10145ddd52e69f84b405fa2d2d58",
+    "rows": 2972
+  },
+  "batches": [
+    {
+      "id": "msgbatch_01CgTKDtVcnLGLV6RcDVXSUR",
+      "split": "train",
+      "created_at": "2026-10-19T02:32:53.519791+00:00",
+      "ingested_at": "2026-10-19T02:39:04+00:00",
+      "counts": {
+        "succeeded": 2973
+      },
+      "cost_usd": 7.568212,
+      "model_mismatches": 0
+    },
+    {
+      "id": "msgbatch_01Tg1spLmz4APB626sTcFM9R",
+      "split": "dev",
+      "created_at": "2026-10-19T02:32:55.525641+00:00",
+      "ingested_at": "2026-10-19T02:43:09+00:00",
+      "counts": {
+        "succeeded": 3576
+      },
+      "cost_usd": 12.015783,
+      "model_mismatches": 0
+    },
+    {
+      "id": "msgbatch_01EV5eFHG54HFccSPCmBVWtb",
+      "split": "test",
+      "created_at": "2026-10-19T02:32:57.170850+00:00",
+      "ingested_at": "2026-10-19T02:39:07+00:00",
+      "counts": {
+        "succeeded": 2972
+      },
+      "cost_usd": 9.7843,
+      "model_mismatches": 0
+    }
+  ],
+  "total_cost_usd": 29.37
+}
