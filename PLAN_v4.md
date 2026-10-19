@@ -5,7 +5,7 @@
 | Version | v4 |
 | Status | Final — frozen before Stage 0, then changed only by the amendments below |
 | Date | 2026-10-12 |
-| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed |
+| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed, and A8, Stage 3 decisions |
 | Supersedes | [PLAN_v3.md](docs/history/PLAN_v3.md) — earlier versions in [docs/history/](docs/history/) |
 
 ## What changed from v3
@@ -34,6 +34,7 @@
 | v4-A5 | 2026-10-16 | Amendment A5: benchmark and splits frozen; cross-fitting for the trained router; task mixes |
 | v4-A6 | 2026-10-18 | Amendment A6: collection-run decisions: noise runs and how they're used, sealed test store, batch safeguards; the collection run's record |
 | v4-A7 | 2026-10-19 | Amendment A7: pilot latency and cost per item recorded; claims on the mixes, per-task warnings for IFEval and MBPP+; freeze hashes; MBPP+ reference check under the grader's limits |
+| v4-A8 | 2026-10-19 | Amendment A8: Stage 3 decisions: frontier stays `opus`; list-price costs; the simulator's trace interface; config ladder; oracle edge cases; paired bootstrap and paired safety margin; chart v0 |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -244,6 +245,57 @@ From a review of Stages 0 and 1, made after the collection run and before Stage 
 
    Stage 8 compares both files against these values, as well as running `check_benchmark` (A5 item 7), before test is scored.
 4. **MBPP+ reference check under the grader's limits.** A5 item 1 says `mbppplus:255`'s reference solution passes at 3 GB, but no committed check ran it there. `harness/check_sandbox.py` ran every reference at the sandbox default of 512 MB, so it reported 376/378, failing `mbppplus:255` and the excluded `mbppplus:590`, and `harness/check_evaluators.py` covers only pilot items. `check_sandbox` now uses the grader's own time and memory limits (`evaluators.CODE_TIMEOUT_S` and `CODE_MEMORY`) and skips excluded items: 377/377 pass, and the 18 escape checks still pass (2026-10-19). `mbppplus:255` is in test, so no collection-run score depended on it.
+
+## Amendment A8 — Stage 3 decisions: offline simulator and references (2026-10-19)
+
+Stage 3's decisions, from a design review made before any Stage 3 code, router or threshold exists. Each fixed config's quality and cost on dev had been summarized; nothing else had been computed. They use train and dev only and change no item, split, mix, evaluator, stored answer or the sealed store. Applied in §7, §8, §12, §13 and the new `GLOSSARY.md`.
+
+1. **The frontier stays `opus`.** On dev, `opus_low` matches `opus`'s quality for about 80% of its cost (run 0, list prices):
+
+   | Config | Uniform quality | Uniform $ / 1k | Realistic quality | Realistic $ / 1k |
+   |---|---|---|---|---|
+   | `haiku` | 84.5% | 0.43 | 83.3% | 0.29 |
+   | `sonnet` | 86.1% | 5.81 | 84.5% | 3.80 |
+   | `opus_low` | 89.7% | 9.61 | 87.8% | 6.57 |
+   | `opus` | 89.5% | 12.01 | 86.7% | 8.04 |
+
+   The quality gap is 0.15 points under the uniform mix and 1.0 under the realistic mix, mostly two MBPP+ items out of 107, so it is likely noise (item 12 records its interval). Making `opus_low` the frontier after seeing dev would be a post-hoc choice, so A1 stands. The finding is reported, and the random-mixture envelope already credits it: `opus_low` is one of its corners, so always-`opus_low` sets savings that any router has to beat.
+2. **Costs at list price.** The stored `cost_usd` includes the Batches API discount (A1 item 5). The simulator recomputes each row's cost from its tokens at the 2026-10-12 list prices, checks that this is twice the stored cost, and charges router and gate overhead at list price too. A live router decides per request, so overhead is compared with model calls at the prices both would pay. The batch discount stays a provider-side lever, modeled in S1.
+3. **Vocabulary.** `GLOSSARY.md` fixes the terms used from Stage 3 on: a **policy** is anything that decides, per item, which configs to call (fixed configs, routers, cascades; not "system" or "strategy"); a **reference** is A–D; the **config ladder** is the fixed cheap-to-dear order (not "tier"); a **trace** is a policy's record for one item. Older wording in this plan stands where it is written.
+4. **The simulator's interface**, shared by Stages 4–7, and by Stage 8 once test is scored:
+   - A policy hands the simulator one trace per item: the configs it called, in order, and its overhead in dollars. The answer returned is always the last config's. A router calls one config, a cascade calls a prefix of the config ladder, and a fixed config calls itself on every item.
+   - The simulator returns one outcome per item (task, source group, cost, success, configs called), and totals per mix and per task.
+   - It refuses a set of traces that misses or repeats an item, names an unknown config, calls a config twice on one item, calls none, or calls `opus` on a train item (A1 item 3). Nothing is evaluated partially.
+   - It reads no gate verdicts, router scores or latencies: policies turn those into traces. Estimated latency comes in Stage 7, from A7 item 1's pilot latencies summed along each trace.
+   - The oracle and the envelope are computed directly, not from traces.
+5. **Config ladder: `haiku` < `sonnet` < `opus_low` < `opus`.** A router's "cheapest config whose score ≥ t" (§8) and a cascade's "next config up" (§9) use this fixed order, which is the order of mean dev cost per request in every task and both mixes. Per item the order varies (`sonnet` costs more than `opus_low` on 4.8% of dev items, `opus_low` more than `opus` on 12.8%), and no policy knows an item's cost in advance. Exact cost ties go to the lower config; on dev there are 234, all between `opus_low` and `opus` (209 on Banking77, where the two often give identical token counts).
+6. **Oracle edge cases** (§7):
+   - **Weights.** Each item weighs its task's mix weight divided by that task's dev item count (A5 item 6). Under a mix the oracle may trade quality between tasks, since policies are judged on the mix too. Per-task results use a per-task oracle.
+   - **Hull.** On dev, `haiku` is the cheapest config on every item, so each item's hull has at most two points: `haiku` and the cheapest config that succeeds. 46 dev items fail on every config and stay on `haiku` with score 0. On 28, `opus` fails and a cheaper config succeeds.
+   - **Ties** go to the lower config (item 5). This changes which config is reported, never a number.
+   - **Targets out of range.** A target at or below the quality of sending every item to its cheapest config gets that cost. A target above the oracle's maximum quality is "n/a (infeasible)". The §11 targets are feasible on dev under both mixes.
+   - **Value.** The LP's value is reported, fractional last upgrade included.
+   - **Invariant.** A policy that meets a target can't cost less than the oracle at that target, so `captured_fraction ≤ 1` is asserted, not assumed.
+   - The oracle uses run 0 only and is described as an optimistic upper bound (A6 item 2).
+7. **Both references answer both ways.** The oracle and the envelope each give the cost of reaching a quality target (for `captured_fraction`, §7) and the quality reachable at a given cost (for comparisons at matched cost, §8). A query outside a reference's range gives "n/a". The envelope is the upper concave hull of the four fixed-config points under a mix. It is computed in linear cost, because mixing odds are linear in cost, and drawn as a curve on the log axis. On dev it is one segment, from `haiku` to `opus_low`.
+8. **Paired bootstrap, built in Stage 3** (§4). Source groups are resampled within each task and the mix weights applied afterwards: 2,000 seeded resamples, percentile 95% intervals. The same resamples serve every policy and reference, so differences from the frontier and captured fractions get intervals, and the oracle is re-solved on each resample. McNemar's test arrives with the first router in Stage 4.
+9. **Safety margin: one paired standard error** (§8). "One standard error of the quality estimate" means one standard error of the policy's quality difference from the frontier on dev, from item 8's bootstrap, per mix and per candidate threshold.
+   - **Why paired.** Quality targets are relative to frontier quality on the same items (§11), so the luck of which items were drawn moves the frontier and the target together. Whether a target is met depends on the difference.
+   - **Why it matters.** On the realistic mix, where MBPP+'s 107 dev items carry 65% of the weight, a fixed config's own standard error is about 2.4 points, but its paired standard error against `opus` is 1.2–1.8 points. A 2.4-point margin would ask for dev quality of 89.1%, 88.3% and 86.5% at the 100/99/97% targets: above every config's quality for the first two, and about `opus`'s own for the third.
+   - Fixed before any router exists.
+10. **Chart v0** (§12): dev, run 0, n = 744, list prices of 2026-10-12.
+    - **Headline figure.** Realistic and uniform panels. x is cost per 1,000 requests on a log scale; y is mix-weighted quality. The four configs are points with their own 95% intervals on both axes, A (`opus`) and B (`haiku`) labeled. C is the envelope and D the oracle, labeled an optimistic upper bound; neither has a band. Dotted lines mark the three §11 targets. The caption says differences between policies are judged by the paired intervals in the table, and the realistic panel carries A7 item 2's note.
+    - **Per-task figure.** A 2×2 of the four configs with intervals and each task's own oracle and envelope. No target lines, since verdicts are given for the mixes only (A7 item 2). The IFEval and MBPP+ panels carry A7's warning with their dev counts (157 and 107).
+    - **Table v0.**
+      - Per mix, for each config: quality and cost per 1k with intervals, savings against A, and the paired quality difference from A.
+      - Per mix, at each target: the oracle's cost and savings, the envelope's cost and captured fraction, and the oracle's routing mix.
+      - Per mix, once: the oracle's maximum quality and the number of items every config fails.
+      - Per task: each config's quality and cost with intervals, and the oracle's maximum quality. No target rows.
+    - **Files.** Each figure is a PNG with a JSON of every plotted number, committed under `figures/` and overwritten as later stages add to the chart; git keeps the history. They hold aggregates of dev only.
+11. **Code** (§13). `analysis/` is a package of scripts run like the harness (`uv run python -m analysis.<script>`), adding numpy and matplotlib. Pandas and notebooks are dropped, since the harness works with plain rows.
+    - `analysis/check_simulator.py` checks the greedy oracle against a brute-force whole-item knapsack on small random matrices, and the envelope and trace accounting against hand-worked cases.
+    - The analysis code reads only `results/dev_matrix.sqlite`, refuses rows outside train and dev, and doesn't name the sealed store (A6 item 4).
+12. **Record.** When chart v0 runs, a short record of its headline numbers is added here, including the paired interval of the `opus_low` − `opus` quality gap.
 
 ---
 
@@ -506,7 +558,7 @@ These come straight from the matrix, with **no new API calls**:
 
 ## Random mixtures
 
-Mixing two configs at fixed odds traces the straight line between their cost–quality points. With three or more configs, the reference is the best fixed mix at each cost: the convex envelope of the fixed-config points. Include router overhead when comparing a real system. A system below this envelope still routes requests; it just does worse than ignoring the prompt.
+Mixing two configs at fixed odds traces the straight line between their cost–quality points. With three or more configs, the reference is the best fixed mix at each cost: the convex envelope of the fixed-config points, computed in linear cost (Amendment A8 item 7). Include router overhead when comparing a real system. A system below this envelope still routes requests; it just does worse than ignoring the prompt.
 
 ## Hindsight oracle
 
@@ -531,9 +583,9 @@ oracle_savings(target) = frontier_cost − oracle_cost(target)
 captured_fraction      = (frontier_cost − system_cost) / oracle_savings(target)
 ```
 
-Report `captured_fraction` only when the system meets the target and `oracle_savings > 0`; otherwise report "n/a".
+Report `captured_fraction` only when the system meets the target and `oracle_savings > 0`; otherwise report "n/a". Edge cases (weights, ties, targets out of range, the `captured_fraction ≤ 1` invariant) are fixed in Amendment A8 item 6.
 
-Every router and cascade is then scored by lookup: for each item, read the cost and quality of the row for each config it used.
+Every router and cascade is then scored by lookup: for each item, read the cost and quality of the row for each config it used. Each policy hands the offline simulator one trace per item, and costs are at list price (Amendment A8 items 2 and 4).
 
 ---
 
@@ -557,7 +609,7 @@ Shared decision rule: **pick the cheapest config whose score ≥ t.** Sweeping `
 
 ## Selecting operating thresholds
 
-For each headline quality target (§11), choose `t` where estimated quality **clears the target by a stated margin** — default: at least one standard error of the quality estimate. A threshold where dev quality only just meets the target would miss on test about half the time from noise alone. The same rule applies to gate cutoffs in cascades (§9).
+For each headline quality target (§11), choose `t` where estimated quality **clears the target by a stated margin** — default: at least one standard error of the quality estimate, read as one paired standard error of the policy's quality difference from the frontier (Amendment A8 item 9). A threshold where dev quality only just meets the target would miss on test about half the time from noise alone. The same rule applies to gate cutoffs in cascades (§9).
 
 - Select on dev; for the trained router, on its out-of-fold dev predictions (cross-fitting, Amendment A5). v4 also allowed cross-validation over train+dev; Amendment A1 drops it because the frontier config doesn't run on train, and every threshold replay needs frontier outcomes for the items it escalates. The larger 30% dev split offsets most of the lost precision.
 - Record the margin, selection method, and chosen thresholds before Stage 8.
@@ -745,6 +797,7 @@ Quality
 
 - One curve per router and cascade, with CI bands
 - Oracle curve and frontier point as references; random-mixture envelope as the prompt-independent floor
+- Chart v0's contents, its table and where its files go: Amendment A8 item 10
 
 > For a given budget, what's the highest quality obtainable? For a required quality, what's the lowest cost?
 
@@ -763,7 +816,7 @@ Quality
 | Language | Python |
 | Model access | Anthropic API directly for all model tiers, with the Message Batches API for bulk runs (Amendment A1); Jev via TypeSafe's API (`POST /v1/systemone`) |
 | Storage | SQLite: dev matrix, sealed test store, gate verdicts |
-| Analysis | pandas + notebooks; matplotlib |
+| Analysis | scripts with numpy + matplotlib (Amendment A8; was pandas + notebooks) |
 | Trained router | sentence embeddings + scikit-learn |
 | Stretch | FAISS or pgvector (S2); FastAPI proxy (S4); Streamlit or Next.js (S5) |
 
@@ -776,6 +829,7 @@ harness/                      runner, evaluators
 routers/                      rules.py, trained.py, jev.py
 gates/                        schema.py, code_exec.py, jev_gate.py, verifier.py
 analysis/                     offline simulator, oracle LP, bootstrap, plots
+figures/                      charts on dev, each with a JSON of its numbers (Amendment A8)
 results/dev_matrix.sqlite
 results/test_sealed.sqlite    no analysis-code access until Stage 8
 ```
