@@ -87,6 +87,8 @@ uv run python -m harness.run_pilot --pilot-file data/pilot_math_level5.jsonl --f
 uv run python -m harness.run_pilot --pilot-file data/pilot_added_sources.jsonl --formats free
 uv run python -m harness.build_benchmark   # rebuild the frozen benchmark (seeded; byte-identical)
 uv run python -m harness.check_benchmark   # verify it against its manifest hashes
+uv run python -m harness.check_collect     # the collection runner end to end against a fake Batches API (no calls)
+uv run python -m harness.collect plan      # Stage 2 request counts and projected cost; then submit, wait, score, seal
 ```
 
 The first LiveCodeBench load downloads about 690 MB and writes its decoded tests (about 500 MB)
@@ -112,11 +114,11 @@ system, none of your files, an unprivileged user, and caps on memory, processes,
 ## Layout
 
 ```text
-PLAN_v4.md           study design (frozen for Stage 0, with amendments A1–A4)
+PLAN_v4.md           study design (frozen for Stage 0, with amendments A1–A6)
 configs/models.yaml  pinned model configs, output caps and price snapshot
 configs/task_mix.yaml  the uniform and realistic task mixes
 harness/             API client, response store, dataset loaders, evaluators, code sandbox, pilot
-                     builder and runner
+                     builder and runner, benchmark builder, collection runner
 harness/ifeval/      Google's IFEval instruction checkers, vendored at a pinned commit
 harness/ifbench/     AI2's IFBench instruction checkers, vendored at a pinned commit
 sandbox/             Dockerfile for the code sandbox image

@@ -5,7 +5,7 @@
 | Version | v4 |
 | Status | Final — frozen for Stage 0 |
 | Date | 2026-10-12 |
-| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen |
+| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions |
 | Supersedes | [PLAN_v3.md](docs/history/PLAN_v3.md) — earlier versions in [docs/history/](docs/history/) |
 
 ## What changed from v3
@@ -32,6 +32,7 @@
 | v4-A3 | 2026-10-16 | Amendment A3: pilot decisions: core tasks, structured outputs, output caps, budget |
 | v4-A4 | 2026-10-16 | Amendment A4: IFBench and LiveCodeBench tested as additions, not adopted; `haiku` cap 64,000 |
 | v4-A5 | 2026-10-16 | Amendment A5: benchmark and splits frozen; cross-fitting for the trained router; task mixes |
+| v4-A6 | 2026-10-18 | Amendment A6: collection-run decisions: noise runs and how they're used, sealed test store, batch safeguards |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -172,6 +173,22 @@ Stage 1's decisions, made before any collection call, so the freeze on Stages 2�
    **Caveat.** The realistic mix is two-thirds coding, while MBPP+ is easier than typical coding traffic, so the realistic headline likely overstates coding savings. Per-task results are always reported.
 7. **Freeze.** The build is seeded and reproduces its files byte for byte. `data/benchmark_manifest.json` records the counts, the groups and the noise subset. It also records the sha256 of `data/benchmark.jsonl`, of each split's ID list, of `configs/task_mix.yaml` and of every pilot file. `harness/check_benchmark.py` verifies them before the Stage 2 collection run, and again in Stage 8 before test is scored.
 8. **Budget.** The pilot's per-item costs put the collection run's model calls at these counts at about $30: IFEval $13.77, Banking77 $7.32, MMLU-Pro $6.74, MBPP+ $2.00. The noise subset's extra runs add a few dollars.
+
+## Amendment A6 — Collection-run decisions (2026-10-18)
+
+Stage 2's decisions, made before any collection call, so the freeze on Stages 2–8 still holds. Applied in §6 and `harness/collect.py`.
+
+1. **Noise subset: three runs in all.** The 75 noise-subset items (A5 item 4) run through every config as run 0 with the rest of dev, then twice more as runs 1 and 2: 600 extra requests, about $2–3. Every strategy, reference and threshold uses run 0 only. Runs 1 and 2 feed only the noise measure.
+2. **How the noise measure is used.** Without `temperature`, each stored answer is one draw, and a lucky or unlucky draw looks the same as a real strength or weakness. The hindsight oracle is the most exposed: it sends each item to the cheapest config that succeeded on run 0, so a lucky draw counts as savings no deployable system could rely on. Fixed before any data:
+   - The **flip rate** is the share of (item, config) pairs in the noise subset whose success differs across the three runs. It is reported per config and per task next to the confidence intervals.
+   - If any config's flip rate is 5% or more, the write-up and charts describe the oracle curve as an optimistic upper bound.
+3. **What may be seen of test before Stage 8.** For test, the collection run reports only request outcomes (succeeded, errored, expired, canceled), how many responses report a model other than the pinned one, and total cost. It reports no stop reasons, per-config token counts, answers or grades.
+4. **Where test answers live.** Test results are written only to `results/test_sealed.sqlite`, never to the JSON response store. Once every test request has a result, the file is made read-only and its sha256 is recorded, with the batch IDs and counts, in the committed `data/collection_manifest.json`. `harness/collect.py` is the only module that names the path. Stage 8 verifies the hash before scoring.
+5. **Batch request IDs.** Each request's `custom_id` is its item ID with `:` replaced by `-`, then the config and run, e.g. `mmlu_pro-4346_opus_low_r0`. Results are matched by `custom_id`, never by order (A1 item 5).
+6. **Safeguards.**
+   - Each batch's ID is saved as soon as the batch is created, so a re-run never resubmits a request that is stored or still in flight. Only errored and expired requests are resubmitted.
+   - Submission runs `check_benchmark` first (A5 item 7) and refuses to go ahead if the cost projected from pilot rates exceeds a stated cap.
+   - Before the collection run, at most 20 pilot items run on `haiku` through the Batches API (A1 item 8).
 
 ---
 
@@ -409,7 +426,7 @@ Dev matrix row (illustrative values):
 Notes:
 
 - **Four configs** (Amendment A1): `haiku`, `sonnet`, `opus_low`, `opus`. Add more only if the pilot and budget support them, up to about 5–6.
-- **Nondeterminism:** the Claude 5.5 models reject `temperature`, so it isn't set. Re-run ~10% of dev 3× to measure run-to-run noise.
+- **Nondeterminism:** the Claude 5.5 models reject `temperature`, so it isn't set. Re-run ~10% of dev 3× to measure run-to-run noise (three runs in all, run 0 included; Amendment A6).
 
 Output (illustrative):
 
