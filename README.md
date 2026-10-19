@@ -8,9 +8,11 @@ model per request) and cascades (which try a cheap model first and escalate when
 fails) against two references: a hindsight oracle that shows the most any strategy could save,
 and random mixtures that show what you get with no routing intelligence at all.
 
-**Status:** Stages 0 and 1 are done. The pilot chose four tasks ([Amendment A3](PLAN_v4.md)), and the
-benchmark of 2,478 items is split and frozen ([Amendment A5](PLAN_v4.md)). Stage 2, the
-collection run, is next. There are no study results yet.
+**Status:** Stages 0–2 are done. The pilot chose four tasks ([Amendment A3](PLAN_v4.md)), the
+benchmark of 2,478 items is split and frozen ([Amendment A5](PLAN_v4.md)), and the collection run
+has answered every item through every config for $29.37: train and dev are scored, and test is
+sealed until Stage 8 ([Amendment A6](PLAN_v4.md)). Stage 3, the offline simulator and reference
+baselines, is next. There are no study results yet.
 
 ## Approach
 

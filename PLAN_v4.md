@@ -32,7 +32,7 @@
 | v4-A3 | 2026-10-16 | Amendment A3: pilot decisions: core tasks, structured outputs, output caps, budget |
 | v4-A4 | 2026-10-16 | Amendment A4: IFBench and LiveCodeBench tested as additions, not adopted; `haiku` cap 64,000 |
 | v4-A5 | 2026-10-16 | Amendment A5: benchmark and splits frozen; cross-fitting for the trained router; task mixes |
-| v4-A6 | 2026-10-18 | Amendment A6: collection-run decisions: noise runs and how they're used, sealed test store, batch safeguards |
+| v4-A6 | 2026-10-18 | Amendment A6: collection-run decisions: noise runs and how they're used, sealed test store, batch safeguards; the collection run's record |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -189,6 +189,20 @@ Stage 2's decisions, made before any collection call, so the freeze on Stages 2�
    - Each batch's ID is saved as soon as the batch is created, so a re-run never resubmits a request that is stored or still in flight. Only errored and expired requests are resubmitted.
    - Submission runs `check_benchmark` first (A5 item 7) and refuses to go ahead if the cost projected from pilot rates exceeds a stated cap.
    - Before the collection run, at most 20 pilot items run on `haiku` through the Batches API (A1 item 8).
+
+**The collection run (2026-10-18).** The smoke run (20 pilot items on `haiku`, $0.004) went through end to end. Then all 9,521 requests ran as three batches, one per split, and every one succeeded the first time, in about 10 minutes, so nothing was resent. The batch IDs are in `data/collection_manifest.json`.
+
+- **Cost:** $29.37 (train $7.57, dev with the noise runs $12.02, test $9.78), against $32.03 projected. That brings spending to about $38 of the $150 ceiling.
+- **Models:** every response reports its pinned model ID.
+- **Sealed store:** 2,972 test responses, sha256 `2ea23b7e20a847d2f18a8efa2b1d19c4205b10145ddd52e69f84b405fa2d2d58`, read-only.
+- **Train/dev stops:** none of the 6,549 scored rows is a format failure.
+  - `mmlu_pro:6586` (dev, noise subset), a benign question on where the Lassa and Ebola viruses come from, drew a `bio` refusal from `opus` and `opus_low` on all three runs, before any output. `haiku` and `sonnet` answered it correctly every time.
+  - `sonnet` hit its 16,000-token cap once, on `mmlu_pro:9170`.
+- **Noise measure (item 2):** flip rates are `haiku` 5/75 (6.7%), `sonnet` 3/75 (4.0%), `opus_low` 4/75 (5.3%) and `opus` 3/75 (4.0%). IFEval flips most. `haiku` and `opus_low` are at or over 5%, so the oracle curve is described as an optimistic upper bound.
+- **Evaluator hand check (§14):** `harness/review_collection.py` sampled 20 run-0 wrong answers per task. All 80 were graded correctly:
+  - Banking77 and MMLU-Pro: the grader read the JSON `answer` exactly.
+  - IFEval: each failed instruction was confirmed from the answer text.
+  - MBPP+: none of the 116 MBPP+ failures is a `NameError`, `SyntaxError` or import error, so the grader never picked the wrong code block. One sampled item is item noise like A3 item 6: `mbppplus:800` asks to remove all whitespace, but its tests expect newlines kept.
 
 ---
 
