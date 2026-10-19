@@ -114,7 +114,7 @@ def split(groups: list[list[dict]], rng: random.Random, stratum=None) -> dict[st
     for group in groups:
         strata[stratum(group[0]) if stratum else ""].append(group)
     names = list(SPLIT_SHARES)
-    splits = {name: [] for name in names}
+    splits: dict[str, list] = {name: [] for name in names}
     seen = 0
     for key in sorted(strata):
         order = strata[key][:]
@@ -122,7 +122,10 @@ def split(groups: list[list[dict]], rng: random.Random, stratum=None) -> dict[st
         before = {name: len(splits[name]) for name in names}
         seen += sum(len(g) for g in order)
         # Cumulative boundaries after this stratum: train ends at 40%, dev at 70%.
-        bounds = {"train": round(SPLIT_SHARES["train"] * seen), "dev": round((SPLIT_SHARES["train"] + SPLIT_SHARES["dev"]) * seen)}
+        bounds = {
+            "train": round(SPLIT_SHARES["train"] * seen),
+            "dev": round((SPLIT_SHARES["train"] + SPLIT_SHARES["dev"]) * seen),
+        }
         quota = {"train": bounds["train"] - before["train"], "dev": bounds["dev"] - bounds["train"] - before["dev"]}
         quota["test"] = sum(len(g) for g in order) - quota["train"] - quota["dev"]
         taken = dict.fromkeys(names, 0)
@@ -145,7 +148,9 @@ def main() -> None:
     pilot_files = sorted(DATA_DIR.glob("pilot*.jsonl"))
     pilot_ids = {json.loads(line)["item_id"] for path in pilot_files for line in path.open()}
 
-    benchmark, tasks_manifest, noise_subset = [], {}, []
+    benchmark: list[dict] = []
+    tasks_manifest: dict[str, dict] = {}
+    noise_subset: list[str] = []
     for task, (loader, target, answer_format) in TASKS.items():
         pool = [x for x in loader() if x["item_id"] not in pilot_ids and x["item_id"] not in EXCLUDED]
         groups = group_items(pool)
@@ -191,7 +196,9 @@ def main() -> None:
     }
     MANIFEST_FILE.write_text(json.dumps(manifest, indent=2) + "\n")
 
-    print(f"{'task':10s} {'available':>9s} {'drawn':>6s} {'train':>6s} {'dev':>5s} {'test':>5s} {'noise':>6s} {'dup groups':>11s}")
+    print(
+        f"{'task':10s} {'available':>9s} {'drawn':>6s} {'train':>6s} {'dev':>5s} {'test':>5s} {'noise':>6s} {'dup groups':>11s}"
+    )
     for task, t in tasks_manifest.items():
         s = t["splits"]
         print(f"{task:10s} {t['available']:9d} {t['drawn']:6d} {s['train']:6d} {s['dev']:5d} {s['test']:5d} "

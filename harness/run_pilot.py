@@ -267,7 +267,7 @@ def main() -> int:
     if unknown:
         parser.error(f"unknown config(s) or format(s): {', '.join(unknown)}")
 
-    taken = Counter()
+    taken: Counter[str] = Counter()
     items = []
     pilot_file = PROJECT_ROOT / args.pilot_file
     for line in pilot_file.open():

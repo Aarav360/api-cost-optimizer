@@ -23,7 +23,6 @@ import json
 import sys
 
 from harness.build_benchmark import BENCHMARK_FILE, DATA_DIR, MANIFEST_FILE, SPLIT_SHARES, TASK_MIX_FILE
-from harness.client import PROJECT_ROOT
 from harness.evaluators import score
 
 
@@ -42,8 +41,8 @@ def main() -> int:
     if hashlib.sha256(TASK_MIX_FILE.read_bytes()).hexdigest() != hashes["configs/task_mix.yaml"]:
         problems.append("configs/task_mix.yaml does not match its manifest hash")
     for name in SPLIT_SHARES:
-        ids = "\n".join(sorted(x["item_id"] for x in items if x["split"] == name))
-        if hashlib.sha256(ids.encode("utf-8")).hexdigest() != hashes[f"{name}_ids"]:
+        listing = "\n".join(sorted(x["item_id"] for x in items if x["split"] == name))
+        if hashlib.sha256(listing.encode("utf-8")).hexdigest() != hashes[f"{name}_ids"]:
             problems.append(f"{name} split IDs do not match their manifest hash")
     for name, digest in manifest["pilot_files"].items():
         if hashlib.sha256((DATA_DIR / name).read_bytes()).hexdigest() != digest:

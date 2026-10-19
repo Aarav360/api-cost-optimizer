@@ -199,9 +199,7 @@ def run_python(source: str, timeout_s: float = 10.0, memory: str = MEMORY) -> Ex
 
 
 def build_image() -> None:
-    subprocess.run(
-        [_docker(), "build", "-t", IMAGE, str(DOCKERFILE_DIR)], check=True, env=_docker_env()
-    )
+    subprocess.run([_docker(), "build", "-t", IMAGE, str(DOCKERFILE_DIR)], check=True, env=_docker_env())
 
 
 if __name__ == "__main__":

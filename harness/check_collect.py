@@ -38,7 +38,17 @@ from anthropic.types.messages import MessageBatchIndividualResponse
 from harness import run_pilot
 from harness.client import PROJECT_ROOT, build_request, load_models
 from harness.collect import (
-    FRONTIER, MAIN, load_jobs, load_state, open_sealed, paths_under, save_state, score_all, seal, sealed_ids, submit,
+    FRONTIER,
+    MAIN,
+    load_jobs,
+    load_state,
+    open_sealed,
+    paths_under,
+    save_state,
+    score_all,
+    seal,
+    sealed_ids,
+    submit,
     wait,
 )  # fmt: skip
 from harness.store import ResponseStore
@@ -71,10 +81,15 @@ class FakeBatches:
                 if kind == "succeeded":
                     result = {"type": "succeeded", "message": self.answers[custom_id]}
                 elif kind == "errored":
-                    result = {"type": "errored", "error": {"type": "error", "error": {"type": "api_error", "message": "fake"}}}
+                    result = {
+                        "type": "errored",
+                        "error": {"type": "error", "error": {"type": "api_error", "message": "fake"}},
+                    }
                 else:
                     result = {"type": kind}
-                outcomes.append(MessageBatchIndividualResponse.model_validate({"custom_id": custom_id, "result": result}))
+                outcomes.append(
+                    MessageBatchIndividualResponse.model_validate({"custom_id": custom_id, "result": result})
+                )
             random.Random(len(self.outcomes)).shuffle(outcomes)  # results arrive in any order
             self.outcomes[batch_id] = outcomes
         return iter(self.outcomes[batch_id])
@@ -106,7 +121,9 @@ def main() -> int:
     for job in jobs:
         pilot_request = build_request(models["configs"][job.config], job.item["prompt"], run_pilot.PILOT_MAX_TOKENS,
                                       output_schema=job.item.get("output_schema"))  # fmt: skip
-        answers[job.custom_id] = pilot_store.get(pilot_request)["response"]
+        record = pilot_store.get(pilot_request)
+        assert record is not None, f"no pilot response for {job.custom_id}"
+        answers[job.custom_id] = record["response"]
     dev_fail = next(job.custom_id for job in jobs if job.split == "dev")
     test_fail = next(job.custom_id for job in jobs if job.split == "test")
     batches = FakeBatches(answers, {dev_fail: "errored", test_fail: "expired"})
@@ -149,7 +166,9 @@ def main() -> int:
             batch["ingested_at"] = None
         save_state(paths, state)
         wait(paths, jobs, models, client, poll_s=0)
-        check((store_snapshot(paths.store), sealed_ids(paths)) == before, "storing the same batches twice changes nothing")
+        check(
+            (store_snapshot(paths.store), sealed_ids(paths)) == before, "storing the same batches twice changes nothing"
+        )
 
         print("\n-- score --")
         score_all(paths, jobs, models, rescore=False)

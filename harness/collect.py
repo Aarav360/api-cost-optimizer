@@ -112,7 +112,9 @@ def build_jobs(items: list[dict], models: dict, configs: list[str], noise_ids: s
             if item["split"] == "train" and name == FRONTIER:
                 continue
             config = models["configs"][name]
-            request = build_request(config, item["prompt"], config["max_tokens"], output_schema=item.get("output_schema"))
+            request = build_request(
+                config, item["prompt"], config["max_tokens"], output_schema=item.get("output_schema")
+            )
             for run in (0, *NOISE_RUNS) if item["item_id"] in noise_ids else (0,):
                 jobs.append(Job(make_custom_id(item["item_id"], name, run), item["split"], item, name, run, request))
 
@@ -134,7 +136,7 @@ def load_jobs(smoke: bool, models: dict) -> list[Job]:
         noise = set(json.loads(MANIFEST_FILE.read_text())["noise_subset"])
         return build_jobs(items, models, list(models["configs"]), noise)
 
-    taken = Counter()
+    taken: Counter[str] = Counter()
     items = []
     for line in PILOT_FILE.open():
         item = json.loads(line)
@@ -264,7 +266,9 @@ def ingest(paths: Paths, entry: dict, by_id: dict[str, Job], models: dict, clien
     what is printed about them is the same for every split: outcomes, cost, mismatches."""
     store = ResponseStore(paths.store)
     sealed = open_sealed(paths) if entry["split"] == "test" else None
-    counts, failed, cost, mismatched = Counter(), {}, 0.0, 0
+    counts: Counter[str] = Counter()
+    failed: dict[str, dict] = {}
+    cost, mismatched = 0.0, 0
     stored_at = now()
     try:
         for result in client.messages.batches.results(entry["id"]):
@@ -408,7 +412,10 @@ def score_all(paths: Paths, jobs: list[Job], models: dict, rescore: bool) -> Non
 
 def summarize(conn: sqlite3.Connection, configs: list[str]) -> None:
     rows = conn.execute("SELECT split, source, config, run, status, cost_usd, model != reported_model FROM rows")
-    cells, cost, runs, mismatched = defaultdict(Counter), defaultdict(list), Counter(), 0
+    cells: defaultdict[tuple, Counter[str]] = defaultdict(Counter)
+    cost: defaultdict[str, list[float]] = defaultdict(list)
+    runs: Counter[int] = Counter()
+    mismatched = 0
     for split, source, config, run, status, dollars, mismatch in rows:
         runs[run] += 1
         mismatched += mismatch
@@ -492,7 +499,9 @@ def plan(paths: Paths, jobs: list[Job], models: dict) -> None:
             size = len(json.dumps(batch_requests(group)).encode("utf-8"))
             print(f"  {split} batch: {len(group)} requests, {size / 1e6:.1f} MB")
     pending, in_flight = pending_jobs(paths, jobs, load_state(paths))
-    print(f"{len(jobs)} requests in all; projected {usd(projected_cost(jobs, models))} at pilot rates, Batches API price.")
+    print(
+        f"{len(jobs)} requests in all; projected {usd(projected_cost(jobs, models))} at pilot rates, Batches API price."
+    )
     print(f"Not yet stored: {len(pending)} ({usd(projected_cost(pending, models))}); in flight: {len(in_flight)}.")
 
 
