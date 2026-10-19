@@ -116,27 +116,32 @@ system, none of your files, an unprivileged user, and caps on memory, processes,
 ## Layout
 
 ```text
-PLAN_v4.md           study design (frozen for Stage 0, with amendments A1–A6)
+PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A7)
+WRITEUP.md           the final write-up (to come) and running notes for it
 configs/models.yaml  pinned model configs, output caps and price snapshot
 configs/task_mix.yaml  the uniform and realistic task mixes
 harness/             API client, response store, dataset loaders, evaluators, code sandbox, pilot
-                     builder and runner, benchmark builder, collection runner
+                     builder and runner, benchmark builder and checker, collection runner, check
+                     and review scripts, LiveCodeBench test runner (unused; Amendment A4)
 harness/ifeval/      Google's IFEval instruction checkers, vendored at a pinned commit
 harness/ifbench/     AI2's IFBench instruction checkers, vendored at a pinned commit
 sandbox/             Dockerfile for the code sandbox image
 data/benchmark.jsonl the frozen benchmark: 2,478 items split 40/30/30, plus its hash manifest
 data/pilot*.jsonl    Stage 0 pilot items: 20 per candidate dataset, 20 MATH Level 5 items, and
                      20 each from IFBench and LiveCodeBench
+data/collection_manifest.json  batch IDs, counts and the sealed test store's hash (Amendment A6)
+results/             response store, dev matrix and sealed test store (not committed)
 .cache/              downloaded tool data and LiveCodeBench's decoded tests (not committed)
 docs/history/        earlier versions of the plan
 ```
 
 ## Progress
 
-- [x] Study plan frozen (v4, amendments A1–A4)
+- [x] Study plan frozen (v4, amendments A1–A7)
 - [x] Harness: API client, on-disk response store, pinned model configs
 - [x] Dataset loaders at pinned revisions, and 120 pilot items
-- [x] Docker code sandbox (18/18 escape checks; 376/378 MBPP+ reference solutions pass)
+- [x] Docker code sandbox (18/18 escape checks; 377/377 MBPP+ reference solutions pass under the
+      grader's limits, with 1 excluded)
 - [x] Evaluators for the six candidate datasets, checked against every reference answer in the
       candidate pools
 - [x] Pilot runner, tested on an 18-item Haiku trial
@@ -145,8 +150,9 @@ docs/history/        earlier versions of the plan
 - [x] IFBench and LiveCodeBench tested as extra items for the two smallest tasks ($3.89); not added
 - [x] Stage 1: benchmark frozen. IFEval 521, Banking77 800, MMLU-Pro 800 and MBPP+ 357 items, split
       40/30/30 and stratified, with a noise subset, the two task mixes and hashes
-- [ ] Stages 2–8: collection run, references, routers, gates and cascades, final evaluation on
-      the sealed test split
+- [x] Stage 2: collection run ($29.37); train and dev scored, test sealed
+- [ ] Stages 3–8: references, routers, gates and cascades, final evaluation on the sealed test
+      split
 
 ## License
 

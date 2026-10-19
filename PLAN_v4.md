@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Version | v4 |
-| Status | Final — frozen for Stage 0 |
+| Status | Final — frozen before Stage 0, then changed only by the amendments below |
 | Date | 2026-10-12 |
-| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions |
+| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed |
 | Supersedes | [PLAN_v3.md](docs/history/PLAN_v3.md) — earlier versions in [docs/history/](docs/history/) |
 
 ## What changed from v3
@@ -33,6 +33,7 @@
 | v4-A4 | 2026-10-16 | Amendment A4: IFBench and LiveCodeBench tested as additions, not adopted; `haiku` cap 64,000 |
 | v4-A5 | 2026-10-16 | Amendment A5: benchmark and splits frozen; cross-fitting for the trained router; task mixes |
 | v4-A6 | 2026-10-18 | Amendment A6: collection-run decisions: noise runs and how they're used, sealed test store, batch safeguards; the collection run's record |
+| v4-A7 | 2026-10-19 | Amendment A7: pilot latency and cost per item recorded; claims on the mixes, per-task warnings for IFEval and MBPP+; freeze hashes; MBPP+ reference check under the grader's limits |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -78,7 +79,7 @@ Made before any pilot or collection calls, so the freeze still holds. Applied in
 
 Stage 0's decisions, made from the pilot before any benchmark item is drawn or any collection call is made, so the freeze on Stages 1–8 still holds. Applied in §5 and `configs/models.yaml`.
 
-**The pilot.** 20 items from each of the six candidate datasets (`data/pilot.jsonl`) ran through all four configs on the standard API with a 32,000-token output cap. Banking77, MMLU-Pro, MATH and CRUXEval ran twice, in free text and as structured outputs (item 2), so 800 calls in all. A supplement of 20 MATH Level 5 items (`data/pilot_math_level5.jsonl`) ran as structured outputs only. Together they cost $4.72. No call errored, was refused, or hit the output cap, and every response reported its pinned model ID. Rows with answers are in `results/pilot/` (not committed). Every evaluator was first checked against the reference answers of the full candidate pools (`harness/check_evaluators.py`), and the pilot's format failures and every item that all four configs got wrong were read by hand.
+**The pilot.** 20 items from each of the six candidate datasets (`data/pilot.jsonl`) ran through all four configs on the standard API with a 32,000-token output cap. Banking77, MMLU-Pro, MATH and CRUXEval ran twice, in free text and as structured outputs (item 2), so 800 calls in all. A supplement of 20 MATH Level 5 items (`data/pilot_math_level5.jsonl`) ran as structured outputs only. Together they cost $4.72. No call errored, was refused, or hit the output cap, and every response reported its pinned model ID. Rows with answers are in `results/pilot/` (not committed). Every evaluator was first checked against the reference answers of the full candidate pools (`harness/check_evaluators.py`; for MBPP+, `harness/check_sandbox.py`, Amendment A7), and the pilot's format failures and every item that all four configs got wrong were read by hand.
 
 Correct answers out of 20 (Banking77 and MMLU-Pro as structured outputs):
 
@@ -203,6 +204,46 @@ Stage 2's decisions, made before any collection call, so the freeze on Stages 2�
   - Banking77 and MMLU-Pro: the grader read the JSON `answer` exactly.
   - IFEval: each failed instruction was confirmed from the answer text.
   - MBPP+: none of the 116 MBPP+ failures is a `NameError`, `SyntaxError` or import error, so the grader never picked the wrong code block. One sampled item is item noise like A3 item 6: `mbppplus:800` asks to remove all whitespace, but its tests expect newlines kept.
+
+## Amendment A7 — Stage 0–1 records completed (2026-10-19)
+
+From a review of Stages 0 and 1, made after the collection run and before Stage 3. It changes no item, split, mix, evaluator, output cap or stored answer, so the A5 hashes and the A6 sealed store stand. Applied in A3, §5, §10, §11 and `harness/check_sandbox.py`.
+
+1. **Pilot latency and cost per item.** Stage 0 was to record both (§14), and offline latency estimates use the pilot's (A1 item 5), but A3 gave only totals. From the pilot's rows (`results/pilot/pilot.rows.jsonl`, not committed): the four core tasks in the formats the collection run uses, 20 items per task and config, on the standard API with 8 calls in flight. Latency runs from request to last token, SDK retries included.
+
+   Latency in seconds, median (p90):
+
+   | Task | `haiku` | `sonnet` | `opus_low` | `opus` |
+   |---|---|---|---|---|
+   | All four (80 calls) | 2.8 (10.8) | 2.5 (10.6) | 3.1 (11.7) | 3.7 (16.9) |
+   | IFEval | 6.9 (15.5) | 10.0 (19.6) | 11.1 (19.3) | 14.0 (32.8) |
+   | Banking77 | 2.0 (2.8) | 1.5 (1.8) | 1.7 (2.6) | 2.2 (3.7) |
+   | MMLU-Pro | 4.0 (6.9) | 3.0 (4.7) | 3.4 (8.4) | 4.5 (6.3) |
+   | MBPP+ | 1.6 (3.6) | 2.1 (3.8) | 2.3 (4.7) | 3.4 (5.5) |
+
+   Cost per item in dollars, standard API (the Batches API is half):
+
+   | Task | `haiku` | `sonnet` | `opus_low` | `opus` |
+   |---|---|---|---|---|
+   | IFEval | 0.00110 | 0.01291 | 0.02107 | 0.02964 |
+   | Banking77 | 0.00028 | 0.00408 | 0.00816 | 0.00963 |
+   | MMLU-Pro | 0.00040 | 0.00401 | 0.00739 | 0.00842 |
+   | MBPP+ | 0.00020 | 0.00274 | 0.00443 | 0.00635 |
+
+   These per-item costs reproduce A5 item 8's projection to the cent.
+2. **Claims rest on the two mixes; IFEval and MBPP+ per-task results carry a warning.** §5 asks for "a few hundred test items per task type before making per-task claims". A5 kept 40/30/30, so IFEval has 156 test items and MBPP+ 107 (A3 item 5 read IFEval's as short), while Banking77 and MMLU-Pro have 240 each. Fixed before Stage 3, so before any routing result exists:
+   - **Headline claims are made on the two mixes.** Quality-target verdicts ("met" or "not met", §11) are given only for the mixes: a single task's confidence interval is several points wide, too wide to confirm a target within 1–3 points of frontier quality.
+   - **Per-task results are always shown**, with their confidence intervals, in the per-task tables (§10) and the per-task chart (§12), so a mix can't hide a task where routing does badly (§4).
+   - **IFEval and MBPP+ carry a warning** wherever their per-task results appear, e.g. "Only 107 test items, below the plan's minimum of a few hundred; indicative." The write-up draws no per-task conclusion from them. Banking77 and MMLU-Pro carry no warning.
+   - **The realistic-mix headline carries a note** that the mix is two-thirds MBPP+, so it leans on the smallest test split and its confidence interval is wider than the uniform mix's. It sits beside A5 item 6's caveat.
+
+   This only narrows what is claimed.
+3. **Freeze hashes, recorded outside the manifest.** The benchmark's hashes lived only in `data/benchmark_manifest.json`, and nothing hashed the manifest itself, which holds the noise subset. At the A5 freeze:
+   - `data/benchmark.jsonl`: `7b2ab45dca7efae470b541e4e08cc680fdd672ef6555d39b61a72cb0455cf0d2`
+   - `data/benchmark_manifest.json`: `c67caa9493c9344aab40d4fcbab99f1a982f62e2e57780280e43bab94db77921`
+
+   Stage 8 compares both files against these values, as well as running `check_benchmark` (A5 item 7), before test is scored.
+4. **MBPP+ reference check under the grader's limits.** A5 item 1 says `mbppplus:255`'s reference solution passes at 3 GB, but no committed check ran it there. `harness/check_sandbox.py` ran every reference at the sandbox default of 512 MB, so it reported 376/378, failing `mbppplus:255` and the excluded `mbppplus:590`, and `harness/check_evaluators.py` covers only pilot items. `check_sandbox` now uses the grader's own time and memory limits (`evaluators.CODE_TIMEOUT_S` and `CODE_MEMORY`) and skips excluded items: 377/377 pass, and the 18 escape checks still pass (2026-10-19). `mbppplus:255` is in test, so no collection-run score depended on it.
 
 ---
 
@@ -378,7 +419,7 @@ test   30%   sealed until Stage 8
 ## Size
 
 - Enough items for overall quality CIs around ±1–2 points; the pilot gives the variance.
-- A few hundred test items per task type before making per-task claims.
+- A few hundred test items per task type before making per-task claims. IFEval (156) and MBPP+ (107) fall short: their per-task results are shown with a warning and draw no conclusions, and quality-target verdicts are given only for the mixes (Amendment A7).
 
 ## Task mix
 
@@ -655,7 +696,7 @@ Development experiments run offline from the dev matrix and stored gate verdicts
 | J | I + provider caching/batch *(stretch S1, modeled)* | curves |
 | K | + semantic cache / context optimizer *(stretch S2–S3)* | curves |
 
-Final results table (test split, realistic mix; repeat for the uniform mix and per task; each policy at its pre-selected threshold):
+Final results table (test split, realistic mix; repeat for the uniform mix and per task, with IFEval's and MBPP+'s marked indicative per Amendment A7; each policy at its pre-selected threshold):
 
 | System | Quality (95% CI) | Cost / 1k | Savings vs A | % of oracle savings at matched quality | Estimated p50 latency |
 |---|---:|---:|---:|---:|---:|
@@ -681,7 +722,7 @@ at  99% of frontier quality:  savings ?   (Δ ≈ −0.9 pts)
 at  97% of frontier quality:  savings ?   (Δ ≈ −2.8 pts)
 ```
 
-Thresholds come from §8, with the safety margin. If a policy misses its target on test, mark it **not met** and report its achieved quality and cost. Never sweep thresholds on test to claim savings at an exact target.
+Thresholds come from §8, with the safety margin. If a policy misses its target on test, mark it **not met** and report its achieved quality and cost. Verdicts are given for the two mixes only; per-task results are shown without one (Amendment A7). Never sweep thresholds on test to claim savings at an exact target.
 
 ---
 

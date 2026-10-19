@@ -14,9 +14,9 @@ from pathlib import Path
 
 import harness.client  # noqa: F401  (loads .env, so the key is in this process's environment)
 from harness.client import PROJECT_ROOT
-from harness.evaluators import mbppplus_program
-from harness.loaders import load_mbppplus
-from harness.sandbox import MAX_OUTPUT_BYTES, PIDS_LIMIT, SandboxError, run_python
+from harness.evaluators import CODE_MEMORY, CODE_TIMEOUT_S, mbppplus_program
+from harness.loaders import EXCLUDED, load_mbppplus
+from harness.sandbox import MAX_OUTPUT_BYTES, MEMORY, PIDS_LIMIT, SandboxError, run_python
 
 OUTSIDE_FILE = Path("/tmp") / "sandbox-escape-test.txt"
 
@@ -174,7 +174,12 @@ def check_escapes() -> int:
 
 
 def check_mbppplus_references() -> int:
-    """Every MBPP+ reference solution should pass its own tests inside the sandbox."""
+    """Every MBPP+ reference solution should pass its own tests under the grader's limits.
+
+    The grader's time and memory limits are used, including the 3 GB it gives
+    mbppplus:255 (evaluators.CODE_MEMORY), so a pass here means code_tests would
+    score the reference correct. Items in loaders.EXCLUDED are skipped.
+    """
     from datasets import load_dataset
 
     from harness.loaders import REVISIONS
@@ -184,15 +189,19 @@ def check_mbppplus_references() -> int:
 
     def run(item):
         program = mbppplus_program(reference[item["item_id"]], item["expected_answer"])
-        return item["item_id"], run_python(program, timeout_s=20)
+        memory = CODE_MEMORY.get(item["item_id"], MEMORY)
+        return item["item_id"], run_python(program, timeout_s=CODE_TIMEOUT_S, memory=memory)
 
+    items = load_mbppplus()
+    kept = [item for item in items if item["item_id"] not in EXCLUDED]
     with ThreadPoolExecutor(max_workers=8) as pool:
-        results = list(pool.map(run, load_mbppplus()))
+        results = list(pool.map(run, kept))
 
-    failed = [(item_id, r) for item_id, r in results if r.returncode != 0]
+    # The grader's pass rule (evaluators.code_tests).
+    failed = [(item_id, r) for item_id, r in results if r.returncode != 0 or r.timed_out]
     durations = [r.duration_s for _, r in results]
     print(
-        f"MBPP+ references: {len(results) - len(failed)}/{len(results)} pass | "
+        f"MBPP+ references: {len(results) - len(failed)}/{len(results)} pass, {len(items) - len(kept)} excluded | "
         f"duration median {statistics.median(durations):.2f}s, max {max(durations):.2f}s"
     )
     for item_id, r in failed:

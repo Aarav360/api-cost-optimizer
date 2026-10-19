@@ -13,7 +13,8 @@ scored. Exits nonzero on any problem:
 - the noise subset lies within dev;
 - every Banking77 and MMLU-Pro reference answer scores correct, and every IFEval
   item's instructions build. MBPP+ reference solutions are covered by
-  check_sandbox (and mbppplus:255 by check_evaluators' memory override).
+  check_sandbox, which runs them under the grader's limits (3 GB for
+  mbppplus:255).
 """
 
 import collections
