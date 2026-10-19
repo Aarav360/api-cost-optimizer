@@ -1,0 +1,54 @@
+{
+  "figure": "pareto.png",
+  "built_by": "analysis/pareto.py",
+  "split": "dev",
+  "run": 0,
+  "n": 744,
+  "price_snapshot": "2026-10-12",
+  "units": {
+    "quality": "mix-weighted share of items answered correctly, 0 to 1",
+    "cost_per_1k": "mix-weighted dollars per 1,000 requests, at list price"
+  },
+  "panels": {
+    "realistic": {
+      "configs": {
+        "haiku": {
+          "quality": 0.8330189296981964,
+          "cost_per_1k": 0.28747953997261744
+        },
+        "sonnet": {
+          "quality": 0.8454631228049289,
+          "cost_per_1k": 3.8037449842252515
+        },
+        "opus_low": {
+          "quality": 0.8777174112546382,
+          "cost_per_1k": 6.564753152519
+        },
+        "opus": {
+          "quality": 0.8674428785443579,
+          "cost_per_1k": 8.04290568441574
+        }
+      }
+    },
+    "uniform": {
+      "configs": {
+        "haiku": {
+          "quality": 0.8454562027501636,
+          "cost_per_1k": 0.42894680845958094
+        },
+        "sonnet": {
+          "quality": 0.8605912182272755,
+          "cost_per_1k": 5.811656911497709
+        },
+        "opus_low": {
+          "quality": 0.8969463708157231,
+          "cost_per_1k": 9.605308329116813
+        },
+        "opus": {
+          "quality": 0.8953984736194615,
+          "cost_per_1k": 12.013344059170189
+        }
+      }
+    }
+  }
+}

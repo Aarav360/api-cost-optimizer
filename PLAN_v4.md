@@ -256,7 +256,7 @@ Stage 3's decisions, from a design review made before any Stage 3 code, router o
    |---|---|---|---|---|
    | `haiku` | 84.5% | 0.43 | 83.3% | 0.29 |
    | `sonnet` | 86.1% | 5.81 | 84.5% | 3.80 |
-   | `opus_low` | 89.7% | 9.61 | 87.8% | 6.57 |
+   | `opus_low` | 89.7% | 9.61 | 87.8% | 6.56 |
    | `opus` | 89.5% | 12.01 | 86.7% | 8.04 |
 
    The quality gap is 0.15 points under the uniform mix and 1.0 under the realistic mix, mostly two MBPP+ items out of 107, so it is likely noise (item 12 records its interval). Making `opus_low` the frontier after seeing dev would be a post-hoc choice, so A1 stands. The finding is reported, and the random-mixture envelope already credits it: `opus_low` is one of its corners, so always-`opus_low` sets savings that any router has to beat.
