@@ -1,0 +1,3 @@
+# Frozen benchmark and pilot items: git grep and git diff report a match or a change without printing
+# thousands of characters of item text. Their hashes are checked by harness/check_benchmark.py.
+data/*.jsonl -diff

@@ -14,7 +14,7 @@ one dev request (errored) and one test request (expired) the first time. Checks:
   cost (Batches API price);
 - seal refuses while a test result is missing, then records a hash that matches the
   file, makes it read-only, refuses later writes, and verifies itself when re-run;
-- no other harness module names the sealed store.
+- no code but harness/collect.py names the sealed store (check_sealed).
 
 Needs the pilot's stored responses (results/) and the Docker sandbox for MBPP+.
 Everything else happens in a temporary folder.
@@ -35,11 +35,10 @@ from types import SimpleNamespace
 
 from anthropic.types.messages import MessageBatchIndividualResponse
 
-from harness import run_pilot
-from harness.client import PROJECT_ROOT, build_request, load_models
+from harness import check_sealed, run_pilot
+from harness.client import build_request, load_models
 from harness.collect import (
     FRONTIER,
-    MAIN,
     load_jobs,
     load_state,
     open_sealed,
@@ -199,9 +198,8 @@ def main() -> int:
         check(seal(paths, jobs, None) == 0, "sealing again verifies the hash")
         os.chmod(paths.sealed, 0o644)  # so the temporary folder can be removed
 
-    harness = PROJECT_ROOT / "harness"
-    naming = [p.name for p in harness.glob("*.py") if p.name != "collect.py" and MAIN.sealed.name in p.read_text()]
-    check(not naming, f"no other harness module names the sealed store {naming}")
+    named = check_sealed.naming_files()
+    check(not named, f"no code but harness/collect.py names the sealed store {named}")
 
     print("\nall checks passed" if not problems else f"\n{len(problems)} checks failed")
     return 1 if problems else 0

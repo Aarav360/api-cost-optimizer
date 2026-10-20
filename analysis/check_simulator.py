@@ -17,7 +17,7 @@ On the dev results matrix:
   and dev, and a row for an item the benchmark doesn't hold in train or dev;
 - only train and dev items are loaded, and only run 0;
 - the four fixed configs' totals match Amendment A8 item 1's table under both mixes;
-- no analysis module names the sealed store.
+- no analysis module names the sealed store (check_sealed, over the whole repo).
 """
 
 import math
@@ -26,8 +26,8 @@ from collections import Counter
 
 from analysis.matrix import Matrix, MatrixError, from_store, list_price, read_store
 from analysis.simulator import Total, Trace, TraceError, always, load_mixes, simulate, totals
-from harness.client import PROJECT_ROOT, load_models
-from harness.collect import MAIN
+from harness import check_sealed
+from harness.client import load_models
 
 DEV_TASKS = {"ifeval": 157, "banking77": 240, "mmlu_pro": 240, "mbppplus": 107}  # Amendment A5, item 3
 # Amendment A8, item 1 (dev, run 0, list prices): quality % and $ per 1k under each mix.
@@ -138,10 +138,8 @@ def main() -> int:
         check(got == want, f"{config}: {shown} per 1k, as in Amendment A8 item 1")
 
     print("\n-- the sealed store --")
-    # The same search finds harness/collect.py, the one module that names it, so it can't pass by finding nothing.
-    named = sorted(p.name for p in (PROJECT_ROOT / "analysis").rglob("*.py") if MAIN.sealed.name in p.read_text())
-    found = MAIN.sealed.name in (PROJECT_ROOT / "harness" / "collect.py").read_text()
-    check(found and not named, f"no analysis module names the sealed store, which harness/collect.py does {named}")
+    named = check_sealed.naming_files()
+    check(not named, f"no code but harness/collect.py names the sealed store, analysis modules included {named}")
 
     print("\nall checks passed" if not problems else f"\n{len(problems)} checks failed")
     return 1 if problems else 0

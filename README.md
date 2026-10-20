@@ -78,6 +78,9 @@ key in a `.env` file at the project root (`ANTHROPIC_API_KEY=...`; it's gitignor
 
 ```bash
 uv sync
+git config core.hooksPath .githooks        # once per clone: run the fast checks before every commit
+.githooks/pre-commit                       # the fast checks: ruff, mypy, check_sealed, check_simulator
+uv run python -m harness.check_sealed      # no code but harness/collect.py names the sealed test store
 uv run python -m harness.smoke_test        # one Haiku call: checks the key and the response store
 uv run python -m harness.sandbox --build   # build the pinned sandbox image
 uv run python -m harness.check_sandbox     # escape checks + every MBPP+ reference solution
@@ -118,6 +121,8 @@ system, none of your files, an unprivileged user, and caps on memory, processes,
 ```text
 PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A7)
 WRITEUP.md           the final write-up (to come) and running notes for it
+CODING_STANDARDS.md  the judgement calls code review applies; ruff and mypy (pyproject.toml) cover the rest
+.githooks/pre-commit the fast checks, run before every commit; CI runs them too (.github/workflows/)
 configs/models.yaml  pinned model configs, output caps and price snapshot
 configs/task_mix.yaml  the uniform and realistic task mixes
 harness/             API client, response store, dataset loaders, evaluators, code sandbox, pilot

@@ -28,6 +28,8 @@ LADDER = ("haiku", "sonnet", "opus_low", "opus")
 assert LADDER[-1] == FRONTIER
 
 SPLITS = ("train", "dev")  # test stays sealed until Stage 8 (Amendment A6)
+# A task (GLOSSARY.md) is the store's `source` column. Its `task_type` column holds a coarser label
+# (coding, classification, ...) that the analysis doesn't use.
 STORE_COLUMNS = ("item_id", "split", "source", "config", "model", "run", "input_tokens", "output_tokens", "cost_usd",
                  "success", "price_snapshot")  # fmt: skip
 
