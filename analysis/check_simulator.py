@@ -10,19 +10,22 @@ On a synthetic matrix, where the right answer is worked out by hand:
   and its overhead, and is right exactly when opus is;
 - the simulator refuses a trace set that misses an item, covers one twice or has a
   trace for an item not in the matrix, and a trace that names an unknown config, calls
-  a config with no stored answer, calls no config or calls one twice, or calls opus on
-  a train item (with its own refusal, even where no opus answer is stored), and
-  evaluates none of the set;
+  a config with no stored answer, calls no config or calls one twice, calls configs
+  down the config ladder, calls opus on a train item (with its own refusal, even where
+  no opus answer is stored), or has an overhead that is negative, not a number or
+  infinite, and evaluates none of the set;
 - a mix that doesn't weigh exactly the outcomes' tasks is refused;
 - a reference curve gives the cost at a quality and the quality at a cost along the
-  straight lines between its corners, both ends included, and n/a outside its range; it
+  straight lines between its corners, both ends included; a quality outside its range
+  and a cost below it give n/a, and a cost past its last corner its top quality; it
   refuses no corners, a corner that isn't a finite number, and corners whose quality or
   cost doesn't rise; the envelope refuses no points, a point that isn't a finite number
   (even one that would drop out of the hull), and a point off the config ladder;
 - the random-mixture envelope keeps four corners where each config buys less quality
   per dollar than the one below, drops a config below the hull and one costlier with no
   higher quality, gives an exact tie's corner to the lower config, returns the starting
-  quality on a round trip, and gives n/a past both ends;
+  quality on a round trip, gives n/a past both ends of its qualities and below its
+  cheapest point, and past its costliest point reaches that point's quality;
 - the hindsight oracle's corners, its cost at a quality, its quality at a cost and its
   routing mix, with the last upgrade fractional, where an item every config fails stays
   on its cheapest config; with scores between 0 and 1, items with three and four hull
@@ -30,7 +33,8 @@ On a synthetic matrix, where the right answer is worked out by hand:
   tasks, which each task's own oracle can't; every item starts on its own cheapest
   config, even where that isn't haiku; exact cost ties and equally steep upgrades go to
   the lower config; a target at or below always-cheapest's quality gets its cost, one
-  above the maximum is n/a, and so is a cost outside the curve's; round trips from a
+  above the maximum is n/a, and so is a cost below always-cheapest's, while a cost
+  past the maximum's reaches the maximum; round trips from a
   quality and from a cost; an item that weighs 0 is never upgraded; it refuses weights
   that miss an item, name one not in the matrix, are negative, aren't a number or don't
   sum to 1, and an item with no stored answer; a matrix refuses a cell for a config off
@@ -64,14 +68,16 @@ On a synthetic matrix, where the right answer is worked out by hand:
   overhead and the envelope never capture more than 1 in any resample;
 - the safety margin is the paired difference's standard error, and the frontier's is 0.
 
-On the dev results matrix:
+On the dev results matrix, where each number checked against Amendment A8 is read from
+PLAN_v4.md itself, never copied into this script:
 
 - every row's cost recomputed from its tokens at list price is exactly twice its
   stored batch cost, and the loader refuses a row where it isn't, a row outside train
   and dev, a row for an item the benchmark doesn't hold in train or dev, a row priced
   at another snapshot, and two run-0 rows for one item and config;
 - only train and dev items are loaded, and only run 0;
-- the four fixed configs' totals match Amendment A8 item 1's table under both mixes;
+- the four fixed configs' totals under both mixes are the rows of Amendment A8 item 1's
+  table, and the check catches the rounding slip that table once carried;
 - the config ladder is the order of mean cost per request in every task and both
   mixes, and its per-item inversions and exact cost ties are as Amendment A8 item 5
   gives them;
@@ -94,7 +100,8 @@ On the dev results matrix:
   per-mix totals, each the mix's weighting of the per-task ones;
 - chart v0's committed figures (analysis.pareto) are of dev, run 0, n = 744 at the
   snapshot's prices; their config points, under both mixes and per task, are the
-  package's fixed-config totals to the last bit; all three quality targets are feasible
+  package's fixed-config totals to the last bit; both JSONs, rebuilt from the package
+  with the same resamples, match the committed ones in every number; all three quality targets are feasible
   under both mixes; at each the oracle costs no more than the envelope; every captured
   fraction, interval bounds included, is at most 1; the items every config fails are
   Amendment A8 item 6's; and only IFEval's and MBPP+'s panels carry A7's warning, with
@@ -119,7 +126,7 @@ import numpy as np
 
 from analysis.bootstrap import Bootstrap, BootstrapError, Captured, Estimate, resample
 from analysis.matrix import LADDER, Item, Matrix, MatrixError, from_store, list_price, read_store
-from analysis.pareto import FIGURE_DATA, TASK_FIGURE_DATA
+from analysis.pareto import FIGURE_DATA, PANELS, TASK_FIGURE_DATA, mix_panel, task_panels
 from analysis.references import (
     BoundError,
     Curve,
@@ -147,26 +154,9 @@ from harness import check_sealed
 from harness.client import PROJECT_ROOT, load_models
 
 DEV_TASKS = {"ifeval": 157, "banking77": 240, "mmlu_pro": 240, "mbppplus": 107}  # Amendment A5, item 3
-# Amendment A8, item 1 (dev, run 0, list prices): quality % and $ per 1k under each mix.
-A8_TABLE = {
-    "haiku": {"uniform": (84.5, 0.43), "realistic": (83.3, 0.29)},
-    "sonnet": {"uniform": (86.1, 5.81), "realistic": (84.5, 3.80)},
-    "opus_low": {"uniform": (89.7, 9.61), "realistic": (87.8, 6.56)},
-    "opus": {"uniform": (89.5, 12.01), "realistic": (86.7, 8.04)},
-}
-# Amendment A8, item 5 (dev): the % of items on which a config costs more than the next one up the ladder, and
-# the exact cost ties between two configs on one item.
-A8_ABOVE_NEXT = {("sonnet", "opus_low"): "4.8", ("opus_low", "opus"): "12.8"}
-A8_TIES, A8_TIES_BANKING77 = {("opus_low", "opus"): 234}, 209
-# Amendment A8, item 6 (dev): the items every config fails, and those opus fails and a cheaper config gets right.
-A8_ORACLE_ITEMS = (46, 28)
-# Amendment A8, item 9 (dev, realistic mix), in points: a fixed config's own standard error, about 2.4; its paired
-# standard error against opus; and the dev quality an unpaired margin (the target plus opus's own standard error)
-# would ask for at each quality target. Ranges allow for the seed.
-A8_OWN_SE, A8_PAIRED_SE = (2.1, 2.6), (1.2, 1.8)
-A8_UNPAIRED_BARS, A8_BAR_TOLERANCE = {1.0: 89.1, 0.99: 88.3, 0.97: 86.5}, 0.15
 # Amendment A7, item 2: the tasks whose per-task results carry a warning, which names the task's dev count.
 A7_WARNED = {"ifeval", "mbppplus"}
+# Amendment A8's numbers on dev are read from the plan itself, never copied here, so an edit there can't drift.
 PLAN = PROJECT_ROOT / "PLAN_v4.md"
 
 
@@ -327,7 +317,7 @@ def cheapest_whole(choices: list[tuple[float, float]], quality: float) -> float 
 def random_policies(rng: np.random.Generator) -> tuple[Matrix, dict[str, float], list[list[Trace]]]:
     """A matrix of 4 to 12 items in two tasks, every item on every config at $1 to $6 per 1k with 0/1 or quarter
     scores, some items sharing a source group; a random mix; and five random policies. Each item's trace calls 1 to
-    4 configs in a random order, so most are cascades, with overhead of up to $0.002 a request."""
+    4 random configs up the ladder, so most are cascades, with overhead of up to $0.002 a request."""
     scores = [0, 1] if rng.random() < 0.5 else [0, 0.25, 0.5, 0.75, 1]
     count = int(rng.integers(4, 13))
     items = {f"i{i:02}": ("t1" if i % 2 else "t2", {config: (int(rng.integers(1, 7)) / 1000, float(rng.choice(scores)))
@@ -335,7 +325,8 @@ def random_policies(rng: np.random.Generator) -> tuple[Matrix, dict[str, float],
     groups = {item_id: f"g{int(rng.integers(count))}" for item_id in items}
     matrix = synthetic(items, groups={item_id: f"{items[item_id][0]}-{group}" for item_id, group in groups.items()})
     share = float(rng.uniform(0.1, 0.9))
-    policies = [[Trace(item_id, tuple(str(c) for c in rng.choice(LADDER, size=int(rng.integers(1, 5)), replace=False)),
+    policies = [[Trace(item_id, tuple(sorted((str(c) for c in rng.choice(LADDER, size=int(rng.integers(1, 5)), replace=False)),
+                                            key=LADDER.index)),
                        float(rng.choice([0, 0.0001, 0.002]))) for item_id in matrix.items] for _ in range(5)]  # fmt: skip
     return matrix, {"t1": share, "t2": 1 - share}, policies
 
@@ -460,11 +451,14 @@ def record_lines(headline: dict) -> list[str]:
     ]  # fmt: skip
 
 
-def a8_record(plan: str) -> list[str]:
-    """Amendment A8 item 12's lines, from its number to the rule that ends the amendment."""
+def a8_item(plan: str, number: int) -> str:
+    """Amendment A8 item `number`'s text, from its number to the next item's, or to the rule that ends the
+    amendment."""
     amendment = plan[plan.index("## Amendment A8") :]
-    record = amendment[amendment.index("12. **Record.**") :]
-    return record[: record.index("\n---\n")].splitlines()
+    amendment = amendment[: amendment.index("\n---\n")]
+    start = amendment.index(f"\n{number}. **") + 1
+    end = amendment.find(f"\n{number + 1}. **", start)
+    return amendment[start : None if end == -1 else end]
 
 
 def record_mismatches(record: list[str], headline: dict) -> list[tuple[str, str]]:
@@ -477,6 +471,11 @@ def record_mismatches(record: list[str], headline: dict) -> list[tuple[str, str]
 def rounded(total: Total) -> tuple[str, str]:
     """As A8's table gives it: quality % to 1 decimal, cost per 1k to 2."""
     return f"{100 * total.quality:.1f}", f"{total.cost_per_1k:.2f}"
+
+
+def table_row(config: str, uniform: Total, realistic: Total) -> str:
+    """A config's row of Amendment A8 item 1's table, as the plan prints it."""
+    return "| `{}` | {}% | {} | {}% | {} |".format(config, *rounded(uniform), *rounded(realistic))
 
 
 def main() -> int:
@@ -543,6 +542,12 @@ def main() -> int:
     refuses(TraceError, lambda: simulate(HAND, [*haiku[:2], Trace("c", ())]), "a trace that calls no config is refused")
     refuses(TraceError, lambda: simulate(HAND, [*haiku[:2], Trace("c", ("haiku", "haiku"))]),
             "a trace that calls a config twice on one item is refused")  # fmt: skip
+    refuses(TraceError, lambda: simulate(HAND, [*haiku[:2], Trace("c", ("opus", "haiku"))]),
+            "a trace that calls configs down the config ladder is refused", says="ladder")  # fmt: skip
+    # A negative overhead would make a policy look cheaper, and one that isn't a number would spoil every total.
+    for what, overhead in (("negative", -0.0001), ("not a number", math.nan), ("infinite", math.inf)):
+        refuses(TraceError, lambda: simulate(HAND, [*haiku[:2], Trace("c", ("haiku",), overhead)]),
+                f"a trace whose overhead is {what} is refused", says="overhead")  # fmt: skip
     check(len(simulate(TRAIN, [Trace("u", ("haiku", "opus_low")), Trace("v", ("haiku", "opus_low"))])) == 2,
           "a cascade on train items that stops below the frontier is evaluated")  # fmt: skip
     refuses(TraceError, lambda: simulate(TRAIN, [Trace("u", ("haiku",)), Trace("v", ("haiku", "opus"))]),
@@ -560,8 +565,11 @@ def main() -> int:
           "quality at a cost: $2 per 1k reaches 83%, $5 reaches 88%")  # fmt: skip
     check((curve.cost_at(0.80), curve.cost_at(0.90), curve.quality_at(1), curve.quality_at(7)) == (1, 7, 0.80, 0.90),
           "both ends are in range: the first and last corners answer with each other's coordinate")  # fmt: skip
-    check((curve.cost_at(0.79), curve.cost_at(0.91), curve.quality_at(0.99), curve.quality_at(7.01)) == (None,) * 4,
-          "a query outside the curve's range gives n/a (None), below it and above it, both ways")  # fmt: skip
+    check((curve.cost_at(0.79), curve.cost_at(0.91), curve.quality_at(0.99)) == (None,) * 3,
+          "a quality outside the curve's range gives n/a (None), below it and above it, and so does a cost below its "
+          "first corner")  # fmt: skip
+    check((curve.quality_at(7.01), curve.quality_at(100)) == (0.90, 0.90),
+          "a cost past the last corner reaches the curve's top quality, 90%: a bigger budget needn't be spent")  # fmt: skip
     refuses(CurveError, lambda: Curve({"haiku": Total(0.80, 1), "sonnet": Total(0.86, 3), "opus": Total(0.85, 7)}),
             "a curve whose quality falls from one corner to the next is refused")  # fmt: skip
     refuses(CurveError, lambda: Curve({"haiku": Total(0.80, 1), "sonnet": Total(0.86, 1)}),
@@ -594,9 +602,10 @@ def main() -> int:
               for quality in qualities),
           "a round trip, the cost at a quality and then the quality at that cost, returns the starting quality, "
           "from 80% to 92% in steps of half a point")  # fmt: skip
-    past_ends = (four_corners.cost_at(0.7999), four_corners.cost_at(0.9201), four_corners.quality_at(0.999),
-                 four_corners.quality_at(8.001))  # fmt: skip
-    check(past_ends == (None,) * 4, "the envelope gives n/a below haiku's point and above opus's, both ways")
+    past_ends = (four_corners.cost_at(0.7999), four_corners.cost_at(0.9201), four_corners.quality_at(0.999))
+    check(past_ends == (None,) * 3 and four_corners.quality_at(8.001) == 0.92,
+          "the envelope gives n/a below haiku's point both ways and above opus's quality; past opus's cost it reaches "
+          "opus's 92%, by picking opus alone")  # fmt: skip
 
     print("\n-- the hindsight oracle on a hand-worked matrix --")
     # Under HAND_MIX, a and b weigh 0.375 each and c 0.25. a is right on haiku, so opus can't improve it; c is
@@ -655,8 +664,9 @@ def main() -> int:
           "a target at or below always-cheapest's 37.5% costs its $1.875 per 1k, every item on its cheapest config")  # fmt: skip
     check(near(hand.cost_at(0.75), 3.375) and hand.cost_at(0.7501) is None and hand.routing_at(0.7501) is None,
           "its maximum, 75%, costs $3.375 per 1k; a target above it is n/a (infeasible), cost and routing mix")  # fmt: skip
-    check(hand.quality_at(1.8) is None and hand.quality_at(3.4) is None,
-          "a cost below always-cheapest's or above the maximum's gives n/a")  # fmt: skip
+    check(hand.quality_at(1.8) is None and hand.quality_at(3.4) == 0.75,
+          "a cost below always-cheapest's $1.875 per 1k gives n/a; above its maximum's $3.375 the oracle reaches its "
+          "maximum, 75%, without spending the rest")  # fmt: skip
     qualities = [float(quality) for quality in np.linspace(0.2, 0.975, 63)]  # every corner and points between
     costs = [float(cost) for cost in np.linspace(1, 8, 29)]
     check(all((paid := scored.cost_at(quality)) is not None and near(scored.quality_at(paid), quality)
@@ -909,13 +919,18 @@ def main() -> int:
     refuses(MatrixError, lambda: from_store([real, real]), "two run-0 rows for one item and config are refused")
 
     print("\n-- fixed configs on dev --")
+    plan = PLAN.read_text()
     mixes = load_mixes()
     fixed = {config: simulate(dev, always(dev, config)) for config in LADDER}
-    for config, expected in A8_TABLE.items():
-        got = {mix: rounded(totals(fixed[config], mixes[mix])) for mix in expected}
-        want = {mix: (f"{quality:.1f}", f"{cost:.2f}") for mix, (quality, cost) in expected.items()}
-        shown = ", ".join(f"{mix} {quality}% ${cost}" for mix, (quality, cost) in got.items())
-        check(got == want, f"{config}: {shown} per 1k, as in Amendment A8 item 1")
+    table = a8_item(plan, 1)
+    a8_rows = {config: table_row(config, totals(fixed[config], mixes["uniform"]), totals(fixed[config], mixes["realistic"]))
+               for config in LADDER}  # fmt: skip
+    for config, row in a8_rows.items():
+        check(row in table, f"{config}: {row}, a row of Amendment A8 item 1's table in PLAN_v4.md")
+    # A guard proves it can fail: the rounding slip item 1's table once carried, a cost's last digit one too high.
+    slip = re.sub(r"(\d) \|$", lambda m: f"{(int(m[1]) + 1) % 10} |", a8_rows["opus_low"])
+    check(a8_rows["opus_low"] not in table.replace(a8_rows["opus_low"], slip),
+          f"the table check catches a slip in one number: {slip}")  # fmt: skip
 
     print("\n-- the config ladder on dev --")
     fixed_by_task = {config: task_totals(outcomes) for config, outcomes in fixed.items()}
@@ -925,18 +940,19 @@ def main() -> int:
     for where, costs in ladder_costs.items():
         check(all(lower < higher for lower, higher in pairwise(costs)),
               f"{where}: {' < '.join(f'${cost:.2f}' for cost in costs)} per 1k, the ladder's order (A8 item 5)")  # fmt: skip
+    ladder = a8_item(plan, 5)
     item_cost = {key: cell.cost for key, cell in dev.cells.items()}
-    for (lower, higher), share in A8_ABOVE_NEXT.items():
-        above = sum(item_cost[(item_id, lower)] > item_cost[(item_id, higher)] for item_id in dev.items)
-        got_share = f"{100 * above / len(dev.items):.1f}"
-        check(got_share == share,
-              f"{lower} costs more than {higher} on {above} items ({got_share}%), as in Amendment A8 item 5")  # fmt: skip
+    above = {(lower, higher): f"{100 * sum(item_cost[(i, lower)] > item_cost[(i, higher)] for i in dev.items) / len(dev.items):.1f}"
+             for lower, higher in (("sonnet", "opus_low"), ("opus_low", "opus"))}  # fmt: skip
+    said = (f"`sonnet` costs more than `opus_low` on {above[('sonnet', 'opus_low')]}% of dev items, `opus_low` more "
+            f"than `opus` on {above[('opus_low', 'opus')]}%")  # fmt: skip
+    check(said in ladder, f"{said}, as Amendment A8 item 5 says")
     ties = [(item_id, pair) for item_id in dev.items for pair in combinations(LADDER, 2)
             if item_cost[(item_id, pair[0])] == item_cost[(item_id, pair[1])]]  # fmt: skip
     pairs, tasks = Counter(pair for _, pair in ties), Counter(dev.items[item_id].task for item_id, _ in ties)
-    check(pairs == A8_TIES and tasks["banking77"] == A8_TIES_BANKING77,
-          f"exact cost ties between two configs on one item {dict(pairs)}, {tasks['banking77']} of them on "
-          f"Banking77, as in Amendment A8 item 5")  # fmt: skip
+    between = "all between `{}` and `{}`".format(*next(iter(pairs))) if len(pairs) == 1 else f"between {dict(pairs)}"
+    said = f"on dev there are {len(ties)}, {between} ({tasks['banking77']} on Banking77"
+    check(said in ladder, f"exact cost ties between two configs on one item: {said}), as Amendment A8 item 5 says")
 
     print("\n-- the random-mixture envelope on dev --")
     for mix in ("uniform", "realistic"):
@@ -957,9 +973,9 @@ def main() -> int:
     right = {item_id: {config for config in LADDER if dev.cells[(item_id, config)].success} for item_id in dev.items}
     fail_everywhere = [item_id for item_id, configs in right.items() if not configs]
     beat_opus = [item_id for item_id, configs in right.items() if configs and "opus" not in configs]
-    check((len(fail_everywhere), len(beat_opus)) == A8_ORACLE_ITEMS,
-          f"{len(fail_everywhere)} items fail on every config, and on {len(beat_opus)} opus fails and a cheaper "
-          f"config succeeds, as in Amendment A8 item 6")  # fmt: skip
+    said = (f"{len(fail_everywhere)} dev items fail on every config and stay on `haiku` with score 0. On "
+            f"{len(beat_opus)}, `opus` fails and a cheaper config succeeds.")  # fmt: skip
+    check(said in a8_item(plan, 6), f"{said} As Amendment A8 item 6 says")
     climbers = sum(bool(configs) and "haiku" not in configs for configs in right.values())
     for mix in ("realistic", "uniform"):
         weights = item_weights(dev.items.values(), mixes[mix])
@@ -1004,22 +1020,23 @@ def main() -> int:
     realistic = mixes["realistic"]
     dev_spread = {config: draws.totals(fixed[config], realistic) for config in LADDER}
     dev_se = {config: 100 * dev_spread[config].quality.standard_error for config in LADDER}
-    check(all(A8_OWN_SE[0] <= se <= A8_OWN_SE[1] for se in dev_se.values()),
-          f"realistic mix: each fixed config's own standard error is {A8_OWN_SE[0]} to {A8_OWN_SE[1]} points, about "
-          f"2.4 as Amendment A8 item 9 says "
-          f"({', '.join(f'{config} {se:.2f}' for config, se in dev_se.items())})")  # fmt: skip
+    margin = sum(dev_se.values()) / len(dev_se)
+    margin_9 = a8_item(plan, 9)
+    said = f"a fixed config's own standard error is about {margin:.1f} points"
+    check(said in margin_9,
+          f"realistic mix: {said} (on average; {', '.join(f'{config} {se:.2f}' for config, se in dev_se.items())}), "
+          f"as Amendment A8 item 9 says")  # fmt: skip
     margins = {config: 100 * draws.safety_margin(fixed[config], fixed["opus"], realistic) for config in LADDER}
-    check(all(A8_PAIRED_SE[0] <= margins[config] <= A8_PAIRED_SE[1] for config in LADDER[:-1]) and margins["opus"] == 0,
-          f"realistic mix: each config's paired standard error against opus, its safety margin, is {A8_PAIRED_SE[0]} "
-          f"to {A8_PAIRED_SE[1]} points, as Amendment A8 item 9 says "
-          f"({', '.join(f'{c} {margins[c]:.2f}' for c in LADDER[:-1])}), and opus's own 0")  # fmt: skip
+    paired_se = [margins[config] for config in LADDER[:-1]]
+    said = f"its paired standard error against `opus` is {min(paired_se):.1f}\u2013{max(paired_se):.1f} points"
+    check(said in margin_9 and margins["opus"] == 0,
+          f"realistic mix: {said}, its safety margin ({', '.join(f'{c} {margins[c]:.2f}' for c in LADDER[:-1])}), as "
+          f"Amendment A8 item 9 says, and opus's own is 0")  # fmt: skip
+    # Item 9 adds the margin as it states it, to 1 decimal, to each quality target.
     a_quality = 100 * dev_spread["opus"].quality.value
-    bars = {share: share * a_quality + dev_se["opus"] for share in A8_UNPAIRED_BARS}
-    check(all(abs(bars[share] - bar) <= A8_BAR_TOLERANCE for share, bar in A8_UNPAIRED_BARS.items()),
-          f"realistic mix: an unpaired margin, opus's own {dev_se['opus']:.2f} points, would ask for dev quality of "
-          f"{', '.join(f'{bar:.2f}%' for bar in bars.values())} at the {'/'.join(f'{s:.0%}' for s in bars)} targets, "
-          f"against Amendment A8 item 9's {', '.join(f'{bar}%' for bar in A8_UNPAIRED_BARS.values())} (within "
-          f"{A8_BAR_TOLERANCE} points)")  # fmt: skip
+    bars = [f"{target + round(margin, 1):.1f}%" for target in quality_targets(a_quality).values()]
+    said = f"A {margin:.1f}-point margin would ask for dev quality of {bars[0]}, {bars[1]} and {bars[2]}"
+    check(said in margin_9, f"realistic mix: an unpaired margin: {said}, as Amendment A8 item 9 says")
 
     print("\n-- the captured fraction on dev --")
     for mix in ("realistic", "uniform"):
@@ -1083,12 +1100,20 @@ def main() -> int:
                   for bound in itemgetter("value", "low", "high")(target["envelope"]["captured"])]  # fmt: skip
         check(all(bound <= 1 for bound in bounds if bound is not None),
               f"{mix} mix: every captured fraction, interval bounds included, is at most 1")  # fmt: skip
-        check(panel["failed_by_every_config"] == A8_ORACLE_ITEMS[0],
-              f"{mix} mix: {panel['failed_by_every_config']} items fail on every config, as in Amendment A8 item 6")  # fmt: skip
+        check(panel["failed_by_every_config"] == len(fail_everywhere),
+              f"{mix} mix: {panel['failed_by_every_config']} items fail on every config, as on the dev matrix")  # fmt: skip
     for task, panel in per_task["panels"].items():
         plotted = {config: plotted_point(panel["configs"][config]) for config in panel["configs"]}
         check(plotted == {config: astuple(fixed_by_task[config][task]) for config in LADDER},
               f"{task}: the per-task figure's config points are the package's per-task totals, to the last bit")  # fmt: skip
+    # Rebuilt with the same resamples, both JSONs must match to the last bit: a figure left stale after the code or
+    # the matrix changed fails here, whichever of its plotted or tabled numbers moved.
+    for name, rebuilt, committed in (
+        (FIGURE_DATA.name, {mix: mix_panel(dev, draws, fixed, mixes[mix]) for mix in PANELS}, headline["panels"]),
+        (TASK_FIGURE_DATA.name, task_panels(dev, draws, fixed), per_task["panels"]),
+    ):  # fmt: skip
+        check(json.loads(json.dumps(rebuilt)) == committed,
+              f"the committed figures/{name} is current: rebuilt from the package, every number it holds matches")  # fmt: skip
     warned = {task: panel["warning"] for task, panel in per_task["panels"].items() if panel["warning"]}
     check(list(per_task["panels"]) == list(DEV_TASKS) and set(warned) == A7_WARNED
           and all(f"{DEV_TASKS[task]} dev items" in warning for task, warning in warned.items()),
@@ -1096,7 +1121,7 @@ def main() -> int:
           f"with their dev counts {warned}")  # fmt: skip
 
     print("\n-- chart v0's record (Amendment A8, item 12) --")
-    record = a8_record(PLAN.read_text())
+    record = a8_item(plan, 12).splitlines()
     mismatches = record_mismatches(record, headline)
     check(not mismatches,
           "every number in Amendment A8 item 12's record is the one figures/pareto.json gives, at the precision the "

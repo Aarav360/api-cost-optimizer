@@ -7,6 +7,7 @@ which `totals` combines under a task mix and `task_totals` per task. It reads no
 verdicts, router scores or latencies: policies turn those into traces.
 """
 
+import math
 from collections import Counter
 from collections.abc import Collection
 from dataclasses import dataclass
@@ -72,6 +73,10 @@ def validate(matrix: Matrix, traces: list[Trace]) -> None:
             raise TraceError(f"{trace.item_id}'s trace calls no config")
         if len(set(trace.configs)) != len(trace.configs):
             raise TraceError(f"{trace.item_id}'s trace calls a config twice: {trace.configs}")
+        # A negative overhead would make a policy look cheaper, and one that isn't a number would spoil every total.
+        if not (math.isfinite(trace.overhead) and trace.overhead >= 0):
+            raise TraceError(f"{trace.item_id}'s trace has an overhead of {trace.overhead}, which must be a finite "
+                             f"number of dollars, at least 0")  # fmt: skip
         for config in trace.configs:
             if config not in LADDER:
                 raise TraceError(f"{trace.item_id} calls {config!r}, which is not a config on the ladder")
@@ -81,6 +86,11 @@ def validate(matrix: Matrix, traces: list[Trace]) -> None:
                                  f"runs on train (Amendment A1, item 3)")  # fmt: skip
             if (trace.item_id, config) not in matrix.cells:
                 raise TraceError(f"{trace.item_id} calls {config}, which has no stored answer for it")
+        # A policy climbs the ladder, skipping configs if it likes (Amendment A8, item 4): one that stepped down
+        # would pay for a dearer config and then return a cheaper one's answer.
+        if list(trace.configs) != sorted(trace.configs, key=LADDER.index):
+            raise TraceError(f"{trace.item_id}'s trace calls {trace.configs}, down the config ladder "
+                             f"({' < '.join(LADDER)})")  # fmt: skip
 
 
 def simulate(matrix: Matrix, traces: list[Trace]) -> list[Outcome]:

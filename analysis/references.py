@@ -3,7 +3,9 @@
 A reference curve is a set of corners, each a quality and a cost per 1,000 requests,
 joined by straight lines in linear cost. It answers both ways: the cost of reaching a
 quality, for the captured fraction, and the quality reachable at a cost, for comparisons
-at matched cost. A query outside the curve's range gives n/a, returned as None.
+at matched cost. A quality outside the curve's range gives n/a, returned as None, and so
+does a cost below its first corner; a cost past its last corner reaches its top quality
+(Amendment A8, item 7).
 
 Reference C, the random-mixture envelope, is such a curve through fixed-config points.
 Reference D, the hindsight oracle, is the plan's LP solved greedily over each item's
@@ -61,7 +63,13 @@ class Curve:
         return _along([p.quality for p in points], [p.cost_per_1k for p in points], quality)
 
     def quality_at(self, cost_per_1k: float) -> float | None:
-        """The quality reachable at `cost_per_1k`, or None outside the curve's costs."""
+        """The quality reachable at `cost_per_1k`, or None below the curve's first corner, which nothing undercuts.
+
+        Past the last corner it is the curve's top quality: a bigger budget needn't be spent, so a policy that costs
+        more is compared with the most the reference reaches (A8 item 7).
+        """
+        if cost_per_1k > self.peak.cost_per_1k:
+            return self.peak.quality
         points = self.corners.values()
         return _along([p.cost_per_1k for p in points], [p.quality for p in points], cost_per_1k)
 
@@ -182,7 +190,8 @@ class Oracle:
         return None if point is None else point.cost_per_1k
 
     def quality_at(self, cost_per_1k: float) -> float | None:
-        """The quality reachable at `cost_per_1k`, or None outside the curve's costs."""
+        """The quality reachable at `cost_per_1k`: its maximum past its costliest corner, None below always-cheapest's
+        cost."""
         return self.curve.quality_at(cost_per_1k)
 
     def routing_at(self, quality: float) -> dict[str, float] | None:

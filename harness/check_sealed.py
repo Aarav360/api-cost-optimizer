@@ -30,10 +30,18 @@ def naming_files() -> list[str]:
 
 
 def main() -> int:
+    problems = []
+
+    def check(ok: bool, what: str) -> None:
+        print(f"{'PASS' if ok else 'FAIL'}  {what}")
+        if not ok:
+            problems.append(what)
+
+    print("-- the sealed store's name --")
     named = naming_files()
-    print(f"{'PASS' if not named else 'FAIL'}  only harness/collect.py names the sealed store in code {named}")
-    print("\nall checks passed" if not named else "\n1 check failed")
-    return 1 if named else 0
+    check(not named, f"only harness/collect.py names the sealed store in code {named}")
+    print("\nall checks passed" if not problems else f"\n{len(problems)} checks failed")
+    return 1 if problems else 0
 
 
 if __name__ == "__main__":
