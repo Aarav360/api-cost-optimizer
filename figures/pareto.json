@@ -7,7 +7,8 @@
   "price_snapshot": "2026-10-12",
   "units": {
     "quality": "mix-weighted share of items answered correctly, 0 to 1",
-    "cost_per_1k": "mix-weighted dollars per 1,000 requests, at list price"
+    "cost_per_1k": "mix-weighted dollars per 1,000 requests, at list price",
+    "envelope": "the envelope's corners, cheapest first, joined by straight lines in linear cost"
   },
   "panels": {
     "realistic": {
@@ -28,6 +29,16 @@
           "quality": 0.8674428785443579,
           "cost_per_1k": 8.04290568441574
         }
+      },
+      "envelope": {
+        "haiku": {
+          "quality": 0.8330189296981964,
+          "cost_per_1k": 0.28747953997261744
+        },
+        "opus_low": {
+          "quality": 0.8777174112546382,
+          "cost_per_1k": 6.564753152519
+        }
       }
     },
     "uniform": {
@@ -47,6 +58,16 @@
         "opus": {
           "quality": 0.8953984736194615,
           "cost_per_1k": 12.013344059170189
+        }
+      },
+      "envelope": {
+        "haiku": {
+          "quality": 0.8454562027501636,
+          "cost_per_1k": 0.42894680845958094
+        },
+        "opus_low": {
+          "quality": 0.8969463708157231,
+          "cost_per_1k": 9.605308329116813
         }
       }
     }

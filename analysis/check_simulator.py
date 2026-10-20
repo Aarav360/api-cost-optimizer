@@ -13,7 +13,15 @@ On a synthetic matrix, where the right answer is worked out by hand:
   a config with no stored answer, calls no config or calls one twice, or calls opus on
   a train item (with its own refusal, even where no opus answer is stored), and
   evaluates none of the set;
-- a mix that doesn't weigh exactly the outcomes' tasks is refused.
+- a mix that doesn't weigh exactly the outcomes' tasks is refused;
+- a reference curve gives the cost at a quality and the quality at a cost along the
+  straight lines between its corners, both ends included, and n/a outside its range; it
+  refuses corners whose quality or cost doesn't rise, or that don't each name a config,
+  and the envelope refuses no points;
+- the random-mixture envelope keeps four corners where each config buys less quality
+  per dollar than the one below, drops a config below the hull and one costlier with no
+  higher quality, gives an exact tie's corner to the lower config, returns the starting
+  quality on a round trip, and gives n/a past both ends.
 
 On the dev results matrix:
 
@@ -26,6 +34,8 @@ On the dev results matrix:
 - the config ladder is the order of mean cost per request in every task and both
   mixes, and its per-item inversions and exact cost ties are as Amendment A8 item 5
   gives them;
+- under both mixes the envelope is one segment from haiku to opus_low, with sonnet and
+  opus below it, as Amendment A8 item 7 says;
 - a toy cascade (haiku, climbing to opus on MMLU-Pro and MBPP+) prints its per-task
   totals, each haiku's or opus's quality with the calls and gate it paid for, and its
   per-mix totals, each the mix's weighting of the per-task ones;
@@ -37,7 +47,10 @@ import sys
 from collections import Counter
 from itertools import combinations, pairwise
 
+import numpy as np
+
 from analysis.matrix import LADDER, Matrix, MatrixError, from_store, list_price, read_store
+from analysis.references import Curve, CurveError, envelope
 from analysis.simulator import (
     MixError,
     Total,
@@ -102,6 +115,11 @@ def toy_cascade(matrix: Matrix) -> list[Trace]:
 def same_total(total: Total, quality: float, cost_per_1k: float) -> bool:
     return math.isclose(total.quality, quality, abs_tol=1e-12) and math.isclose(total.cost_per_1k, cost_per_1k,
                                                                                 abs_tol=1e-12)  # fmt: skip
+
+
+def near(answer: float | None, expected: float) -> bool:
+    """A reference's answer is a number close to `expected`, not n/a (None)."""
+    return answer is not None and math.isclose(answer, expected, rel_tol=1e-9)
 
 
 def rounded(total: Total) -> tuple[str, str]:
@@ -181,6 +199,49 @@ def main() -> int:
             "opus on a train item with no opus answer gets the frontier refusal, not the no-stored-answer one",
             says="Amendment A1")  # fmt: skip
 
+    print("\n-- a reference curve, both ways --")
+    # Corners $1 80%, $3 86%, $7 90% per 1k: the first segment climbs 3 points a dollar, the second 1.
+    curve = Curve((Total(0.80, 1), Total(0.86, 3), Total(0.90, 7)), ("haiku", "sonnet", "opus_low"))
+    check(near(curve.cost_at(0.83), 2) and near(curve.cost_at(0.88), 5),
+          "cost at a quality, along the straight line between corners: 83% costs $2 per 1k, 88% costs $5")  # fmt: skip
+    check(near(curve.quality_at(2), 0.83) and near(curve.quality_at(5), 0.88),
+          "quality at a cost: $2 per 1k reaches 83%, $5 reaches 88%")  # fmt: skip
+    check((curve.cost_at(0.80), curve.cost_at(0.90), curve.quality_at(1), curve.quality_at(7)) == (1, 7, 0.80, 0.90),
+          "both ends are in range: the first and last corners answer with each other's coordinate")  # fmt: skip
+    check((curve.cost_at(0.79), curve.cost_at(0.91), curve.quality_at(0.99), curve.quality_at(7.01)) == (None,) * 4,
+          "a query outside the curve's range gives n/a (None), below it and above it, both ways")  # fmt: skip
+    refuses(CurveError, lambda: Curve((Total(0.80, 1), Total(0.86, 3), Total(0.85, 7)), ("haiku", "sonnet", "opus")),
+            "a curve whose quality falls from one corner to the next is refused")  # fmt: skip
+    refuses(CurveError, lambda: Curve((Total(0.80, 1), Total(0.86, 1)), ("haiku", "sonnet")),
+            "a curve whose cost doesn't rise from one corner to the next is refused")  # fmt: skip
+    refuses(CurveError, lambda: Curve((Total(0.80, 1), Total(0.86, 3)), ("haiku",)),
+            "a curve that doesn't name one config per corner is refused")  # fmt: skip
+    refuses(CurveError, lambda: Curve((), ()), "a curve with no corners is refused")
+    refuses(CurveError, lambda: envelope({}), "the envelope of no config points is refused")
+
+    print("\n-- the random-mixture envelope on hand-worked points --")
+    # Each config up the ladder buys less quality per dollar: 6, 2, then 0.5 points per $1 per 1k.
+    bending = {"haiku": Total(0.80, 1), "sonnet": Total(0.86, 2), "opus_low": Total(0.90, 4), "opus": Total(0.92, 8)}
+    check(envelope(bending).configs == LADDER,
+          "four configs whose quality per dollar keeps falling are all corners: a four-corner envelope")  # fmt: skip
+    # Mixing haiku and opus_low half and half costs $3 per 1k for 85%, more than sonnet's 82% at $3.
+    # opus costs more than opus_low for the same 90%.
+    dropped = {"haiku": Total(0.80, 1), "sonnet": Total(0.82, 3), "opus_low": Total(0.90, 5), "opus": Total(0.90, 9)}
+    check(envelope(dropped).configs == ("haiku", "opus_low"),
+          "a config below the hull (sonnet) and one costlier with no higher quality (opus) are both dropped")  # fmt: skip
+    tied = {"sonnet": Total(0.80, 1), "haiku": Total(0.80, 1), "opus": Total(0.90, 5)}
+    check(envelope(tied).configs == ("haiku", "opus"),
+          "two configs at exactly the same point: the corner is the lower one on the ladder (A8 item 5)")  # fmt: skip
+    four_corners = envelope(bending)
+    qualities = [float(quality) for quality in np.linspace(0.80, 0.92, 25)]  # every corner and points between
+    check(all((paid := four_corners.cost_at(quality)) is not None and near(four_corners.quality_at(paid), quality)
+              for quality in qualities),
+          "a round trip, the cost at a quality and then the quality at that cost, returns the starting quality, "
+          "from 80% to 92% in steps of half a point")  # fmt: skip
+    past_ends = (four_corners.cost_at(0.7999), four_corners.cost_at(0.9201), four_corners.quality_at(0.999),
+                 four_corners.quality_at(8.001))  # fmt: skip
+    check(past_ends == (None,) * 4, "the envelope gives n/a below haiku's point and above opus's, both ways")
+
     print("\n-- the dev results matrix --")
     rows = read_store()
     prices = load_models()["prices"]
@@ -233,6 +294,22 @@ def main() -> int:
     check(pairs == A8_TIES and tasks["banking77"] == A8_TIES_BANKING77,
           f"exact cost ties between two configs on one item {dict(pairs)}, {tasks['banking77']} of them on "
           f"Banking77, as in Amendment A8 item 5")  # fmt: skip
+
+    print("\n-- the random-mixture envelope on dev --")
+    for mix in ("uniform", "realistic"):
+        points = {config: totals(fixed[config], mixes[mix]) for config in LADDER}
+        sonnet, opus_low, opus = points["sonnet"], points["opus_low"], points["opus"]
+        on_dev = envelope(points)
+        corners = ", ".join(f"{config} {quality}% ${cost}" for config, (quality, cost)
+                            in zip(on_dev.configs, map(rounded, on_dev.corners)))  # fmt: skip
+        check(on_dev.configs == ("haiku", "opus_low"),
+              f"{mix} mix: one segment, {corners} per 1k, as in Amendment A8 item 7")  # fmt: skip
+        reached = on_dev.quality_at(sonnet.cost_per_1k)
+        check(reached is not None and reached > sonnet.quality,
+              f"{mix} mix: sonnet falls below it: at sonnet's ${sonnet.cost_per_1k:.2f} per 1k the envelope reaches "
+              f"{100 * (reached or 0):.1f}%, sonnet {100 * sonnet.quality:.1f}%")  # fmt: skip
+        check(opus.cost_per_1k > opus_low.cost_per_1k and opus.quality < opus_low.quality,
+              f"{mix} mix: opus falls below it, costing more than opus_low for less quality")  # fmt: skip
 
     print("\n-- a toy cascade on dev --")
     outcomes = simulate(dev, toy_cascade(dev))
