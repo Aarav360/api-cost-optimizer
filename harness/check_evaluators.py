@@ -52,7 +52,9 @@ class Results:
         got = score(item, reply(response_text, stop))
         ok = got.status == expected
         self.groups.setdefault(group, []).append(
-            None if ok else f"{item['item_id']}: expected {expected}, got {got.status} "
+            None
+            if ok
+            else f"{item['item_id']}: expected {expected}, got {got.status} "
             f"(parsed {got.parsed!r:.80}) for reply {response_text!r:.120}"
         )
 
@@ -95,7 +97,9 @@ def check_references(r: Results, pools: dict[str, list[dict]]) -> None:
 
 def check_bad_replies(r: Results, pools: dict[str, list[dict]]) -> None:
     bank = pools["banking77"][0]
-    other_label = next(x["expected_answer"] for x in pools["banking77"] if x["expected_answer"] != bank["expected_answer"])
+    other_label = next(
+        x["expected_answer"] for x in pools["banking77"] if x["expected_answer"] != bank["expected_answer"]
+    )
     r.check("banking77 bad replies", bank, other_label, "wrong")
     r.check("banking77 bad replies", bank, f"The intent is {bank['expected_answer']}", "no_answer")
     r.check("banking77 bad replies", bank, "", "no_answer")
@@ -133,8 +137,8 @@ def check_structured(r: Results, pools: dict[str, list[dict]]) -> None:
             group = f"{source} structured"
             try:
                 item = structured_variant(plain)
-            except ValueError as e:
-                r.groups.setdefault(f"{group} conversion", []).append(str(e))
+            except ValueError as error:
+                r.groups.setdefault(f"{group} conversion", []).append(str(error))
                 continue
             r.groups.setdefault(f"{group} conversion", []).append(None)
             answer = item["output_schema"]["properties"]["answer"]
@@ -270,7 +274,12 @@ def check_livecodebench(r: Results, pool: list[dict]) -> None:
     r.check("livecodebench runner", stdin_item, LCB_MULTIPLICATION, "no_answer")  # no code block
     r.check("livecodebench runner", functional_item, block.format(LCB_ZIGZAG), "correct")
     r.check("livecodebench runner", functional_item, block.format(LCB_ZIGZAG.replace("seq[::2]", "seq[1::2]")), "wrong")
-    r.check("livecodebench runner", functional_item, block.format(LCB_ZIGZAG.replace("return seq[::2]", "while True: pass")), "wrong")
+    r.check(
+        "livecodebench runner",
+        functional_item,
+        block.format(LCB_ZIGZAG.replace("return seq[::2]", "while True: pass")),
+        "wrong",
+    )
 
 
 def check_mbppplus(r: Results, pilot: list[dict]) -> None:

@@ -14,7 +14,7 @@ one dev request (errored) and one test request (expired) the first time. Checks:
   cost (Batches API price);
 - seal refuses while a test result is missing, then records a hash that matches the
   file, makes it read-only, refuses later writes, and verifies itself when re-run;
-- no other harness module names the sealed store.
+- no code but harness/collect.py names the sealed store (check_sealed).
 
 Needs the pilot's stored responses (results/) and the Docker sandbox for MBPP+.
 Everything else happens in a temporary folder.
@@ -35,12 +35,21 @@ from types import SimpleNamespace
 
 from anthropic.types.messages import MessageBatchIndividualResponse
 
-from harness import run_pilot
-from harness.client import PROJECT_ROOT, build_request, load_models
+from harness import check_sealed, run_pilot
+from harness.client import build_request, load_models
 from harness.collect import (
-    FRONTIER, MAIN, load_jobs, load_state, open_sealed, paths_under, save_state, score_all, seal, sealed_ids, submit,
+    FRONTIER,
+    load_jobs,
+    load_state,
+    open_sealed,
+    paths_under,
+    save_state,
+    score_all,
+    seal,
+    sealed_ids,
+    submit,
     wait,
-)  # fmt: skip
+)
 from harness.store import ResponseStore
 
 
@@ -71,10 +80,15 @@ class FakeBatches:
                 if kind == "succeeded":
                     result = {"type": "succeeded", "message": self.answers[custom_id]}
                 elif kind == "errored":
-                    result = {"type": "errored", "error": {"type": "error", "error": {"type": "api_error", "message": "fake"}}}
+                    result = {
+                        "type": "errored",
+                        "error": {"type": "error", "error": {"type": "api_error", "message": "fake"}},
+                    }
                 else:
                     result = {"type": kind}
-                outcomes.append(MessageBatchIndividualResponse.model_validate({"custom_id": custom_id, "result": result}))
+                outcomes.append(
+                    MessageBatchIndividualResponse.model_validate({"custom_id": custom_id, "result": result})
+                )
             random.Random(len(self.outcomes)).shuffle(outcomes)  # results arrive in any order
             self.outcomes[batch_id] = outcomes
         return iter(self.outcomes[batch_id])
@@ -106,7 +120,9 @@ def main() -> int:
     for job in jobs:
         pilot_request = build_request(models["configs"][job.config], job.item["prompt"], run_pilot.PILOT_MAX_TOKENS,
                                       output_schema=job.item.get("output_schema"))  # fmt: skip
-        answers[job.custom_id] = pilot_store.get(pilot_request)["response"]
+        record = pilot_store.get(pilot_request)
+        assert record is not None, f"no pilot response for {job.custom_id}"
+        answers[job.custom_id] = record["response"]
     dev_fail = next(job.custom_id for job in jobs if job.split == "dev")
     test_fail = next(job.custom_id for job in jobs if job.split == "test")
     batches = FakeBatches(answers, {dev_fail: "errored", test_fail: "expired"})
@@ -149,7 +165,9 @@ def main() -> int:
             batch["ingested_at"] = None
         save_state(paths, state)
         wait(paths, jobs, models, client, poll_s=0)
-        check((store_snapshot(paths.store), sealed_ids(paths)) == before, "storing the same batches twice changes nothing")
+        check(
+            (store_snapshot(paths.store), sealed_ids(paths)) == before, "storing the same batches twice changes nothing"
+        )
 
         print("\n-- score --")
         score_all(paths, jobs, models, rescore=False)
@@ -180,9 +198,8 @@ def main() -> int:
         check(seal(paths, jobs, None) == 0, "sealing again verifies the hash")
         os.chmod(paths.sealed, 0o644)  # so the temporary folder can be removed
 
-    harness = PROJECT_ROOT / "harness"
-    naming = [p.name for p in harness.glob("*.py") if p.name != "collect.py" and MAIN.sealed.name in p.read_text()]
-    check(not naming, f"no other harness module names the sealed store {naming}")
+    named = check_sealed.naming_files()
+    check(not named, f"no code but harness/collect.py names the sealed store {named}")
 
     print("\nall checks passed" if not problems else f"\n{len(problems)} checks failed")
     return 1 if problems else 0

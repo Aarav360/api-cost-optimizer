@@ -95,9 +95,7 @@ def _score_structured(item: dict, text: str) -> Score:
 # Shared parsing
 
 # A line like "Answer: X", also "**Answer:** X", "> Final answer: X".
-_ANSWER_LINE = re.compile(
-    r"^[ \t*_#>]*(?:final[ \t]+)?answer[ \t*_]*:(?P<value>.*)$", re.IGNORECASE | re.MULTILINE
-)
+_ANSWER_LINE = re.compile(r"^[ \t*_#>]*(?:final[ \t]+)?answer[ \t*_]*:(?P<value>.*)$", re.IGNORECASE | re.MULTILINE)
 
 
 def _last_answer_line(text: str) -> tuple[str, str] | None:

@@ -11,6 +11,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
+- **Work landed ahead of its ticket**: when you implement part of another open ticket, comment on that ticket listing what landed (with the commit) and what's left, so the session that picks it up builds on it instead of redoing it.
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 

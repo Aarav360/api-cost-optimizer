@@ -89,7 +89,9 @@ def run_stdin(tests):
             return report(i, len(tests), {"test": i, "error": "Time Limit Exceeded"})
         # LiveCodeBench ignores SystemExit, so a nonzero exit counts as a crash
         # only when Python printed a traceback or a signal killed the process.
-        crashed = result.returncode < 0 or (result.returncode != 0 and "Traceback (most recent call last)" in result.stderr)
+        crashed = result.returncode < 0 or (
+            result.returncode != 0 and "Traceback (most recent call last)" in result.stderr
+        )
         if crashed:
             last = result.stderr.strip().splitlines()[-1:] or [f"exit {result.returncode}"]
             return report(i, len(tests), {"test": i, "error": "Runtime Error", "detail": truncate(last[0])})
@@ -97,7 +99,12 @@ def run_stdin(tests):
             return report(
                 i,
                 len(tests),
-                {"test": i, "error": "Wrong Answer", "got": truncate(result.stdout), "expected": truncate(test["output"])},
+                {
+                    "test": i,
+                    "error": "Wrong Answer",
+                    "got": truncate(result.stdout),
+                    "expected": truncate(test["output"]),
+                },
             )
     report(len(tests), len(tests))
 
@@ -138,12 +145,16 @@ def run_functional(tests):
         if isinstance(got, tuple):
             got = list(got)
         if got != expected:
-            return report(i, len(tests), {"test": i, "error": "Wrong Answer", "got": truncate(got), "expected": truncate(expected)})
+            return report(
+                i,
+                len(tests),
+                {"test": i, "error": "Wrong Answer", "got": truncate(got), "expected": truncate(expected)},
+            )
     report(len(tests), len(tests))
 
 
-_tests = json.loads(zlib.decompress(base64.b64decode(TESTS)))  # noqa: F821
-if KIND == "functional":  # noqa: F821
+_tests = json.loads(zlib.decompress(base64.b64decode(TESTS)))  # type: ignore[name-defined]  # noqa: F821
+if KIND == "functional":  # type: ignore[name-defined]  # noqa: F821
     run_functional(_tests)
 else:
     run_stdin(_tests)

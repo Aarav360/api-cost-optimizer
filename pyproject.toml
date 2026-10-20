@@ -10,8 +10,34 @@ dependencies = [
     "immutabledict>=4.3.1",
     "langdetect>=1.0.9",
     "math-verify[antlr4-13-2]>=0.9.0",
+    "matplotlib>=3.11.2",
     "nltk>=3.10.3",
+    "numpy>=2.5.4",
     "python-dotenv>=1.2.4",
     "pyyaml>=6.0.3",
     "syllapy>=0.8.0",
 ]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.0",
+    "ruff>=0.17.1",
+]
+
+[tool.ruff]
+line-length = 120
+include = ["*.py"] # not the Python examples inside Markdown, such as the frozen plans
+extend-exclude = ["harness/ifeval", "harness/ifbench"] # vendored at pinned commits
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.mypy]
+files = ["analysis", "harness"]
+exclude = ["harness/ifeval/", "harness/ifbench/"]
+ignore_missing_imports = true
+disable_error_code = ["annotation-unchecked"] # a note about untyped functions, not an error
+
+[[tool.mypy.overrides]]
+module = ["harness.ifeval.*", "harness.ifbench.*"] # vendored at pinned commits
+ignore_errors = true

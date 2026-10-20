@@ -8,11 +8,15 @@ model per request) and cascades (which try a cheap model first and escalate when
 fails) against two references: a hindsight oracle that shows the most any strategy could save,
 and random mixtures that show what you get with no routing intelligence at all.
 
-**Status:** Stages 0–2 are done. The pilot chose four tasks ([Amendment A3](PLAN_v4.md)), the
+**Status:** Stages 0–3 are done. The pilot chose four tasks ([Amendment A3](PLAN_v4.md)), the
 benchmark of 2,478 items is split and frozen ([Amendment A5](PLAN_v4.md)), and the collection run
 has answered every item through every config for $29.37: train and dev are scored, and test is
-sealed until Stage 8 ([Amendment A6](PLAN_v4.md)). Stage 3, the offline simulator and reference
-baselines, is next. There are no study results yet.
+sealed until Stage 8 ([Amendment A6](PLAN_v4.md)). Stage 3 built the offline simulator, the four
+references and a paired bootstrap, and drew Pareto chart v0 on dev ([Amendment A8](PLAN_v4.md),
+whose item 12 records its headline numbers). Stage 4, the rules router, is next, so there are no
+routing results yet.
+
+![Pareto chart v0 on dev: the four fixed configs with their intervals, the random-mixture envelope and the hindsight oracle, under the realistic and uniform task mixes](figures/pareto.png)
 
 ## Approach
 
@@ -78,6 +82,9 @@ key in a `.env` file at the project root (`ANTHROPIC_API_KEY=...`; it's gitignor
 
 ```bash
 uv sync
+git config core.hooksPath .githooks        # once per clone: run the fast checks before every commit
+.githooks/pre-commit                       # the fast checks: ruff, mypy, check_sealed, check_simulator
+uv run python -m harness.check_sealed      # no code but harness/collect.py names the sealed test store
 uv run python -m harness.smoke_test        # one Haiku call: checks the key and the response store
 uv run python -m harness.sandbox --build   # build the pinned sandbox image
 uv run python -m harness.check_sandbox     # escape checks + every MBPP+ reference solution
@@ -91,7 +98,13 @@ uv run python -m harness.build_benchmark   # rebuild the frozen benchmark (seede
 uv run python -m harness.check_benchmark   # verify it against its manifest hashes
 uv run python -m harness.check_collect     # the collection runner end to end against a fake Batches API (no calls)
 uv run python -m harness.collect plan      # Stage 2 request counts and projected cost; then submit, wait, score, seal
+uv run python -m analysis.pareto           # chart v0 on dev: prints table v0, writes the figures and their JSONs
+uv run python -m analysis.check_simulator  # the analysis package on hand-worked cases, then on dev against the figures and A8's record
 ```
+
+Both analysis commands read the dev results matrix in `results/`, so they need the collection run's
+stores. Chart v0 takes a few seconds: the paired bootstrap re-solves the hindsight oracle on every
+resample.
 
 The first LiveCodeBench load downloads about 690 MB and writes its decoded tests (about 500 MB)
 to `.cache/`.
@@ -116,8 +129,11 @@ system, none of your files, an unprivileged user, and caps on memory, processes,
 ## Layout
 
 ```text
-PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A7)
+PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A8)
+GLOSSARY.md          the study's vocabulary from Stage 3 on: policy, trace, config ladder, reference, ...
 WRITEUP.md           the final write-up (to come) and running notes for it
+CODING_STANDARDS.md  the judgement calls code review applies; ruff and mypy (pyproject.toml) cover the rest
+.githooks/pre-commit the fast checks, run before every commit; CI runs them too (.github/workflows/)
 configs/models.yaml  pinned model configs, output caps and price snapshot
 configs/task_mix.yaml  the uniform and realistic task mixes
 harness/             API client, response store, dataset loaders, evaluators, code sandbox, pilot
@@ -125,6 +141,10 @@ harness/             API client, response store, dataset loaders, evaluators, co
                      and review scripts, LiveCodeBench test runner (unused; Amendment A4)
 harness/ifeval/      Google's IFEval instruction checkers, vendored at a pinned commit
 harness/ifbench/     AI2's IFBench instruction checkers, vendored at a pinned commit
+analysis/            the offline simulator (traces to outcomes and totals), the results-matrix loader,
+                     references C and D, the paired bootstrap, chart v0 and its check script
+figures/             chart v0 on dev: the headline and per-task figures, each a PNG with a JSON of every
+                     number it plots, table v0 included
 sandbox/             Dockerfile for the code sandbox image
 data/benchmark.jsonl the frozen benchmark: 2,478 items split 40/30/30, plus its hash manifest
 data/pilot*.jsonl    Stage 0 pilot items: 20 per candidate dataset, 20 MATH Level 5 items, and
@@ -137,7 +157,7 @@ docs/history/        earlier versions of the plan
 
 ## Progress
 
-- [x] Study plan frozen (v4, amendments A1–A7)
+- [x] Study plan frozen (v4, amendments A1–A8)
 - [x] Harness: API client, on-disk response store, pinned model configs
 - [x] Dataset loaders at pinned revisions, and 120 pilot items
 - [x] Docker code sandbox (18/18 escape checks; 377/377 MBPP+ reference solutions pass under the
@@ -151,8 +171,10 @@ docs/history/        earlier versions of the plan
 - [x] Stage 1: benchmark frozen. IFEval 521, Banking77 800, MMLU-Pro 800 and MBPP+ 357 items, split
       40/30/30 and stratified, with a noise subset, the two task mixes and hashes
 - [x] Stage 2: collection run ($29.37); train and dev scored, test sealed
-- [ ] Stages 3–8: references, routers, gates and cascades, final evaluation on the sealed test
-      split
+- [x] Stage 3: offline simulator, references A–D (the random-mixture envelope and the hindsight
+      oracle as an LP), the paired bootstrap and safety margin, and Pareto chart v0 on dev with the
+      per-task figure and table v0
+- [ ] Stages 4–8: routers, gates and cascades, final evaluation on the sealed test split
 
 ## License
 

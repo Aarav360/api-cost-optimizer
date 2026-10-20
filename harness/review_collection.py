@@ -29,7 +29,7 @@ from contextlib import closing
 
 from harness.build_benchmark import BENCHMARK_FILE, MANIFEST_FILE
 from harness.client import load_models
-from harness.collect import MAIN, SMOKE, PILOT_FILE
+from harness.collect import MAIN, PILOT_FILE, SMOKE
 from harness.run_pilot import print_table
 
 FLIP_LIMIT = 0.05  # Amendment A6, item 2
@@ -49,10 +49,10 @@ def main() -> int:
         rows = [dict(row) for row in conn.execute("SELECT * FROM rows")]
     if any(row["split"] not in ("train", "dev") for row in rows):
         raise SystemExit("the matrix holds rows outside train and dev")
-    print(f"{len(rows)} rows: " + ", ".join(f"{n} {s}" for s, n in sorted(Counter(r['split'] for r in rows).items())))
+    print(f"{len(rows)} rows: " + ", ".join(f"{n} {s}" for s, n in sorted(Counter(r["split"] for r in rows).items())))
 
     print("\nStops other than end_turn, and model-ID mismatches (all runs)")
-    stops = Counter()
+    stops: Counter[tuple] = Counter()
     for row in rows:
         if row["stop_reason"] != "end_turn":
             category = f" ({row['refusal_category']})" if row["refusal_category"] else ""
@@ -72,7 +72,7 @@ def main() -> int:
 
 
 def print_noise(rows: list[dict], noise: set[str], configs: list[str]) -> None:
-    runs = defaultdict(dict)  # (item, config) -> {run: success}
+    runs: defaultdict[tuple, dict[int, int]] = defaultdict(dict)  # (item, config, task) -> {run: success}
     for row in rows:
         if row["item_id"] in noise:
             runs[(row["item_id"], row["config"], row["source"])][row["run"]] = row["success"]
@@ -80,7 +80,8 @@ def print_noise(rows: list[dict], noise: set[str], configs: list[str]) -> None:
     print(f"\nNoise subset: {len(complete)} of {len(noise) * len(configs)} (item, config) pairs have all three runs.")
     print("Flip rate: pairs whose success differs across runs 0-2 (Amendment A6, item 2).")
 
-    flips, pairs = Counter(), Counter()
+    flips: Counter[tuple] = Counter()
+    pairs: Counter[tuple] = Counter()
     for (_, config, source), r in complete.items():
         flipped = len(set(r.values())) > 1
         for key in ((config, source), (config, "ALL")):
@@ -92,7 +93,9 @@ def print_noise(rows: list[dict], noise: set[str], configs: list[str]) -> None:
     print_table(["task"] + configs, table)
     over = [c for c in configs if pairs[(c, "ALL")] and flips[(c, "ALL")] / pairs[(c, "ALL")] >= FLIP_LIMIT]
     if over:
-        print(f"At or over {FLIP_LIMIT:.0%}: {', '.join(over)}. The oracle curve is reported as an optimistic upper bound.")
+        print(
+            f"At or over {FLIP_LIMIT:.0%}: {', '.join(over)}. The oracle curve is reported as an optimistic upper bound."
+        )
     else:
         print(f"Every config is under {FLIP_LIMIT:.0%}.")
 

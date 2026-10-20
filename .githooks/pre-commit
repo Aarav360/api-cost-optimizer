@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# The repo's fast checks, run before every commit and by hand from the project root:  .githooks/pre-commit
+# Turn the hook on once per clone:  git config core.hooksPath .githooks
+# CI (.github/workflows/check.yml) runs the same checks except check_simulator, which needs the
+# dev results matrix in results/ (not committed). check_collect, check_sandbox and
+# check_evaluators need Docker and take minutes, so they stay manual (README, "Running it").
+set -euo pipefail
+
+uv run ruff check
+uv run ruff format --check
+uv run mypy
+uv run python -m harness.check_sealed
+if [ -f results/dev_matrix.sqlite ]; then
+  uv run python -m analysis.check_simulator | grep -E "^FAIL|checks"
+fi

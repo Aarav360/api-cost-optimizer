@@ -16,7 +16,7 @@ import pickle
 import zlib
 from pathlib import Path
 
-from datasets import concatenate_datasets, load_dataset
+from datasets import load_dataset
 from huggingface_hub import hf_hub_download
 
 REVISIONS = {
@@ -154,7 +154,7 @@ def structured_variant(item: dict) -> dict:
     else:
         answer = {"type": "string"}
     # Banking77's free-text prompt asks for the label alone, so its schema has no explanation either.
-    properties = {} if item["source"] == "banking77" else {"explanation": {"type": "string"}}
+    properties: dict[str, dict] = {} if item["source"] == "banking77" else {"explanation": {"type": "string"}}
     properties["answer"] = answer
     schema = {"type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
     return {**item, "prompt": item["prompt"].replace(free_text, structured), "output_schema": schema}
@@ -394,7 +394,9 @@ def load_livecodebench() -> list[dict]:
                 qid = row["question_id"]
                 if qid not in index or not _tests_path(qid).exists():
                     # Public tests first, then hidden ones, as LiveCodeBench grades them.
-                    cases = json.loads(row["public_test_cases"]) + _decode_livecodebench_tests(row["private_test_cases"])
+                    cases = json.loads(row["public_test_cases"]) + _decode_livecodebench_tests(
+                        row["private_test_cases"]
+                    )
                     tests = [{"input": c["input"], "output": c["output"]} for c in cases]
                     kinds = {c["testtype"] for c in cases}
                     if len(kinds) != 1:
@@ -402,7 +404,11 @@ def load_livecodebench() -> list[dict]:
                     data = json.dumps(tests, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
                     LIVECODEBENCH_TESTS_DIR.mkdir(parents=True, exist_ok=True)
                     _tests_path(qid).write_bytes(zlib.compress(data, 6))
-                    index[qid] = {"kind": kinds.pop(), "num_tests": len(tests), "sha256": hashlib.sha256(data).hexdigest()}
+                    index[qid] = {
+                        "kind": kinds.pop(),
+                        "num_tests": len(tests),
+                        "sha256": hashlib.sha256(data).hexdigest(),
+                    }
                 kind = index[qid]["kind"]
                 if kind == "functional":
                     prompt = LIVECODEBENCH_FUNCTIONAL_PROMPT.format(
