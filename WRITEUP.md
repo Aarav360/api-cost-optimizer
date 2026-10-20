@@ -75,3 +75,9 @@ Topics to come back to for the write-up, newest last. Details are in PLAN_v4.md'
 - On dev the random-mixture envelope is one straight line from `haiku` to `opus_low` under both mixes. Picking between those two at fixed odds, without reading the prompt, beats `sonnet` at its own cost: 85.8% vs 84.5% realistic, 87.6% vs 86.1% uniform.
 - So `sonnet` adds nothing as a fixed choice, and any router that uses it has to earn its place on routing alone.
 - Talking point: a mid-priced model can sit below a blend of the cheapest and a top config, so the reference to beat isn't always-cheapest but this envelope.
+
+### 2026-10-20 · The hindsight oracle meets every target near Haiku's cost (Amendment A8)
+- On dev the oracle starts at always-`haiku` and climbs to 91.5% realistic and 93.6% uniform, above `opus`, because 28 items are ones `opus` gets wrong and a cheaper config gets right.
+- The 100/99/97% quality targets cost $0.40/$0.37/$0.31 per 1k realistic and $0.65/$0.59/$0.51 uniform, against $0.29 and $0.43 for always-`haiku`. A perfect router would need little more than Haiku's bill.
+- Decision: an item's weight scales its cost as well as its score, because policies are scored on mix-weighted cost. Weighting only the score would reorder upgrades between tasks, and a brute-force check on random matrices shows that order misses the LP's optimum.
+- Talking point: the oracle is an optimistic ceiling (single samples, with lucky draws counted as savings), so the gap between it and any real router is the price of not knowing in advance which items are easy.
