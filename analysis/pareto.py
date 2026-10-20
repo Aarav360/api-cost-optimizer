@@ -52,8 +52,9 @@ def sampled(curve: Curve) -> tuple[list[float], list[float | None]]:
 
     Each segment gets 100 evenly spaced samples on the log axis, so a short one is drawn as finely as a long one.
     """
-    costs = [curve.corners[0].cost_per_1k]
-    for low, high in pairwise(curve.corners):
+    corners = list(curve.corners.values())
+    costs = [corners[0].cost_per_1k]
+    for low, high in pairwise(corners):
         costs += [float(cost) for cost in np.geomspace(low.cost_per_1k, high.cost_per_1k, 100)[1:]]
     return costs, [curve.quality_at(cost) for cost in costs]
 
@@ -106,7 +107,7 @@ def main() -> int:
     print_table(["config"] + list(PANELS), rows)
     for mix, curve in envelopes.items():
         corners = ", ".join(f"{config} ({100 * total.quality:.1f}%, ${total.cost_per_1k:.2f})"
-                            for config, total in zip(curve.configs, curve.corners))  # fmt: skip
+                            for config, total in curve.corners.items())  # fmt: skip
         print(f"{ENVELOPE_LABEL}, {mix} mix: {corners}")
 
     units = {
@@ -115,7 +116,7 @@ def main() -> int:
         "envelope": "the envelope's corners, cheapest first, joined by straight lines in linear cost",
     }
     panels = {mix: {"configs": {c: asdict(t) for c, t in points[mix].items()},
-                    "envelope": {c: asdict(t) for c, t in zip(envelopes[mix].configs, envelopes[mix].corners)}}
+                    "envelope": {c: asdict(t) for c, t in envelopes[mix].corners.items()}}
               for mix in PANELS}  # fmt: skip
     data = {"figure": FIGURE.name, "built_by": "analysis/pareto.py", "split": "dev", "run": 0, "n": len(dev.items),
             "price_snapshot": snapshot, "units": units, "panels": panels}  # fmt: skip

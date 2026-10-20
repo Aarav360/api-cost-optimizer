@@ -16,8 +16,9 @@ On a synthetic matrix, where the right answer is worked out by hand:
 - a mix that doesn't weigh exactly the outcomes' tasks is refused;
 - a reference curve gives the cost at a quality and the quality at a cost along the
   straight lines between its corners, both ends included, and n/a outside its range; it
-  refuses corners whose quality or cost doesn't rise, or that don't each name a config,
-  and the envelope refuses no points;
+  refuses no corners, a corner that isn't a finite number, and corners whose quality or
+  cost doesn't rise; the envelope refuses no points, a point that isn't a finite number
+  (even one that would drop out of the hull), and a point off the config ladder;
 - the random-mixture envelope keeps four corners where each config buys less quality
   per dollar than the one below, drops a config below the hull and one costlier with no
   higher quality, gives an exact tie's corner to the lower config, returns the starting
@@ -201,7 +202,7 @@ def main() -> int:
 
     print("\n-- a reference curve, both ways --")
     # Corners $1 80%, $3 86%, $7 90% per 1k: the first segment climbs 3 points a dollar, the second 1.
-    curve = Curve((Total(0.80, 1), Total(0.86, 3), Total(0.90, 7)), ("haiku", "sonnet", "opus_low"))
+    curve = Curve({"haiku": Total(0.80, 1), "sonnet": Total(0.86, 3), "opus_low": Total(0.90, 7)})
     check(near(curve.cost_at(0.83), 2) and near(curve.cost_at(0.88), 5),
           "cost at a quality, along the straight line between corners: 83% costs $2 per 1k, 88% costs $5")  # fmt: skip
     check(near(curve.quality_at(2), 0.83) and near(curve.quality_at(5), 0.88),
@@ -210,27 +211,31 @@ def main() -> int:
           "both ends are in range: the first and last corners answer with each other's coordinate")  # fmt: skip
     check((curve.cost_at(0.79), curve.cost_at(0.91), curve.quality_at(0.99), curve.quality_at(7.01)) == (None,) * 4,
           "a query outside the curve's range gives n/a (None), below it and above it, both ways")  # fmt: skip
-    refuses(CurveError, lambda: Curve((Total(0.80, 1), Total(0.86, 3), Total(0.85, 7)), ("haiku", "sonnet", "opus")),
+    refuses(CurveError, lambda: Curve({"haiku": Total(0.80, 1), "sonnet": Total(0.86, 3), "opus": Total(0.85, 7)}),
             "a curve whose quality falls from one corner to the next is refused")  # fmt: skip
-    refuses(CurveError, lambda: Curve((Total(0.80, 1), Total(0.86, 1)), ("haiku", "sonnet")),
+    refuses(CurveError, lambda: Curve({"haiku": Total(0.80, 1), "sonnet": Total(0.86, 1)}),
             "a curve whose cost doesn't rise from one corner to the next is refused")  # fmt: skip
-    refuses(CurveError, lambda: Curve((Total(0.80, 1), Total(0.86, 3)), ("haiku",)),
-            "a curve that doesn't name one config per corner is refused")  # fmt: skip
-    refuses(CurveError, lambda: Curve((), ()), "a curve with no corners is refused")
+    refuses(CurveError, lambda: Curve({}), "a curve with no corners is refused")
+    refuses(CurveError, lambda: Curve({"haiku": Total(0.80, math.nan)}),
+            "a curve with a corner whose cost isn't a number is refused, even its only corner")  # fmt: skip
     refuses(CurveError, lambda: envelope({}), "the envelope of no config points is refused")
+    refuses(CurveError, lambda: envelope({"haiku": Total(0.80, 1), "opus": Total(math.nan, 5)}),
+            "the envelope of a point whose quality isn't a number is refused, though it would drop out of the hull")  # fmt: skip
+    refuses(CurveError, lambda: envelope({"haiku": Total(0.80, 1), "gpt": Total(0.90, 5)}),
+            "the envelope of a point that isn't a config on the ladder is refused")  # fmt: skip
 
     print("\n-- the random-mixture envelope on hand-worked points --")
     # Each config up the ladder buys less quality per dollar: 6, 2, then 0.5 points per $1 per 1k.
     bending = {"haiku": Total(0.80, 1), "sonnet": Total(0.86, 2), "opus_low": Total(0.90, 4), "opus": Total(0.92, 8)}
-    check(envelope(bending).configs == LADDER,
+    check(tuple(envelope(bending).corners) == LADDER,
           "four configs whose quality per dollar keeps falling are all corners: a four-corner envelope")  # fmt: skip
     # Mixing haiku and opus_low half and half costs $3 per 1k for 85%, more than sonnet's 82% at $3.
     # opus costs more than opus_low for the same 90%.
     dropped = {"haiku": Total(0.80, 1), "sonnet": Total(0.82, 3), "opus_low": Total(0.90, 5), "opus": Total(0.90, 9)}
-    check(envelope(dropped).configs == ("haiku", "opus_low"),
+    check(tuple(envelope(dropped).corners) == ("haiku", "opus_low"),
           "a config below the hull (sonnet) and one costlier with no higher quality (opus) are both dropped")  # fmt: skip
     tied = {"sonnet": Total(0.80, 1), "haiku": Total(0.80, 1), "opus": Total(0.90, 5)}
-    check(envelope(tied).configs == ("haiku", "opus"),
+    check(tuple(envelope(tied).corners) == ("haiku", "opus"),
           "two configs at exactly the same point: the corner is the lower one on the ladder (A8 item 5)")  # fmt: skip
     four_corners = envelope(bending)
     qualities = [float(quality) for quality in np.linspace(0.80, 0.92, 25)]  # every corner and points between
@@ -300,9 +305,8 @@ def main() -> int:
         points = {config: totals(fixed[config], mixes[mix]) for config in LADDER}
         sonnet, opus_low, opus = points["sonnet"], points["opus_low"], points["opus"]
         on_dev = envelope(points)
-        corners = ", ".join(f"{config} {quality}% ${cost}" for config, (quality, cost)
-                            in zip(on_dev.configs, map(rounded, on_dev.corners)))  # fmt: skip
-        check(on_dev.configs == ("haiku", "opus_low"),
+        corners = ", ".join("{} {}% ${}".format(config, *rounded(total)) for config, total in on_dev.corners.items())
+        check(tuple(on_dev.corners) == ("haiku", "opus_low"),
               f"{mix} mix: one segment, {corners} per 1k, as in Amendment A8 item 7")  # fmt: skip
         reached = on_dev.quality_at(sonnet.cost_per_1k)
         check(reached is not None and reached > sonnet.quality,
