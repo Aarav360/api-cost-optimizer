@@ -47,3 +47,31 @@ Topics to come back to for the write-up, newest last. Details are in PLAN_v4.md'
 - Cost combines as weighted dollars, then savings. Averaging per-task savings percentages would distort them, because tasks cost different amounts per request and cheap tasks are a small part of the bill.
 - Caveat: the realistic mix is two-thirds coding, but MBPP+ is easier than real coding traffic, so that headline likely overstates savings.
 - Talking point: predeclared weights from a published source rule out choosing them after seeing the numbers.
+
+### 2026-10-18 · Run-to-run noise and the oracle (Amendment A6)
+- These models reject `temperature`, so each stored answer is one draw. 75 dev items run three times through every config to measure how often an item's right/wrong result flips.
+- The oracle is the most exposed: it sends each item to the cheapest config that happened to succeed, so a lucky draw counts as savings no router could rely on.
+- Rule fixed before any data: flip rates are reported next to the CIs, and if any config flips on 5% or more of items, the oracle curve is called an optimistic upper bound.
+- Talking point: a hindsight ceiling built from single samples overstates what's achievable when outputs are nondeterministic.
+
+### 2026-10-18 · The collection run (Amendment A6)
+- 9,521 requests through the Batches API in about 10 minutes, all succeeded first time, for $29.37 (projected $32.03). Test answers sealed with their hash recorded.
+- Haiku and Opus-low flip on 5% or more of the noise items (6.7%, 5.3%), so the oracle is reported as an optimistic upper bound, as fixed beforehand.
+- Both Opus configs refused a benign virology question ("where do Lassa and Ebola come from?") on every run, while Haiku and Sonnet answered it correctly.
+- Talking point: here the cheapest model can answer what the frontier model won't, and a refusal costs a router the same as a wrong answer.
+
+### 2026-10-19 · Opus at low effort matches Opus at medium on dev (Amendment A8)
+- On dev, `opus_low` scored the same as `opus` (89.7% vs 89.5% uniform, 87.8% vs 86.7% realistic) for about 80% of the cost. The gap is likely noise.
+- Kept `opus` as the frontier anyway: swapping it after seeing dev would be a post-hoc choice. The random-mixture envelope already credits the savings, so any router has to beat always-`opus_low`.
+- Talking point: the effort setting is a cost lever in its own right. Medium effort bought no measurable quality on these tasks.
+
+### 2026-10-19 · Which "standard error" sets the safety margin (Amendment A8)
+- Thresholds must clear their quality target by one standard error, but the plan didn't say which. On the realistic mix a score's own standard error is about 2.4 points, while its gap from Opus on the same items has 1.2–1.8.
+- The unpaired one would have put the realistic targets almost out of reach (above every model's dev quality at 100% and 99%). The paired one is right, because targets are relative to Opus on the same items.
+- Caught in the Stage 3 design review, before any router existed.
+- Talking point: in paired comparisons the luck of the item draw cancels out, and ignoring that throws away savings for no protection.
+
+### 2026-10-19 · Sonnet loses to a weighted coin flip between Haiku and Opus-low (Amendment A8)
+- On dev the random-mixture envelope is one straight line from `haiku` to `opus_low` under both mixes. Picking between those two at fixed odds, without reading the prompt, beats `sonnet` at its own cost: 85.8% vs 84.5% realistic, 87.6% vs 86.1% uniform.
+- So `sonnet` adds nothing as a fixed choice, and any router that uses it has to earn its place on routing alone.
+- Talking point: a mid-priced model can sit below a blend of the cheapest and a top config, so the reference to beat isn't always-cheapest but this envelope.
