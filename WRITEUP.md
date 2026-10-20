@@ -81,3 +81,15 @@ Topics to come back to for the write-up, newest last. Details are in PLAN_v4.md'
 - The 100/99/97% quality targets cost $0.40/$0.37/$0.31 per 1k realistic and $0.65/$0.59/$0.51 uniform, against $0.29 and $0.43 for always-`haiku`. A perfect router would need little more than Haiku's bill.
 - Decision: an item's weight scales its cost as well as its score, because policies are scored on mix-weighted cost. Weighting only the score would reorder upgrades between tasks, and a brute-force check on random matrices shows that order misses the LP's optimum.
 - Talking point: the oracle is an optimistic ceiling (single samples, with lucky draws counted as savings), so the gap between it and any real router is the price of not knowing in advance which items are easy.
+
+### 2026-10-20 · Paired intervals on dev (Amendment A8, items 8 and 9)
+- Each config's own 95% interval on the realistic mix spans about ±4.5 points, so every cross overlaps. Paired against `opus` on the same resamples, the picture sharpens: `haiku` is 3.4 points behind (−7.0 to −0.1), and `opus_low` is 1.0 ahead (−1.3 to +3.6), an interval that contains 0.
+- Safety margins (one paired standard error) are 1.24–1.79 points realistic and 0.71–1.26 uniform, about half of each config's own standard error (2.2–2.5 realistic).
+- The bootstrap's seed (2026) was fixed before any interval was seen, and not changed afterwards. A8 item 9's unpaired bars came out within 0.08 points of the design review's.
+- Talking point: overlapping error bars don't mean "no difference". The paired interval is the one that answers "is this config worse than the frontier?".
+
+### 2026-10-20 · Keeping the one-standard-error safety margin (Amendment A8, item 9)
+- A router tuned to clear its quality target by one paired standard error still misses the target in about one resample in six. Its captured-fraction interval therefore usually reads "n/a to X", because a lower bound needs fewer than 2.5% of resamples to miss.
+- Considered moving the margin to 1.5 or 2 standard errors. At 1.5 about one resample in 15 still misses, so the "n/a" stays, yet the 99% target already asks for more than any single config scores on dev. Only about 2 gives a numeric lower bound, at the cost of a lower operating point's savings and of operating points altogether at the 99% and 100% targets for weaker routers.
+- Decision: keep one standard error, and report "met the target in X% of resamples" in a column of its own beside every captured fraction. Recorded under A8 item 9 before any router exists.
+- Talking point: a wider safety margin doesn't make a router better. It hides its chance of missing behind a more cautious, more expensive operating point. Reporting the chance is more honest than buying it away.
