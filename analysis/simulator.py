@@ -8,12 +8,13 @@ verdicts, router scores or latencies: policies turn those into traces.
 """
 
 from collections import Counter
+from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
 
-from analysis.matrix import LADDER, Matrix
+from analysis.matrix import LADDER, Item, Matrix
 from harness.build_benchmark import TASK_MIX_FILE
 from harness.collect import FRONTIER
 
@@ -31,7 +32,7 @@ class Outcome:
     task: str
     source_group: str
     cost: float  # every config called plus the overhead, dollars at list price
-    success: int  # the last config's
+    success: float  # the last config's score
     configs: tuple[str, ...]
 
 
@@ -99,12 +100,15 @@ def load_mixes(path: Path = TASK_MIX_FILE) -> dict[str, dict[str, float]]:
     return yaml.safe_load(path.read_text())
 
 
-def item_weights(outcomes: list[Outcome], mix: dict[str, float]) -> dict[str, float]:
-    """Each item weighs its task's mix weight divided by its task's item count (Amendment A5, item 6)."""
-    counts = Counter(outcome.task for outcome in outcomes)
+def item_weights(items: Collection[Item | Outcome], mix: dict[str, float]) -> dict[str, float]:
+    """Each item weighs its task's mix weight divided by its task's item count (Amendment A5, item 6).
+
+    Takes outcomes, or a matrix's items for the hindsight oracle, whose default weights these are.
+    """
+    counts = Counter(item.task for item in items)
     if set(counts) != set(mix):
-        raise MixError(f"the mix weighs tasks {sorted(mix)}, but the outcomes are for {sorted(counts)}")
-    return {outcome.item_id: mix[outcome.task] / counts[outcome.task] for outcome in outcomes}
+        raise MixError(f"the mix weighs tasks {sorted(mix)}, but the items are of {sorted(counts)}")
+    return {item.item_id: mix[item.task] / counts[item.task] for item in items}
 
 
 def totals(outcomes: list[Outcome], mix: dict[str, float]) -> Total:

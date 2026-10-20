@@ -49,7 +49,9 @@ class Item:
 @dataclass(frozen=True)
 class Cell:
     cost: float  # dollars at list price
-    success: int  # 1 or 0
+    # The item's score. Every task here scores 1 or 0, so it is the success rule's verdict (Amendment A5, item 5),
+    # but §4 allows a score from 0 to 1, which the oracle's checks use.
+    success: float
 
 
 @dataclass(frozen=True)
@@ -65,13 +67,22 @@ class Matrix:
             key = (row["item_id"], row["config"])
             if key in cells:
                 raise MatrixError(f"two rows for {key}")
+            # The oracle reads an item's configs off the ladder, so it would skip a cell for any other.
+            if row["config"] not in LADDER:
+                raise MatrixError(f"{key} is for a config off the ladder {LADDER}")
             items[row["item_id"]] = Item(row["item_id"], row["split"], row["task"], row["source_group"])
             cells[key] = Cell(row["cost"], row["success"])
         return cls(items, cells)
 
     def split(self, name: str) -> "Matrix":
-        items = {item_id: item for item_id, item in self.items.items() if item.split == name}
-        return Matrix(items, {key: cell for key, cell in self.cells.items() if key[0] in items})
+        return self._only({item_id for item_id, item in self.items.items() if item.split == name})
+
+    def task(self, name: str) -> "Matrix":
+        return self._only({item_id for item_id, item in self.items.items() if item.task == name})
+
+    def _only(self, kept: set[str]) -> "Matrix":
+        items = {item_id: item for item_id, item in self.items.items() if item_id in kept}
+        return Matrix(items, {key: cell for key, cell in self.cells.items() if key[0] in kept})
 
 
 def read_store(path: Path = MAIN.matrix) -> list[dict]:

@@ -22,7 +22,23 @@ On a synthetic matrix, where the right answer is worked out by hand:
 - the random-mixture envelope keeps four corners where each config buys less quality
   per dollar than the one below, drops a config below the hull and one costlier with no
   higher quality, gives an exact tie's corner to the lower config, returns the starting
-  quality on a round trip, and gives n/a past both ends.
+  quality on a round trip, and gives n/a past both ends;
+- the hindsight oracle's corners, its cost at a quality, its quality at a cost and its
+  routing mix, with the last upgrade fractional, where an item every config fails stays
+  on its cheapest config; with scores between 0 and 1, items with three and four hull
+  points and a config below the hull never used; under a mix it trades quality between
+  tasks, which each task's own oracle can't; every item starts on its own cheapest
+  config, even where that isn't haiku; exact cost ties and equally steep upgrades go to
+  the lower config; a target at or below always-cheapest's quality gets its cost, one
+  above the maximum is n/a, and so is a cost outside the curve's; round trips from a
+  quality and from a cost; an item that weighs 0 is never upgraded; it refuses weights
+  that miss an item, name one not in the matrix, are negative, aren't a number or don't
+  sum to 1, and an item with no stored answer; a matrix refuses a cell for a config off
+  the ladder;
+- the quality targets at a frontier quality of 90%: 100%, 99% and 97% of it (§11);
+- on 300 random matrices, the oracle against a brute force over whole-item choices: the
+  LP costs no more at any target, and less by at most the upgrade in progress; they
+  agree at every corner, at the maximum quality and below the first corner.
 
 On the dev results matrix:
 
@@ -37,6 +53,12 @@ On the dev results matrix:
   gives them;
 - under both mixes the envelope is one segment from haiku to opus_low, with sonnet and
   opus below it, as Amendment A8 item 7 says;
+- the hindsight oracle as Amendment A8 item 6 gives it: 46 items fail on every config
+  and on 28 opus fails and a cheaper config succeeds; under both mixes every item starts
+  on haiku, at always-haiku's point, each hull has at most two points, the maximum is
+  opus's quality plus the 28 items' weight, and all three quality targets are feasible;
+  each task's own oracle starts at always-haiku's point and peaks at the share of its
+  items some config gets right;
 - a toy cascade (haiku, climbing to opus on MMLU-Pro and MBPP+) prints its per-task
   totals, each haiku's or opus's quality with the calls and gate it paid for, and its
   per-mix totals, each the mix's weighting of the per-task ones;
@@ -46,18 +68,27 @@ On the dev results matrix:
 import math
 import sys
 from collections import Counter
-from itertools import combinations, pairwise
+from itertools import combinations, pairwise, product
 
 import numpy as np
 
-from analysis.matrix import LADDER, Matrix, MatrixError, from_store, list_price, read_store
-from analysis.references import Curve, CurveError, envelope
+from analysis.matrix import LADDER, Item, Matrix, MatrixError, from_store, list_price, read_store
+from analysis.references import (
+    Curve,
+    CurveError,
+    OracleError,
+    envelope,
+    oracle,
+    quality_targets,
+    task_oracles,
+)
 from analysis.simulator import (
     MixError,
     Total,
     Trace,
     TraceError,
     always,
+    item_weights,
     load_mixes,
     simulate,
     task_totals,
@@ -78,10 +109,12 @@ A8_TABLE = {
 # the exact cost ties between two configs on one item.
 A8_ABOVE_NEXT = {("sonnet", "opus_low"): "4.8", ("opus_low", "opus"): "12.8"}
 A8_TIES, A8_TIES_BANKING77 = {("opus_low", "opus"): 234}, 209
+# Amendment A8, item 6 (dev): the items every config fails, and those opus fails and a cheaper config gets right.
+A8_ORACLE_ITEMS = (46, 28)
 
 
-def synthetic(items: dict[str, tuple[str, dict[str, tuple[float, int]]]], split: str = "dev") -> Matrix:
-    """{item_id: (task, {config: (list-price cost, success)})}: items of one split, each its own source group."""
+def synthetic(items: dict[str, tuple[str, dict[str, tuple[float, float]]]], split: str = "dev") -> Matrix:
+    """{item_id: (task, {config: (list-price cost, score)})}: items of one split, each its own source group."""
     return Matrix.from_rows([
         {"item_id": item_id, "split": split, "task": task, "source_group": item_id, "config": config,
          "cost": cost, "success": success}
@@ -104,6 +137,33 @@ TRAIN = synthetic({
 }, split="train")  # fmt: skip
 
 
+# Scores between 0 and 1, as §4 allows, so an item's hull can have more than two points. In $ per 1k: p's four
+# configs climb 0.4, 0.1 and then 0.025 points of score per dollar, all on its hull. q's sonnet ($3, 0.4) lies
+# below the line from haiku ($1, 0.2) to opus_low ($4, 0.8), so q's hull is haiku, opus_low, opus.
+SCORED = synthetic({
+    "p": ("t1", {"haiku": (0.001, 0.2), "sonnet": (0.002, 0.6), "opus_low": (0.004, 0.8), "opus": (0.008, 0.9)}),
+    "q": ("t2", {"haiku": (0.001, 0.2), "sonnet": (0.003, 0.4), "opus_low": (0.004, 0.8), "opus": (0.008, 1.0)}),
+})  # fmt: skip
+SCORED_WEIGHTS = {"p": 0.25, "q": 0.75}  # given directly, not by a mix
+# Its upgrades, steepest first: p to sonnet, q to opus_low, p to opus_low, q to opus, p to opus. Each adds its
+# weight times its score and cost: from (20%, $1) to (30%, $1.25), (75%, $3.50), (80%, $4), (95%, $7), (97.5%, $8).
+SCORED_CORNERS = [(0.2, 1), (0.3, 1.25), (0.75, 3.5), (0.8, 4), (0.95, 7), (0.975, 8)]
+
+
+# What dev hides: x's cheapest config is sonnet, not haiku. y's opus_low and opus tie exactly and are both right;
+# z's haiku and sonnet tie exactly and are both wrong, as is every config. v and u climb equally steeply, 1 point
+# per $2 per 1k, v to opus and u to sonnet. Each of the five items weighs 0.2.
+TIES = synthetic({
+    "x": ("t1", {"sonnet": (0.001, 0), "haiku": (0.002, 1)}),
+    "y": ("t1", {"haiku": (0.001, 0), "opus_low": (0.004, 1), "opus": (0.004, 1)}),
+    "z": ("t1", {"haiku": (0.001, 0), "sonnet": (0.001, 0), "opus": (0.003, 0)}),
+    "v": ("t1", {"haiku": (0.001, 0), "opus": (0.003, 1)}),
+    "u": ("t1", {"haiku": (0.001, 0), "sonnet": (0.003, 1)}),
+})  # fmt: skip
+
+
+BRUTE_FORCE_RUNS = 300
+
 CLIMBS, TOY_GATE = {"mmlu_pro", "mbppplus"}, 0.0001  # the toy cascade's tasks that climb to opus, its gate's cost
 
 
@@ -113,9 +173,73 @@ def toy_cascade(matrix: Matrix) -> list[Trace]:
             for item_id, item in matrix.items.items()]  # fmt: skip
 
 
+def random_matrix(rng: np.random.Generator) -> tuple[Matrix, dict[str, float]]:
+    """2 to 5 items, each with 1 to 4 configs at $1 to $6 per 1k, so exact cost ties are common, and either 0/1
+    scores or scores in quarters. Random weights summing to 1, one of them sometimes 0."""
+    scores = [0, 1] if rng.random() < 0.5 else [0, 0.25, 0.5, 0.75, 1]
+    items = {f"i{i}": ("t1", {str(config): (int(rng.integers(1, 7)) / 1000, float(rng.choice(scores)))
+                              for config in rng.choice(LADDER, size=rng.integers(1, 5), replace=False)})
+             for i in range(rng.integers(2, 6))}  # fmt: skip
+    weights = rng.dirichlet(np.ones(len(items)))
+    if rng.random() < 0.2:
+        weights[0] = 0
+        weights /= weights.sum()
+    return synthetic(items), {item_id: float(weight) for item_id, weight in zip(items, weights)}
+
+
+def whole_items(matrix: Matrix, weights: dict[str, float]) -> list[tuple[float, float]]:
+    """The quality and cost per 1k of every way to send each item, whole, to one config: the brute force."""
+    options = [[(weights[item_id] * cell.success, 1000 * weights[item_id] * cell.cost)
+                for config in LADDER if (cell := matrix.cells.get((item_id, config)))]
+               for item_id in matrix.items]  # fmt: skip
+    return [(sum(quality for quality, _ in choice), sum(cost for _, cost in choice)) for choice in product(*options)]
+
+
+def cheapest_whole(choices: list[tuple[float, float]], quality: float) -> float | None:
+    """The brute force's cost at a target: its cheapest choice that reaches `quality`, or None if none does."""
+    return min((cost for reached, cost in choices if reached >= quality - 1e-12), default=None)
+
+
+def against_brute_force(rng: np.random.Generator) -> list[str]:
+    """How the oracle on a random matrix departs from the brute force, if it does, at every corner, between each
+    two, below the first and above the last."""
+    matrix, weights = random_matrix(rng)
+    solved, choices = oracle(matrix, weights), whole_items(matrix, weights)
+    corners = list(solved.curve.corners.values())
+    misses = []
+    for corner in corners:  # where the greedy lands on whole items, it is a whole-item choice
+        if not near(cheapest_whole(choices, corner.quality), corner.cost_per_1k):
+            misses.append(f"at the corner {corner} the brute force costs {cheapest_whole(choices, corner.quality)}")
+    for low, high in pairwise(corners):
+        for quality in (low.quality + share * (high.quality - low.quality) for share in (0.1, 0.5, 0.9)):
+            lp, whole = solved.cost_at(quality), cheapest_whole(choices, quality)
+            # Rounding the fractional upgrade up to its whole step is a whole-item choice, so the gap is at most it.
+            if not (lp is not None and whole is not None
+                    and lp - 1e-9 <= whole <= lp + high.cost_per_1k - low.cost_per_1k + 1e-9):  # fmt: skip
+                misses.append(f"at {quality} between {low} and {high}, the LP costs {lp} and the brute force {whole}")
+    top = max(quality for quality, _ in choices)
+    if not (math.isclose(corners[-1].quality, top, abs_tol=1e-12) and solved.cost_at(top + 1e-9) is None):
+        misses.append(f"the oracle's maximum is {corners[-1].quality}, the brute force's {top}")
+    if not near(solved.cost_at(corners[0].quality - 0.01), min(cost for _, cost in choices)):
+        misses.append(f"below its first corner the oracle costs {corners[0].cost_per_1k}, not the cheapest choice's")
+    return misses
+
+
 def same_total(total: Total, quality: float, cost_per_1k: float) -> bool:
     return math.isclose(total.quality, quality, abs_tol=1e-12) and math.isclose(total.cost_per_1k, cost_per_1k,
                                                                                 abs_tol=1e-12)  # fmt: skip
+
+
+def same_points(curve: Curve, points: list[tuple[float, float]]) -> bool:
+    """A curve's corners are these (quality, cost per 1k) points, in order."""
+    corners = list(curve.corners.values())
+    return len(corners) == len(points) and all(same_total(total, *point) for total, point in zip(corners, points))
+
+
+def same_shares(shares: dict[str, float] | None, expected: dict[str, float]) -> bool:
+    """An oracle's routing mix is these shares, in ladder order, every config named."""
+    return shares is not None and list(shares) == list(LADDER) and all(
+        math.isclose(shares[config], expected.get(config, 0), abs_tol=1e-12) for config in LADDER)  # fmt: skip
 
 
 def near(answer: float | None, expected: float) -> bool:
@@ -247,6 +371,108 @@ def main() -> int:
                  four_corners.quality_at(8.001))  # fmt: skip
     check(past_ends == (None,) * 4, "the envelope gives n/a below haiku's point and above opus's, both ways")
 
+    print("\n-- the hindsight oracle on a hand-worked matrix --")
+    # Under HAND_MIX, a and b weigh 0.375 each and c 0.25. a is right on haiku, so opus can't improve it; c is
+    # wrong on every config. Only b has an upgrade: haiku to opus, +0.375 quality for 0.375 x $4 = $1.50 per 1k.
+    hand = oracle(HAND, item_weights(HAND.items.values(), HAND_MIX))
+    check(same_points(hand.curve, [(0.375, 1.875), (0.75, 3.375)]),
+          "it starts at always-haiku's 37.5% at $1.875 per 1k and climbs to 75% at $3.375 by moving b to opus")  # fmt: skip
+    check(near(hand.cost_at(0.5625), 2.625) and near(hand.quality_at(2.625), 0.5625),
+          "halfway up, the last upgrade is fractional: 56.25% costs $1.875 + $1.50 / 2 = $2.625 per 1k")  # fmt: skip
+    check(same_shares(hand.routing_at(0.5625), {"haiku": 0.8125, "opus": 0.1875}),
+          "its routing mix there: half of b's 37.5% on opus, the rest on haiku")  # fmt: skip
+    check(same_shares(hand.routing_at(0.75), {"haiku": 0.625, "opus": 0.375}),
+          "at its maximum, c, which every config fails, stays on haiku, its cheapest config, with score 0")  # fmt: skip
+    refuses(MatrixError, lambda: synthetic({"a": ("t1", {"haiku": (0.001, 0), "gpt": (0.002, 1)})}),
+            "a matrix with a cell for a config off the ladder is refused, so the oracle can't skip it")  # fmt: skip
+
+    print("\n-- the hindsight oracle with scores between 0 and 1 --")
+    scored = oracle(SCORED, SCORED_WEIGHTS)
+    check(same_points(scored.curve, SCORED_CORNERS),
+          "p's four hull points give three upgrades and q's three give two, q's sonnet below its hull never used: "
+          "corners at (20%, $1), (30%, $1.25), (75%, $3.50), (80%, $4), (95%, $7), (97.5%, $8) per 1k")  # fmt: skip
+    check(near(scored.cost_at(0.525), 2.375)
+          and same_shares(scored.routing_at(0.525), {"haiku": 0.375, "sonnet": 0.25, "opus_low": 0.375}),
+          "52.5% is halfway through q's step to opus_low: $1.25 + $2.25 / 2 = $2.375 per 1k, p on sonnet")  # fmt: skip
+    check(near(scored.quality_at(5.5), 0.875)
+          and same_shares(scored.routing_at(0.875), {"opus_low": 0.625, "opus": 0.375}),
+          "$5.50 per 1k is halfway through q's step to opus: 80% + 15% / 2 = 87.5%, p on opus_low")  # fmt: skip
+    # Each task's own oracle weighs only its item. To reach 75%, p's climbs from sonnet ($2, 0.6) to 3/4 of the
+    # way to opus_low ($4, 0.8): $3.50 per 1k. q's climbs 0.55 / 0.6 of the way from haiku ($1) to opus_low ($4):
+    # $3.75 per 1k.
+    own = task_oracles(SCORED)
+    check(list(own) == ["t1", "t2"] and near(own["t1"].cost_at(0.75), 3.5) and near(own["t2"].cost_at(0.75), 3.75),
+          "a per-task oracle for each task: t1 reaches 75% at $3.50 per 1k, t2 at $3.75")  # fmt: skip
+    mixed = oracle(SCORED, item_weights(SCORED.items.values(), {"t1": 0.25, "t2": 0.75}))
+    check(same_points(mixed.curve, SCORED_CORNERS) and near(mixed.cost_at(0.75), 3.5),
+          "under the mix t1 0.25, t2 0.75 it trades quality between tasks: 75% with t1 at 60% and t2 at 80% costs "
+          "$3.50 per 1k, not the $3.6875 of each task reaching 75% on its own")  # fmt: skip
+
+    print("\n-- the hindsight oracle's ties and cheapest configs --")
+    on_ties = oracle(TIES, item_weights(TIES.items.values(), {"t1": 1.0}))
+    check(same_shares(on_ties.routing_at(0), {"haiku": 0.8, "sonnet": 0.2}),
+          "every item starts on its own cheapest config: x on sonnet, the rest on haiku")  # fmt: skip
+    # Steepest first: x to haiku (1 point per $1), u and v (1 per $2), y (1 per $3); each adds 20% and 0.2 x its $.
+    check(same_points(on_ties.curve, [(0, 1), (0.2, 1.2), (0.4, 1.6), (0.6, 2), (0.8, 2.6)]),
+          "its corners: (0%, $1), (20%, $1.20), (40%, $1.60), (60%, $2), (80%, $2.60) per 1k")  # fmt: skip
+    check(same_shares(on_ties.routing_at(0.8), {"haiku": 0.4, "sonnet": 0.2, "opus_low": 0.2, "opus": 0.2}),
+          "exact cost ties go to the lower config: y, right on both, to opus_low; z, wrong on every config, stays "
+          "on haiku with score 0")  # fmt: skip
+    check(same_shares(on_ties.routing_at(0.3), {"haiku": 0.9, "sonnet": 0.1}),
+          "of steps equally steep, the one to the lower config goes first: at 30%, u is halfway to sonnet and v, "
+          "though first in the matrix, still on haiku")  # fmt: skip
+
+    print("\n-- the hindsight oracle out of range, and both ways --")
+    check(near(hand.cost_at(0.2), 1.875) and near(hand.cost_at(0.375), 1.875)
+          and same_shares(hand.routing_at(0.2), {"haiku": 1}),
+          "a target at or below always-cheapest's 37.5% costs its $1.875 per 1k, every item on its cheapest config")  # fmt: skip
+    check(near(hand.cost_at(0.75), 3.375) and hand.cost_at(0.7501) is None and hand.routing_at(0.7501) is None,
+          "its maximum, 75%, costs $3.375 per 1k; a target above it is n/a (infeasible), cost and routing mix")  # fmt: skip
+    check(hand.quality_at(1.8) is None and hand.quality_at(3.4) is None,
+          "a cost below always-cheapest's or above the maximum's gives n/a")  # fmt: skip
+    qualities = [float(quality) for quality in np.linspace(0.2, 0.975, 63)]  # every corner and points between
+    costs = [float(cost) for cost in np.linspace(1, 8, 29)]
+    check(all((paid := scored.cost_at(quality)) is not None and near(scored.quality_at(paid), quality)
+              for quality in qualities),
+          "a round trip from a quality, the cost at it and then the quality at that cost, returns the starting "
+          "quality, from 20% to 97.5% in steps of 1.25 points")  # fmt: skip
+    check(all((reached := scored.quality_at(cost)) is not None and near(scored.cost_at(reached), cost)
+              for cost in costs),
+          "a round trip from a cost, the quality at it and then the cost of that quality, returns the starting "
+          "cost, from $1 to $8 per 1k in steps of $0.25")  # fmt: skip
+
+    targets = quality_targets(0.9)
+    check(list(targets) == [1.0, 0.99, 0.97] and all(map(near, targets.values(), (0.9, 0.891, 0.873))),
+          "the quality targets at a frontier quality of 90%: 100%, 99% and 97% of it, 90%, 89.1% and 87.3% (§11)")  # fmt: skip
+
+    print("\n-- the hindsight oracle's weights --")
+    # A resample's weights leave out no item, but give 0 to an item it didn't draw.
+    undrawn = oracle(HAND, {"a": 0.5, "b": 0, "c": 0.5})
+    check(same_points(undrawn.curve, [(0.5, 2)]) and undrawn.cost_at(0.51) is None,
+          "an item that weighs 0 is never upgraded, since that buys no quality: b stays on haiku, and the oracle "
+          "is one point, a and c on haiku, 50% at $2 per 1k")  # fmt: skip
+    refuses(OracleError, lambda: oracle(HAND, {"a": 0.5, "b": 0.5}), "weights that miss an item are refused")
+    refuses(OracleError, lambda: oracle(HAND, {"a": 0.25, "b": 0.25, "c": 0.25, "z": 0.25}),
+            "weights for an item not in the matrix are refused")  # fmt: skip
+    refuses(OracleError, lambda: oracle(HAND, {"a": -0.25, "b": 0.75, "c": 0.5}),
+            "a negative weight is refused, though the weights sum to 1")  # fmt: skip
+    refuses(OracleError, lambda: oracle(HAND, {"a": math.nan, "b": 0.5, "c": 0.5}),
+            "a weight that isn't a number is refused")  # fmt: skip
+    refuses(OracleError, lambda: oracle(HAND, {"a": 0.5, "b": 0.5, "c": 0.5}),
+            "weights that don't sum to 1 are refused, since quality is a weighted mean")  # fmt: skip
+    unanswered = Matrix({**HAND.items, "w": Item("w", "dev", "t1", "w")}, HAND.cells)
+    refuses(OracleError, lambda: oracle(unanswered, {"a": 0.25, "b": 0.25, "c": 0.25, "w": 0.25}),
+            "an item with no stored answer is refused, since it has no config to start on",
+            says="no stored answer")  # fmt: skip
+
+    print("\n-- the hindsight oracle against a brute force --")
+    rng = np.random.default_rng(6)
+    misses = [miss for _ in range(BRUTE_FORCE_RUNS) for miss in against_brute_force(rng)]
+    check(not misses,
+          f"on {BRUTE_FORCE_RUNS} random matrices, the LP costs no more than the cheapest whole-item choice at any "
+          f"target, and less by at most the upgrade in progress; they agree at every corner, at the maximum quality "
+          f"and below the first corner {misses[:3]}")  # fmt: skip
+
     print("\n-- the dev results matrix --")
     rows = read_store()
     prices = load_models()["prices"]
@@ -314,6 +540,44 @@ def main() -> int:
               f"{100 * (reached or 0):.1f}%, sonnet {100 * sonnet.quality:.1f}%")  # fmt: skip
         check(opus.cost_per_1k > opus_low.cost_per_1k and opus.quality < opus_low.quality,
               f"{mix} mix: opus falls below it, costing more than opus_low for less quality")  # fmt: skip
+
+    print("\n-- the hindsight oracle on dev --")
+    right = {item_id: {config for config in LADDER if dev.cells[(item_id, config)].success} for item_id in dev.items}
+    fail_everywhere = [item_id for item_id, configs in right.items() if not configs]
+    beat_opus = [item_id for item_id, configs in right.items() if configs and "opus" not in configs]
+    check((len(fail_everywhere), len(beat_opus)) == A8_ORACLE_ITEMS,
+          f"{len(fail_everywhere)} items fail on every config, and on {len(beat_opus)} opus fails and a cheaper "
+          f"config succeeds, as in Amendment A8 item 6")  # fmt: skip
+    climbers = sum(bool(configs) and "haiku" not in configs for configs in right.values())
+    for mix in ("realistic", "uniform"):
+        weights = item_weights(dev.items.values(), mixes[mix])
+        dev_oracle = oracle(dev, weights)
+        steps = list(dev_oracle.curve.corners.values())
+        b_point, a_point = totals(fixed["haiku"], mixes[mix]), totals(fixed["opus"], mixes[mix])
+        check(same_shares(dev_oracle.routing_at(0), {"haiku": 1})
+              and same_total(steps[0], b_point.quality, b_point.cost_per_1k),
+              "{} mix: every item's cheapest config is haiku, so the oracle starts at B, always-haiku ({}%, ${} per "
+              "1k)".format(mix, *rounded(steps[0])))  # fmt: skip
+        check(len(steps) == 1 + climbers,
+              f"{mix} mix: each item's hull has at most two points, haiku and the cheapest config that succeeds, so "
+              f"there is one upgrade for each of the {climbers} items haiku fails and another config gets right")  # fmt: skip
+        peak = steps[-1]
+        check(math.isclose(peak.quality, a_point.quality + sum(weights[item_id] for item_id in beat_opus))
+              and math.isclose(1 - peak.quality, sum(weights[item_id] for item_id in fail_everywhere)),
+              "{} mix: its maximum, {}% at ${} per 1k, is opus's quality plus the weight of the items opus fails and "
+              "a cheaper config gets right, and short of 100% by the weight of those every config fails"
+              .format(mix, *rounded(peak)))  # fmt: skip
+        reach = {share: dev_oracle.cost_at(target) for share, target in quality_targets(a_point.quality).items()}
+        shown = ", ".join(f"{share:.0%} ${cost:.2f}" for share, cost in reach.items() if cost is not None)
+        check(None not in reach.values(), f"{mix} mix: all three quality targets are feasible: {shown} per 1k")
+    for task, task_oracle in task_oracles(dev).items():
+        steps = list(task_oracle.curve.corners.values())
+        b_point = fixed_by_task["haiku"][task]
+        answerable = sum(bool(right[item_id]) for item_id in dev.items if dev.items[item_id].task == task)
+        check(same_total(steps[0], b_point.quality, b_point.cost_per_1k)
+              and math.isclose(steps[-1].quality, answerable / DEV_TASKS[task]),
+              f"{task}'s own oracle starts at always-haiku's {100 * b_point.quality:.1f}% and peaks at "
+              f"{100 * steps[-1].quality:.1f}%, the share of its items some config gets right")  # fmt: skip
 
     print("\n-- a toy cascade on dev --")
     outcomes = simulate(dev, toy_cascade(dev))
