@@ -93,3 +93,15 @@ Topics to come back to for the write-up, newest last. Details are in PLAN_v4.md'
 - Considered moving the margin to 1.5 or 2 standard errors. At 1.5 about one resample in 15 still misses, so the "n/a" stays, yet the 99% target already asks for more than any single config scores on dev. Only about 2 gives a numeric lower bound, at the cost of a lower operating point's savings and of operating points altogether at the 99% and 100% targets for weaker routers.
 - Decision: keep one standard error, and report "met the target in X% of resamples" in a column of its own beside every captured fraction. Recorded under A8 item 9 before any router exists.
 - Talking point: a wider safety margin doesn't make a router better. It hides its chance of missing behind a more cautious, more expensive operating point. Reporting the chance is more honest than buying it away.
+
+### 2026-10-20 · Chart v0's per-task picture (Amendment A8, items 10 and 12)
+- IFEval separates the configs most: `haiku` 83.4% against `opus` 93.6% on dev, and its own oracle reaches 98.1%. That's where a router has the most to do, though IFEval's 157 dev items make it indicative only (A7).
+- On MMLU-Pro `haiku` is within 2.5 points of `opus` and above `sonnet` (86.7% vs 85.0%). On Banking77 it trails `opus` by 5.4 points.
+- On MBPP+, 65% of the realistic mix, `opus_low` scores above `opus` (86.0% vs 84.1%). That's the source of the headline `opus_low` finding, on 107 items.
+- Talking point: a mix's average hides where routing matters, which is why per-task results are always shown, even though claims rest on the mixes and on the two larger tasks.
+
+### 2026-10-20 · Rules settled in the Stage 3 branch review (Amendment A8, items 4 and 7)
+- Matched cost: the oracle's curve ends at its costliest corner, little more than Haiku's bill on dev, so any real router would have had no oracle quality to compare with at its cost. A cost past a reference's top corner now reaches its maximum quality, since a bigger budget needn't be spent.
+- Traces: a policy must climb the config ladder (skipping is fine). Stepping down would pay for a dearer config and return a cheaper one's answer. A negative or non-finite overhead is refused too, since it would make a policy look cheaper.
+- The checks on A8's numbers now read the plan itself, not copies typed into the check script, and they catch the old $6.56 → $6.57 slip.
+- Talking point: rules the plan only described became refusals before any router existed, so no Stage 4–7 result can lean on a malformed trace.
