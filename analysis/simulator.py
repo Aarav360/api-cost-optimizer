@@ -106,9 +106,14 @@ def item_weights(items: Collection[Item | Outcome], mix: dict[str, float]) -> di
     Takes outcomes, or a matrix's items for the hindsight oracle, whose default weights these are.
     """
     counts = Counter(item.task for item in items)
-    if set(counts) != set(mix):
-        raise MixError(f"the mix weighs tasks {sorted(mix)}, but the items are of {sorted(counts)}")
+    check_mix(counts, mix)
     return {item.item_id: mix[item.task] / counts[item.task] for item in items}
+
+
+def check_mix(tasks: Collection[str], mix: dict[str, float]) -> None:
+    """Refuses (MixError) a mix that doesn't weigh exactly these tasks."""
+    if set(tasks) != set(mix):
+        raise MixError(f"the mix weighs tasks {sorted(mix)}, but the items are of {sorted(set(tasks))}")
 
 
 def totals(outcomes: list[Outcome], mix: dict[str, float]) -> Total:

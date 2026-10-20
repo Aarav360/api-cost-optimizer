@@ -5,12 +5,20 @@
   "run": 0,
   "n": 744,
   "price_snapshot": "2026-10-12",
+  "bootstrap": {
+    "resamples": 2000,
+    "seed": 2026,
+    "interval": "percentile 95%",
+    "resampled": "source groups within each task, the mix weights applied afterwards"
+  },
   "units": {
     "quality": "mix-weighted share of items answered correctly, 0 to 1",
     "cost_per_1k": "mix-weighted dollars per 1,000 requests, at list price",
     "envelope": "the envelope's corners, cheapest first, joined by straight lines in linear cost",
     "oracle": "the oracle's corners: every item on its cheapest config, then the point after each upgrade, in the order taken, joined by straight lines in linear cost",
-    "targets": "quality targets, as shares of A's (opus's) quality under the mix"
+    "targets": "quality targets, as shares of A's (opus's) quality under the mix",
+    "intervals": "each config's quality and cost per 1k with its percentile 95% interval (low, high) and standard error, the standard deviation over the resamples",
+    "difference_from_A": "each config's quality less A's, paired: the same resamples weigh both; its standard_error is the config's safety margin (Amendment A8, item 9)"
   },
   "panels": {
     "realistic": {
@@ -312,6 +320,90 @@
         "100%": 0.8674428785443579,
         "99%": 0.8587684497589143,
         "97%": 0.8414195921880271
+      },
+      "intervals": {
+        "haiku": {
+          "quality": {
+            "value": 0.8330189296981964,
+            "low": 0.7824698168182291,
+            "high": 0.8791113284403012,
+            "standard_error": 0.02463784748240439
+          },
+          "cost_per_1k": {
+            "value": 0.28747953997261744,
+            "low": 0.2603696817498746,
+            "high": 0.31979358584643264,
+            "standard_error": 0.015299982425400364
+          }
+        },
+        "sonnet": {
+          "quality": {
+            "value": 0.8454631228049289,
+            "low": 0.7963456966033953,
+            "high": 0.891358576122499,
+            "standard_error": 0.0244970929812751
+          },
+          "cost_per_1k": {
+            "value": 3.8037449842252515,
+            "low": 3.5318797310143704,
+            "high": 4.123977814904124,
+            "standard_error": 0.1535660627237204
+          }
+        },
+        "opus_low": {
+          "quality": {
+            "value": 0.8777174112546382,
+            "low": 0.832356888293159,
+            "high": 0.9175012520557639,
+            "standard_error": 0.02205152552051519
+          },
+          "cost_per_1k": {
+            "value": 6.564753152519,
+            "low": 6.137360215661659,
+            "high": 7.055265068863462,
+            "standard_error": 0.23626408050313197
+          }
+        },
+        "opus": {
+          "quality": {
+            "value": 0.8674428785443579,
+            "low": 0.8181213763138152,
+            "high": 0.9112464181015134,
+            "standard_error": 0.02338704738314108
+          },
+          "cost_per_1k": {
+            "value": 8.04290568441574,
+            "low": 7.500959949110459,
+            "high": 8.680603810391984,
+            "standard_error": 0.305980085998855
+          }
+        }
+      },
+      "difference_from_A": {
+        "haiku": {
+          "value": -0.03442394884616151,
+          "low": -0.07042480891574456,
+          "high": -0.0009201659745615626,
+          "standard_error": 0.017896616664347297
+        },
+        "sonnet": {
+          "value": -0.021979755739429008,
+          "low": -0.05174927464943351,
+          "high": 0.004237779525316856,
+          "standard_error": 0.014157833591846393
+        },
+        "opus_low": {
+          "value": 0.010274532710280337,
+          "low": -0.013000017052106275,
+          "high": 0.03649054530987512,
+          "standard_error": 0.012353640237393245
+        },
+        "opus": {
+          "value": 0.0,
+          "low": 0.0,
+          "high": 0.0,
+          "standard_error": 0.0
+        }
       }
     },
     "uniform": {
@@ -613,6 +705,90 @@
         "100%": 0.8953984736194615,
         "99%": 0.8864444888832669,
         "97%": 0.8685365194108776
+      },
+      "intervals": {
+        "haiku": {
+          "quality": {
+            "value": 0.8454562027501636,
+            "low": 0.8161931900096082,
+            "high": 0.872042024760136,
+            "standard_error": 0.014167263525915573
+          },
+          "cost_per_1k": {
+            "value": 0.42894680845958094,
+            "low": 0.3892337046441442,
+            "high": 0.4800464010182452,
+            "standard_error": 0.023291771384305937
+          }
+        },
+        "sonnet": {
+          "quality": {
+            "value": 0.8605912182272755,
+            "low": 0.8332820034624634,
+            "high": 0.8868730144865675,
+            "standard_error": 0.013440242487534199
+          },
+          "cost_per_1k": {
+            "value": 5.811656911497709,
+            "low": 5.254007391628011,
+            "high": 6.5268167152193675,
+            "standard_error": 0.32126921013405496
+          }
+        },
+        "opus_low": {
+          "quality": {
+            "value": 0.8969463708157231,
+            "low": 0.8734496646143893,
+            "high": 0.9196168426208605,
+            "standard_error": 0.011912108373782867
+          },
+          "cost_per_1k": {
+            "value": 9.605308329116813,
+            "low": 8.982380508648411,
+            "high": 10.302911764682174,
+            "standard_error": 0.3364587296055529
+          }
+        },
+        "opus": {
+          "quality": {
+            "value": 0.8953984736194615,
+            "low": 0.8719608182383103,
+            "high": 0.919242595327193,
+            "standard_error": 0.011983471310118465
+          },
+          "cost_per_1k": {
+            "value": 12.013344059170189,
+            "low": 11.169522236723441,
+            "high": 12.954388026408292,
+            "standard_error": 0.4620598923661789
+          }
+        }
+      },
+      "difference_from_A": {
+        "haiku": {
+          "value": -0.04994227086929781,
+          "low": -0.07547380904239932,
+          "high": -0.026257716788862438,
+          "standard_error": 0.01264329051620295
+        },
+        "sonnet": {
+          "value": -0.03480725539218599,
+          "low": -0.054013170764515776,
+          "high": -0.017609186472747246,
+          "standard_error": 0.009279288658826946
+        },
+        "opus_low": {
+          "value": 0.0015478971962616939,
+          "low": -0.012305906126365064,
+          "high": 0.015874459727809393,
+          "standard_error": 0.007095358432648004
+        },
+        "opus": {
+          "value": 0.0,
+          "low": 0.0,
+          "high": 0.0,
+          "standard_error": 0.0
+        }
       }
     }
   }

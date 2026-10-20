@@ -5,10 +5,13 @@ Run from the project root:  uv run python -m analysis.pareto
 Evaluates the four fixed configs as policies through the simulator, on dev (run 0),
 and totals them under both task mixes, with reference C, the random-mixture envelope
 of their points (Amendment A8, item 7), and reference D, the hindsight oracle, under
-each mix's item weights (item 6). Prints the totals, the envelope's corners and the
-oracle's range, and its cost and routing mix at each quality target (§11). Draws the
-headline figure: a realistic and a uniform panel, cost per 1,000 requests at list
-price on a log x-axis and mix-weighted quality on y, with dotted lines at the targets.
+each mix's item weights (item 6). The paired bootstrap (items 8 and 9) gives each
+config's totals their intervals, and its quality difference from A and its safety
+margin. Prints the totals with their intervals, differences and margins, the
+envelope's corners and the oracle's range, and its cost and routing mix at each
+quality target (§11). Draws the headline figure: a realistic and a uniform panel, cost
+per 1,000 requests at list price on a log x-axis and mix-weighted quality on y, each
+config a point with its intervals as a cross, and dotted lines at the targets.
 Writes figures/pareto.png and, with every plotted number, figures/pareto.json. Both
 are committed and overwritten as later stages add to the chart.
 """
@@ -21,8 +24,9 @@ from pathlib import Path
 
 import numpy as np
 from matplotlib.figure import Figure
-from matplotlib.ticker import FixedLocator, FuncFormatter, NullLocator, PercentFormatter
+from matplotlib.ticker import FixedLocator, FuncFormatter, MaxNLocator, NullLocator, PercentFormatter
 
+from analysis.bootstrap import RESAMPLES, SEED, Estimate, TotalEstimate, resample
 from analysis.matrix import LADDER, Matrix, load
 from analysis.references import START, Curve, Oracle, envelope, oracle, quality_targets
 from analysis.simulator import Total, always, item_weights, load_mixes, simulate, totals
@@ -52,6 +56,12 @@ def config_points(dev: Matrix, mixes: dict) -> dict[str, dict[str, Total]]:
     return {mix: {config: totals(outcomes[config], mixes[mix]) for config in LADDER} for mix in PANELS}
 
 
+def shown(estimate: Estimate, scale: float, form: str) -> str:
+    """An estimate and its interval, scaled and formatted alike: 83.3 (78.9 to 87.6)."""
+    value, low, high = (form.format(scale * n) for n in (estimate.value, estimate.low, estimate.high))
+    return f"{value} ({low} to {high})"
+
+
 def sampled(curve: Curve) -> tuple[list[float], list[float | None]]:
     """Points along a reference curve for the log cost axis, where its straight segments in linear cost bend.
 
@@ -64,9 +74,10 @@ def sampled(curve: Curve) -> tuple[list[float], list[float | None]]:
     return costs, [curve.quality_at(cost) for cost in costs]
 
 
-def draw(points: dict[str, dict[str, Total]], envelopes: dict[str, Curve], oracles: dict[str, Oracle],
-         targets: dict[str, dict[float, float]], caption: str, path: Path) -> None:  # fmt: skip
-    fig = Figure(figsize=(10, 4.8), dpi=200, facecolor=SURFACE)
+def draw(points: dict[str, dict[str, Total]], spreads: dict[str, dict[str, TotalEstimate]],
+         envelopes: dict[str, Curve], oracles: dict[str, Oracle], targets: dict[str, dict[float, float]], caption: str,
+         path: Path) -> None:  # fmt: skip
+    fig = Figure(figsize=(10, 5.2), dpi=200, facecolor=SURFACE)
     for ax, mix in zip(fig.subplots(1, 2), PANELS):
         ax.set_facecolor(SURFACE)
         # Each target's share sits in the right margin, clear of the curves, which all cross the targets further left.
@@ -77,9 +88,16 @@ def draw(points: dict[str, dict[str, Total]], envelopes: dict[str, Curve], oracl
                         textcoords="offset points", ha="left", va="center", fontsize=8, color=INK_SECONDARY)  # fmt: skip
         ax.plot(*sampled(envelopes[mix]), color=SERIES_2, linewidth=1.8, zorder=2, label=ENVELOPE_LABEL)
         ax.plot(*sampled(oracles[mix].curve), color=SERIES_3, linewidth=1.8, zorder=2, label=ORACLE_LABEL)
+        # Each arm spans its interval, which comes from the resamples and needn't be centred on the point.
+        for config, total in points[mix].items():
+            spread = spreads[mix][config]
+            ax.vlines(total.cost_per_1k, spread.quality.low, spread.quality.high, color=SERIES_1, linewidth=1,
+                      alpha=0.6, zorder=2)  # fmt: skip
+            ax.hlines(total.quality, spread.cost_per_1k.low, spread.cost_per_1k.high, color=SERIES_1, linewidth=1,
+                      alpha=0.6, zorder=2)  # fmt: skip
         ax.plot([total.cost_per_1k for total in points[mix].values()], [total.quality for total in points[mix].values()],
                 "o", markersize=7, color=SERIES_1, markeredgecolor=SURFACE, markeredgewidth=1.5, zorder=3,
-                label="Fixed configs")  # fmt: skip
+                label="Fixed configs, with 95% intervals")  # fmt: skip
         for config, total in points[mix].items():
             dx, dy, ha = OFFSETS[config]
             ax.annotate(LABELS[config], (total.cost_per_1k, total.quality), xytext=(dx, dy), textcoords="offset points",
@@ -89,6 +107,8 @@ def draw(points: dict[str, dict[str, Total]], envelopes: dict[str, Curve], oracl
         ax.xaxis.set_major_locator(FixedLocator([0.3, 1, 3, 10]))
         ax.xaxis.set_minor_locator(NullLocator())
         ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"${v:g}"))
+        # Whole-point steps: the crosses widen the range enough for 2.5-point ticks, which whole percents misprint.
+        ax.yaxis.set_major_locator(MaxNLocator(steps=[1, 2, 5, 10]))
         ax.yaxis.set_major_formatter(PercentFormatter(xmax=1, decimals=0))
         ax.margins(y=0.25)
         ax.set_title(f"{mix.capitalize()} mix", loc="left", fontsize=11, color=INK)
@@ -104,10 +124,10 @@ def draw(points: dict[str, dict[str, Total]], envelopes: dict[str, Curve], oracl
     # One legend under both panels, which plot the same series; inside a panel it would cover a curve. The target
     # lines are drawn first, under the curves, but listed last.
     handles, labels = ax.get_legend_handles_labels()
-    fig.legend(handles[1:] + handles[:1], labels[1:] + labels[:1], loc="lower center", bbox_to_anchor=(0.5, 0.045),
-               ncol=4, frameon=False, fontsize=8.5, labelcolor=INK)  # fmt: skip
+    fig.legend(handles[1:] + handles[:1], labels[1:] + labels[:1], loc="lower center", bbox_to_anchor=(0.5, 0.04),
+               ncol=2, frameon=False, fontsize=8.5, labelcolor=INK)  # fmt: skip
     fig.text(0.01, 0.01, caption, fontsize=8.5, color=INK_SECONDARY)
-    fig.tight_layout(rect=(0, 0.1, 1, 1))
+    fig.tight_layout(rect=(0, 0.13, 1, 1))
     fig.savefig(path, facecolor=SURFACE)
 
 
@@ -119,12 +139,25 @@ def main() -> int:
     envelopes = {mix: envelope(points[mix]) for mix in PANELS}
     oracles = {mix: oracle(dev, item_weights(dev.items.values(), mixes[mix])) for mix in PANELS}
     targets = {mix: quality_targets(points[mix]["opus"].quality) for mix in PANELS}
+    # One set of resamples serves every config and mix, so each difference from A is paired (A8 item 8).
+    draws = resample(dev)
+    outcomes = {config: simulate(dev, always(dev, config)) for config in LADDER}
+    spreads = {mix: {c: draws.totals(outcomes[c], mixes[mix]) for c in LADDER} for mix in PANELS}
+    differences = {mix: {c: draws.difference(outcomes[c], outcomes["opus"], mixes[mix]) for c in LADDER}
+                   for mix in PANELS}  # fmt: skip
+    margins = {mix: {c: draws.safety_margin(outcomes[c], outcomes["opus"], mixes[mix]) for c in LADDER}
+               for mix in PANELS}  # fmt: skip
     basis = f"run 0, n = {len(dev.items)}, list prices {snapshot}"
 
-    print(f"Fixed configs on dev ({basis}): quality, $ per 1,000 requests")
-    rows = [[LABELS[c]] + [f"{100 * points[m][c].quality:.1f}%  ${points[m][c].cost_per_1k:.2f}" for m in PANELS]
-            for c in LADDER]  # fmt: skip
-    print_table(["config"] + list(PANELS), rows)
+    print(f"Fixed configs on dev ({basis}), with percentile 95% intervals from {RESAMPLES:,} paired bootstrap "
+          f"resamples (seed {SEED}). The safety margin is one standard error of the quality difference from A.")  # fmt: skip
+    for mix in PANELS:
+        rows = [[LABELS[c], f"{shown(spreads[mix][c].quality, 100, '{:.1f}')}%",
+                 f"${shown(spreads[mix][c].cost_per_1k, 1, '{:.2f}')}",
+                 f"{shown(differences[mix][c], 100, '{:+.1f}')} pts", f"{100 * margins[mix][c]:.2f} pts"]
+                for c in LADDER]  # fmt: skip
+        print(f"\n{mix.capitalize()} mix")
+        print_table(["config", "quality", "$ per 1k", "difference from A", "safety margin"], rows)
     for mix, curve in envelopes.items():
         corners = ", ".join(f"{config} ({100 * total.quality:.1f}%, ${total.cost_per_1k:.2f})"
                             for config, total in curve.corners.items())  # fmt: skip
@@ -147,18 +180,28 @@ def main() -> int:
         "oracle": f"the oracle's corners: {START}, then the point after each upgrade, in the order taken, joined "
                   f"by straight lines in linear cost",
         "targets": "quality targets, as shares of A's (opus's) quality under the mix",
+        "intervals": "each config's quality and cost per 1k with its percentile 95% interval (low, high) and standard "
+                     "error, the standard deviation over the resamples",
+        "difference_from_A": "each config's quality less A's, paired: the same resamples weigh both; its "
+                             "standard_error is the config's safety margin (Amendment A8, item 9)",
     }  # fmt: skip
     panels = {mix: {"configs": {c: asdict(t) for c, t in points[mix].items()},
                     "envelope": {c: asdict(t) for c, t in envelopes[mix].corners.items()},
                     # A list, not keyed by the upgrade's item: the figures hold aggregates of dev only (A8 item 10).
                     "oracle": [asdict(t) for t in oracles[mix].curve.corners.values()],
-                    "targets": {f"{share:.0%}": quality for share, quality in targets[mix].items()}}
+                    "targets": {f"{share:.0%}": quality for share, quality in targets[mix].items()},
+                    "intervals": {c: asdict(spread) for c, spread in spreads[mix].items()},
+                    "difference_from_A": {c: asdict(difference) for c, difference in differences[mix].items()}}
               for mix in PANELS}  # fmt: skip
+    bootstrap = {"resamples": RESAMPLES, "seed": SEED, "interval": "percentile 95%",
+                 "resampled": "source groups within each task, the mix weights applied afterwards"}  # fmt: skip
     data = {"figure": FIGURE.name, "built_by": "analysis/pareto.py", "split": "dev", "run": 0, "n": len(dev.items),
-            "price_snapshot": snapshot, "units": units, "panels": panels}  # fmt: skip
+            "price_snapshot": snapshot, "bootstrap": bootstrap, "units": units, "panels": panels}  # fmt: skip
     FIGURES.mkdir(exist_ok=True)
     FIGURE_DATA.write_text(json.dumps(data, indent=2) + "\n")
-    draw(points, envelopes, oracles, targets, f"Dev split, {basis}.", FIGURE)
+    caption = (f"Dev split, {basis}. Crosses are 95% intervals from {RESAMPLES:,} resamples of source groups within "
+               f"each task.")  # fmt: skip
+    draw(points, spreads, envelopes, oracles, targets, caption, FIGURE)
     print(f"\nWrote {FIGURE.relative_to(PROJECT_ROOT)} and {FIGURE_DATA.relative_to(PROJECT_ROOT)}")
     return 0
 

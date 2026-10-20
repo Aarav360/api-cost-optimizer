@@ -38,7 +38,19 @@ On a synthetic matrix, where the right answer is worked out by hand:
 - the quality targets at a frontier quality of 90%: 100%, 99% and 97% of it (§11);
 - on 300 random matrices, the oracle against a brute force over whole-item choices: the
   LP costs no more at any target, and less by at most the upgrade in progress; they
-  agree at every corner, at the maximum quality and below the first corner.
+  agree at every corner, at the maximum quality and below the first corner;
+- the paired bootstrap's resamples keep each source group's items together, draw as many
+  groups from each task as it has, with replacement, and are identical from the same
+  seed whatever order the matrix holds its items in; the mix weights are applied after
+  resampling, so each resample's weights sum to 1, and the oracle takes one resample's;
+  a mix that doesn't weigh exactly the items' tasks is refused;
+- its intervals and standard errors on four hand-drawn resamples, and on 400 coin flips,
+  one or two to a source group, as the textbook standard error of a mean gives them;
+- the paired difference from the frontier on the hand-drawn resamples; a policy less
+  itself is exactly 0 with no width; on the coin flips, two policies' paired standard
+  error is the one their disagreements give, well under each one's own; it refuses
+  outcomes that miss an item, cover one twice or cover one not resampled;
+- the safety margin is the paired difference's standard error, and the frontier's is 0.
 
 On the dev results matrix:
 
@@ -59,6 +71,10 @@ On the dev results matrix:
   opus's quality plus the 28 items' weight, and all three quality targets are feasible;
   each task's own oracle starts at always-haiku's point and peaks at the share of its
   items some config gets right;
+- the paired bootstrap draws 2,000 resamples, identical from the same seed, and never
+  splits MMLU-Pro's source groups of two; on the realistic mix, each config's own
+  standard error, its paired standard error against opus and the bars an unpaired
+  margin would set are as Amendment A8 item 9 gives them;
 - a toy cascade (haiku, climbing to opus on MMLU-Pro and MBPP+) prints its per-task
   totals, each haiku's or opus's quality with the calls and gate it paid for, and its
   per-mix totals, each the mix's weighting of the per-task ones;
@@ -72,6 +88,7 @@ from itertools import combinations, pairwise, product
 
 import numpy as np
 
+from analysis.bootstrap import Bootstrap, BootstrapError, Estimate, resample
 from analysis.matrix import LADDER, Item, Matrix, MatrixError, from_store, list_price, read_store
 from analysis.references import (
     Curve,
@@ -111,13 +128,20 @@ A8_ABOVE_NEXT = {("sonnet", "opus_low"): "4.8", ("opus_low", "opus"): "12.8"}
 A8_TIES, A8_TIES_BANKING77 = {("opus_low", "opus"): 234}, 209
 # Amendment A8, item 6 (dev): the items every config fails, and those opus fails and a cheaper config gets right.
 A8_ORACLE_ITEMS = (46, 28)
+# Amendment A8, item 9 (dev, realistic mix), in points: a fixed config's own standard error, about 2.4; its paired
+# standard error against opus; and the dev quality an unpaired margin (the target plus opus's own standard error)
+# would ask for at each quality target. Ranges allow for the seed.
+A8_OWN_SE, A8_PAIRED_SE = (2.1, 2.6), (1.2, 1.8)
+A8_UNPAIRED_BARS, A8_BAR_TOLERANCE = {1.0: 89.1, 0.99: 88.3, 0.97: 86.5}, 0.15
 
 
-def synthetic(items: dict[str, tuple[str, dict[str, tuple[float, float]]]], split: str = "dev") -> Matrix:
-    """{item_id: (task, {config: (list-price cost, score)})}: items of one split, each its own source group."""
+def synthetic(items: dict[str, tuple[str, dict[str, tuple[float, float]]]], split: str = "dev",
+              groups: dict[str, str] | None = None) -> Matrix:  # fmt: skip
+    """{item_id: (task, {config: (list-price cost, score)})}: items of one split, each its own source group unless
+    `groups` gives it one."""
     return Matrix.from_rows([
-        {"item_id": item_id, "split": split, "task": task, "source_group": item_id, "config": config,
-         "cost": cost, "success": success}
+        {"item_id": item_id, "split": split, "task": task, "source_group": (groups or {}).get(item_id, item_id),
+         "config": config, "cost": cost, "success": success}
         for item_id, (task, cells) in items.items() for config, (cost, success) in cells.items()
     ])  # fmt: skip
 
@@ -163,6 +187,33 @@ TIES = synthetic({
 
 
 BRUTE_FORCE_RUNS = 300
+
+
+# Source groups of three, two and one items in t1, and two groups of one in t2.
+GROUPED = synthetic({item_id: (task, {"haiku": (0.001, 1)}) for item_id, task in
+                     [("g1", "t1"), ("g2", "t1"), ("g3", "t1"), ("h1", "t1"), ("h2", "t1"), ("k", "t1"), ("m", "t2"),
+                      ("n", "t2")]}, groups={"g1": "g", "g2": "g", "g3": "g", "h1": "h", "h2": "h"})  # fmt: skip
+GROUPED_GROUPS = {"t1": [["g1", "g2", "g3"], ["h1", "h2"], ["k"]], "t2": [["m"], ["n"]]}
+# Four resamples of HAND, drawn by hand: each draws two of t1's items (a, b) and t2's one (c). Under HAND_MIX, t1's
+# 0.75 is shared among its draws, so their weights are a .75, b 0; then .375 each; b .75; .375 each. c weighs .25.
+HAND_DRAWS = Bootstrap(("a", "b", "c"), ("t1", "t1", "t2"), np.array([[2, 0, 1], [1, 1, 1], [0, 2, 1], [1, 1, 1]]))
+HAND_DRAW_WEIGHTS = [[0.75, 0, 0.25], [0.375, 0.375, 0.25], [0, 0.75, 0.25], [0.375, 0.375, 0.25]]
+# Always-haiku over those resamples: quality 75%, 37.5%, 0, 37.5%, and $1.50, $1.875, $2.25, $1.875 per 1k. A
+# percentile interpolates between the sorted values (numpy's default), so of four values the 2.5th sits 0.075 of
+# the way from the first to the second and the 97.5th 0.925 of the way from the third to the fourth: quality 0 +
+# 0.075 x 0.375 to 0.375 + 0.925 x 0.375. Both standard deviations are sqrt(2 x 0.375^2 / 3).
+HAND_HAIKU = {"quality": (0.375, 0.028125, 0.721875), "cost_per_1k": (1.875, 1.528125, 2.221875)}
+HAND_SPREAD = math.sqrt(2 * 0.375**2 / 3)
+# Always-haiku's quality less always-opus's, resample by resample: 0, -37.5%, -75%, -37.5%; on the items as they
+# are, 37.5% - 75%. Its interval and standard error are found the same way.
+HAND_DIFFERENCE = (-0.375, -0.721875, -0.028125, HAND_SPREAD)
+# 400 items of one task, each its own source group, haiku right on the first 200 and opus on 20 to 219: each policy's
+# quality has the standard error of a mean of 400 coin flips, sqrt(0.5 x 0.5 / 400) = 2.5 points. Their difference
+# is +1 on 20 items, -1 on 20 and 0 on 360, so its standard error is sqrt((40 / 400) / 400) = 1.58 points. In COIN_PAIRS
+# each pair of items (0 and 1, 2 and 3, ...) is one source group, so each policy's is that of 200 flips, 3.54 points.
+COIN = {f"i{i:03}": ("t1", {"haiku": (0.001, float(i < 200)), "opus": (0.002, float(20 <= i < 220))})
+        for i in range(400)}  # fmt: skip
+COIN_SE, COIN_PAIRED_SE, COIN_PAIRS_SE = math.sqrt(0.25 / 400), math.sqrt(0.1 / 400), math.sqrt(0.25 / 200)
 
 CLIMBS, TOY_GATE = {"mmlu_pro", "mbppplus"}, 0.0001  # the toy cascade's tasks that climb to opus, its gate's cost
 
@@ -245,6 +296,13 @@ def same_shares(shares: dict[str, float] | None, expected: dict[str, float]) -> 
 def near(answer: float | None, expected: float) -> bool:
     """A reference's answer is a number close to `expected`, not n/a (None)."""
     return answer is not None and math.isclose(answer, expected, rel_tol=1e-9)
+
+
+def same_estimate(estimate: Estimate, value: float, low: float, high: float, standard_error: float) -> bool:
+    """An estimate is this value, interval and standard error, to rounding."""
+    return all(math.isclose(got, want, rel_tol=0, abs_tol=1e-12) for got, want in
+               zip((estimate.value, estimate.low, estimate.high, estimate.standard_error),
+                   (value, low, high, standard_error)))  # fmt: skip
 
 
 def rounded(total: Total) -> tuple[str, str]:
@@ -473,6 +531,91 @@ def main() -> int:
           f"target, and less by at most the upgrade in progress; they agree at every corner, at the maximum quality "
           f"and below the first corner {misses[:3]}")  # fmt: skip
 
+    print("\n-- the paired bootstrap's resamples --")
+    grouped_draws = resample(GROUPED, 500, seed=1)
+    column = {item_id: i for i, item_id in enumerate(grouped_draws.item_ids)}
+    counts = {item_id: grouped_draws.counts[:, i] for item_id, i in column.items()}
+    check(grouped_draws.counts.shape == (500, 8) and all(np.array_equal(counts[group[0]], counts[item_id])
+                                                 for groups in GROUPED_GROUPS.values() for group in groups
+                                                 for item_id in group),
+          "500 resamples, and in every one a source group's items are grouped_draws together, as often as each other")  # fmt: skip
+    check(all(np.array_equal(sum(counts[group[0]] for group in groups), np.full(500, len(groups)))
+              for groups in GROUPED_GROUPS.values()),
+          "each resample draws as many source groups from each task as it has: 3 from t1, 2 from t2")  # fmt: skip
+    check(all(len({int(n) for n in counts[group[0]]}) > 1 for groups in GROUPED_GROUPS.values() for group in groups),
+          "groups are grouped_draws with replacement: each group's count varies across resamples")  # fmt: skip
+    check(np.array_equal(resample(GROUPED, 500, seed=1).counts, grouped_draws.counts)
+          and not np.array_equal(resample(GROUPED, 500, seed=2).counts, grouped_draws.counts),
+          "the same seed gives identical resamples, and another seed different ones")  # fmt: skip
+    shuffled = Matrix(dict(reversed(GROUPED.items.items())), GROUPED.cells)
+    again = resample(shuffled, 500, seed=1)
+    check(all(np.array_equal(again.counts[:, again.item_ids.index(item_id)], counts[item_id]) for item_id in column),
+          "the resamples don't depend on the order the matrix holds its items in")  # fmt: skip
+
+    print("\n-- the paired bootstrap's weights --")
+    check(np.allclose(HAND_DRAWS.weights(HAND_MIX), HAND_DRAW_WEIGHTS, rtol=0, atol=1e-12),
+          "the mix weights are applied after resampling: a task's weight is shared among the items grouped_draws from it, by "
+          "how often each was grouped_draws")  # fmt: skip
+    first = HAND_DRAWS.item_weights(HAND_MIX, 0)
+    check(first == {"a": 0.75, "b": 0, "c": 0.25} and same_points(oracle(HAND, first).curve, [(0.75, 1.5)]),
+          "a resample's per-item weights, for the oracle to re-solve on: in the first, b isn't grouped_draws and weighs 0, so "
+          "the oracle never upgrades it, and a and c gain nothing from opus, leaving one point, 75% at $1.50 per 1k")  # fmt: skip
+    resampled = grouped_draws.weights({"t1": 0.3, "t2": 0.7})
+    in_t1 = np.array([task == "t1" for task in grouped_draws.tasks])
+    check(np.allclose(resampled.sum(axis=1), 1, rtol=0, atol=1e-12)
+          and np.allclose(resampled[:, in_t1].sum(axis=1), 0.3, rtol=0, atol=1e-12),
+          "every resample's weights sum to 1, and t1's items to t1's mix weight, 0.3")  # fmt: skip
+    refuses(MixError, lambda: HAND_DRAWS.weights({"t1": 1.0}),
+            "a mix that doesn't weigh exactly the items' tasks is refused")  # fmt: skip
+
+    print("\n-- the paired bootstrap's intervals --")
+    hand_haiku, hand_opus = (simulate(HAND, always(HAND, config)) for config in ("haiku", "opus"))
+    spread = HAND_DRAWS.totals(hand_haiku, HAND_MIX)
+    check(all(same_estimate(getattr(spread, measure), *expected, HAND_SPREAD) for measure, expected in HAND_HAIKU.items()),
+          "always-haiku over the four hand-drawn resamples: quality 37.5% (2.8% to 72.2%), cost $1.875 per 1k ($1.53 "
+          "to $2.22), each with a standard error of sqrt(2 x 0.375^2 / 3)")  # fmt: skip
+    steady = HAND_DRAWS.totals(hand_opus, HAND_MIX).quality
+    check(same_estimate(steady, 0.75, 0.75, 0.75, 0),
+          "always-opus is 75% in every hand-drawn resample, so its interval has no width and its standard error is 0")  # fmt: skip
+    for name, groups, own_se in (("one item per source group", None, COIN_SE),
+                                 ("two items per source group", {f"i{i:03}": f"pair{i // 2}" for i in range(400)},
+                                  COIN_PAIRS_SE)):  # fmt: skip
+        coins = synthetic(COIN, groups=groups)
+        flips = resample(coins).totals(simulate(coins, always(coins, "haiku")), {"t1": 1.0}).quality
+        check(math.isclose(flips.standard_error, own_se, rel_tol=0.1)
+              and abs(flips.low - (0.5 - 1.96 * own_se)) < 0.005 and abs(flips.high - (0.5 + 1.96 * own_se)) < 0.005,
+              f"400 coin flips, {name}: 2,000 resamples give a standard error of {100 * flips.standard_error:.2f} "
+              f"points (theory {100 * own_se:.2f}) and an interval of {100 * flips.low:.1f}% to "
+              f"{100 * flips.high:.1f}% (theory 50% "
+              f"± {196 * own_se:.1f})")  # fmt: skip
+
+    print("\n-- the paired bootstrap's differences from the frontier --")
+    check(same_estimate(HAND_DRAWS.difference(hand_haiku, hand_opus, HAND_MIX), *HAND_DIFFERENCE),
+          "always-haiku less always-opus over the four hand-drawn resamples: -37.5 points (-72.2 to -2.8)")  # fmt: skip
+    coins = synthetic(COIN)
+    coin_draws = resample(coins)
+    coin_haiku, coin_opus = (simulate(coins, always(coins, config)) for config in ("haiku", "opus"))
+    itself = coin_draws.difference(coin_haiku, coin_haiku, {"t1": 1.0})
+    check((itself.value, itself.low, itself.high, itself.standard_error) == (0, 0, 0, 0),
+          "a policy less itself is exactly 0 in every resample: its interval has no width")  # fmt: skip
+    paired = coin_draws.difference(coin_haiku, coin_opus, {"t1": 1.0})
+    check(paired.value == 0 and math.isclose(paired.standard_error, COIN_PAIRED_SE, rel_tol=0.1),
+          f"400 coin flips, two policies that disagree on 40 items: the paired difference's standard error is "
+          f"{100 * paired.standard_error:.2f} points (theory {100 * COIN_PAIRED_SE:.2f}), well under each policy's "
+          f"own {100 * COIN_SE:.2f}, since the luck of the draw moves both alike")  # fmt: skip
+    for what, outcomes in (("miss an item", hand_haiku[1:]), ("cover an item twice", hand_haiku + hand_haiku[:1]),
+                           ("cover an item not resampled", hand_haiku + simulate(TRAIN, always(TRAIN, "haiku"))[:1])):  # fmt: skip
+        refuses(BootstrapError, lambda: HAND_DRAWS.totals(outcomes, HAND_MIX),
+                f"a policy's outcomes that {what} are refused")  # fmt: skip
+        refuses(BootstrapError, lambda: HAND_DRAWS.difference(hand_haiku, outcomes, HAND_MIX),
+                f"frontier outcomes that {what} are refused")  # fmt: skip
+
+    print("\n-- the safety margin --")
+    check(math.isclose(HAND_DRAWS.safety_margin(hand_haiku, hand_opus, HAND_MIX), HAND_SPREAD, rel_tol=0, abs_tol=1e-12)
+          and HAND_DRAWS.safety_margin(hand_opus, hand_opus, HAND_MIX) == 0,
+          "one standard error of the policy's paired quality difference from the frontier: always-haiku's over the "
+          "hand-drawn resamples is sqrt(2 x 0.375^2 / 3), and the frontier's own is 0 (Amendment A8, item 9)")  # fmt: skip
+
     print("\n-- the dev results matrix --")
     rows = read_store()
     prices = load_models()["prices"]
@@ -578,6 +721,36 @@ def main() -> int:
               and math.isclose(steps[-1].quality, answerable / DEV_TASKS[task]),
               f"{task}'s own oracle starts at always-haiku's {100 * b_point.quality:.1f}% and peaks at "
               f"{100 * steps[-1].quality:.1f}%, the share of its items some config gets right")  # fmt: skip
+
+    print("\n-- the paired bootstrap on dev --")
+    draws = resample(dev)
+    sizes = Counter(item.source_group for item in dev.items.values())
+    grouped = [[item_id for item_id, item in dev.items.items() if item.source_group == group]
+               for group, size in sizes.items() if size > 1]  # fmt: skip
+    place = {item_id: i for i, item_id in enumerate(draws.item_ids)}
+    check(draws.counts.shape == (2000, 744) and np.array_equal(resample(dev).counts, draws.counts),
+          "2,000 resamples of the 744 dev items, identical when drawn again from the same seed")  # fmt: skip
+    check(len(grouped) == 5 and all(np.array_equal(draws.counts[:, place[a]], draws.counts[:, place[b]]) for a, b in grouped),
+          "no resample splits any of MMLU-Pro's 5 source groups of two items")  # fmt: skip
+    realistic = mixes["realistic"]
+    dev_spread = {config: draws.totals(fixed[config], realistic) for config in LADDER}
+    dev_se = {config: 100 * dev_spread[config].quality.standard_error for config in LADDER}
+    check(all(A8_OWN_SE[0] <= se <= A8_OWN_SE[1] for se in dev_se.values()),
+          f"realistic mix: each fixed config's own standard error is {A8_OWN_SE[0]} to {A8_OWN_SE[1]} points, about "
+          f"2.4 as Amendment A8 item 9 says "
+          f"({', '.join(f'{config} {se:.2f}' for config, se in dev_se.items())})")  # fmt: skip
+    margins = {config: 100 * draws.safety_margin(fixed[config], fixed["opus"], realistic) for config in LADDER}
+    check(all(A8_PAIRED_SE[0] <= margins[config] <= A8_PAIRED_SE[1] for config in LADDER[:-1]) and margins["opus"] == 0,
+          f"realistic mix: each config's paired standard error against opus, its safety margin, is {A8_PAIRED_SE[0]} "
+          f"to {A8_PAIRED_SE[1]} points, as Amendment A8 item 9 says "
+          f"({', '.join(f'{c} {margins[c]:.2f}' for c in LADDER[:-1])}), and opus's own 0")  # fmt: skip
+    a_quality = 100 * dev_spread["opus"].quality.value
+    bars = {share: share * a_quality + dev_se["opus"] for share in A8_UNPAIRED_BARS}
+    check(all(abs(bars[share] - bar) <= A8_BAR_TOLERANCE for share, bar in A8_UNPAIRED_BARS.items()),
+          f"realistic mix: an unpaired margin, opus's own {dev_se['opus']:.2f} points, would ask for dev quality of "
+          f"{', '.join(f'{bar:.2f}%' for bar in bars.values())} at the {'/'.join(f'{s:.0%}' for s in bars)} targets, "
+          f"against Amendment A8 item 9's {', '.join(f'{bar}%' for bar in A8_UNPAIRED_BARS.values())} (within "
+          f"{A8_BAR_TOLERANCE} points)")  # fmt: skip
 
     print("\n-- a toy cascade on dev --")
     outcomes = simulate(dev, toy_cascade(dev))
