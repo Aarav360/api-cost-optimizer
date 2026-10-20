@@ -39,6 +39,11 @@ On a synthetic matrix, where the right answer is worked out by hand:
 - on 300 random matrices, the oracle against a brute force over whole-item choices: the
   LP costs no more at any target, and less by at most the upgrade in progress; they
   agree at every corner, at the maximum quality and below the first corner;
+- the captured fraction (§7) of a cascade with a gate, at 100% and 99%; 0 for the
+  frontier at 100% and 1 for the oracle's own choice, even a rounding error cheaper; n/a
+  where the policy misses the target and where the oracle saves nothing; a policy that
+  meets a target for less than the oracle, or above its maximum, stops the run; the
+  envelope's cheapest point that meets a target, and its captured fraction;
 - the paired bootstrap's resamples keep each source group's items together, draw as many
   groups from each task as it has, with replacement, and are identical from the same
   seed whatever order the matrix holds its items in; the mix weights are applied after
@@ -50,6 +55,12 @@ On a synthetic matrix, where the right answer is worked out by hand:
   itself is exactly 0 with no width; on the coin flips, two policies' paired standard
   error is the one their disagreements give, well under each one's own; it refuses
   outcomes that miss an item, cover one twice or cover one not resampled;
+- the captured fraction's paired intervals on the hand-drawn resamples, each with its
+  own frontier, target and re-solved oracle, for a cascade, always-haiku (n/a ranked
+  below its one number), the frontier (0 throughout) and the envelope rebuilt in each;
+  a policy that misses its target in about 5% of resamples gets an n/a lower bound
+  and the share it meets; on 40 random matrices, random multi-config policies with
+  overhead and the envelope never capture more than 1 in any resample;
 - the safety margin is the paired difference's standard error, and the frontier's is 0.
 
 On the dev results matrix:
@@ -75,6 +86,8 @@ On the dev results matrix:
   splits MMLU-Pro's source groups of two; on the realistic mix, each config's own
   standard error, its paired standard error against opus and the bars an unpaired
   margin would set are as Amendment A8 item 9 gives them;
+- under both mixes the frontier captures 0 at 100% in every resample, and the envelope's
+  captured fraction at each target lies between 0 and 1 and meets it in every resample;
 - a toy cascade (haiku, climbing to opus on MMLU-Pro and MBPP+) prints its per-task
   totals, each haiku's or opus's quality with the calls and gate it paid for, and its
   per-mix totals, each the mix's weighting of the per-task ones;
@@ -88,12 +101,14 @@ from itertools import combinations, pairwise, product
 
 import numpy as np
 
-from analysis.bootstrap import Bootstrap, BootstrapError, Estimate, resample
+from analysis.bootstrap import Bootstrap, BootstrapError, Captured, Estimate, resample
 from analysis.matrix import LADDER, Item, Matrix, MatrixError, from_store, list_price, read_store
 from analysis.references import (
+    BoundError,
     Curve,
     CurveError,
     OracleError,
+    captured_fraction,
     envelope,
     oracle,
     quality_targets,
@@ -153,6 +168,18 @@ HAND = synthetic({
     "c": ("t2", {"haiku": (0.003, 0), "opus": (0.010, 0)}),
 })  # fmt: skip
 HAND_MIX = {"t1": 0.75, "t2": 0.25}
+# Policies on HAND. ROUTED sends b to opus and a and c to haiku: the oracle's own choice at 75%, $3.375 per 1k.
+# CASCADED climbs from haiku to opus on b and pays a gate of $0.0001 on every item: 0.375 x $1 + 0.375 x ($2 + $6) +
+# 0.25 x $3 + $0.10 = $4.225 per 1k, also at 75%.
+ROUTED = [Trace("a", ("haiku",)), Trace("b", ("opus",)), Trace("c", ("haiku",))]
+CASCADED = [Trace("a", ("haiku",), 0.0001), Trace("b", ("haiku", "opus"), 0.0001), Trace("c", ("haiku",), 0.0001)]
+# The frontier, always-opus, is at 75% and $6.25 per 1k; the oracle reaches 75% for $3.375 and 74.25% (99% of 75%)
+# for $1.875 + 0.98 x $1.50 = $3.345. So at 100% the cascade captures ($6.25 - $4.225) / ($6.25 - $3.375) = 81/115
+# of the oracle's savings, and at 99% $2.025 / $2.905. The envelope, haiku to opus, reaches 74.25% for $1.875 + 0.98 x
+# $4.375 = $6.1625, capturing $0.0875 / $2.905.
+HAND_CAPTURED = {"cascade at 100%": 81 / 115, "cascade at 99%": 2.025 / 2.905, "envelope at 99%": 0.0875 / 2.905}
+# One item whose opus answer is both right and cheaper than haiku's: the oracle picks opus too, so it saves nothing.
+NO_SAVINGS = synthetic({"s": ("t1", {"haiku": (0.002, 0), "opus": (0.001, 1)})})
 # Train items, where the frontier never runs (Amendment A1, item 3). "v" holds an opus answer anyway,
 # so only the frontier-on-train refusal can catch a trace that calls opus on it.
 TRAIN = synthetic({
@@ -207,6 +234,15 @@ HAND_SPREAD = math.sqrt(2 * 0.375**2 / 3)
 # Always-haiku's quality less always-opus's, resample by resample: 0, -37.5%, -75%, -37.5%; on the items as they
 # are, 37.5% - 75%. Its interval and standard error are found the same way.
 HAND_DIFFERENCE = (-0.375, -0.721875, -0.028125, HAND_SPREAD)
+# Each hand-drawn resample has its own frontier, target and oracle. Always-opus: 75% in each, at $5.50, $6.25, $7,
+# $6.25 per 1k. At the 100% target, 75%, the oracle costs $1.50 (a and c on haiku already meet it, b undrawn), $3.375,
+# $5.25 (only b, moved to opus), $3.375. The cascade costs $1.60, $4.225, $6.85, $4.225, so it captures 3.9 / 4,
+# 81/115, 0.15 / 1.75, 81/115; percentiles as above. Always-haiku meets 75% only in the first, at $1.50: 4 / 4.
+HAND_CASCADE_VALUES = sorted([3.9 / 4, 81 / 115, 0.15 / 1.75, 81 / 115])
+# At 99% (74.25%) the envelope of haiku and opus is haiku alone in the first (it matches opus for less), so it meets
+# the target at $1.50, as the oracle does: 1. In the others it captures $0.0875 / $2.905 (twice) and, from haiku at
+# (0, $2.25) to opus at (75%, $7) against the oracle's $5.22, $0.0475 / $1.78.
+HAND_ENVELOPE_VALUES = sorted([1, 0.0875 / 2.905, 0.0475 / 1.78, 0.0875 / 2.905])
 # 400 items of one task, each its own source group, haiku right on the first 200 and opus on 20 to 219: each policy's
 # quality has the standard error of a mean of 400 coin flips, sqrt(0.5 x 0.5 / 400) = 2.5 points. Their difference
 # is +1 on 20 items, -1 on 20 and 0 on 360, so its standard error is sqrt((40 / 400) / 400) = 1.58 points. In COIN_PAIRS
@@ -214,6 +250,15 @@ HAND_DIFFERENCE = (-0.375, -0.721875, -0.028125, HAND_SPREAD)
 COIN = {f"i{i:03}": ("t1", {"haiku": (0.001, float(i < 200)), "opus": (0.002, float(20 <= i < 220))})
         for i in range(400)}  # fmt: skip
 COIN_SE, COIN_PAIRED_SE, COIN_PAIRS_SE = math.sqrt(0.25 / 400), math.sqrt(0.1 / 400), math.sqrt(0.25 / 200)
+# 400 items, each its own source group: opus right on the first 200; haiku, at half the cost, loses 15 of those and
+# gains 25 more. Haiku's paired lead over opus is 2.5 points with a standard error of sqrt((40 / 400 - 0.025^2) / 400)
+# = 1.58, so it falls below the 100% target in about 5.6% of resamples (a normal tail at -1.59 standard errors). With
+# a gate of $0.0002 a request it costs $1.20 per 1k; the oracle meets 50% with every item on haiku, for $1, and opus
+# costs $2, so on dev it captures 0.8 / 1.
+NEAR_MISS = {f"i{i:03}": ("t1", {"haiku": (0.001, float(15 <= i < 225)), "opus": (0.002, float(i < 200))})
+             for i in range(400)}  # fmt: skip
+NEAR_MISS_MET = (0.92, 0.97)  # the share of resamples meeting the target, around the normal tail's 94.4%
+RANDOM_POLICY_RUNS, RANDOM_POLICY_RESAMPLES = 40, 50
 
 CLIMBS, TOY_GATE = {"mmlu_pro", "mbppplus"}, 0.0001  # the toy cascade's tasks that climb to opus, its gate's cost
 
@@ -249,6 +294,22 @@ def whole_items(matrix: Matrix, weights: dict[str, float]) -> list[tuple[float, 
 def cheapest_whole(choices: list[tuple[float, float]], quality: float) -> float | None:
     """The brute force's cost at a target: its cheapest choice that reaches `quality`, or None if none does."""
     return min((cost for reached, cost in choices if reached >= quality - 1e-12), default=None)
+
+
+def random_policies(rng: np.random.Generator) -> tuple[Matrix, dict[str, float], list[list[Trace]]]:
+    """A matrix of 4 to 12 items in two tasks, every item on every config at $1 to $6 per 1k with 0/1 or quarter
+    scores, some items sharing a source group; a random mix; and five random policies. Each item's trace calls 1 to
+    4 configs in a random order, so most are cascades, with overhead of up to $0.002 a request."""
+    scores = [0, 1] if rng.random() < 0.5 else [0, 0.25, 0.5, 0.75, 1]
+    count = int(rng.integers(4, 13))
+    items = {f"i{i:02}": ("t1" if i % 2 else "t2", {config: (int(rng.integers(1, 7)) / 1000, float(rng.choice(scores)))
+                                                   for config in LADDER}) for i in range(count)}  # fmt: skip
+    groups = {item_id: f"g{int(rng.integers(count))}" for item_id in items}
+    matrix = synthetic(items, groups={item_id: f"{items[item_id][0]}-{group}" for item_id, group in groups.items()})
+    share = float(rng.uniform(0.1, 0.9))
+    policies = [[Trace(item_id, tuple(str(c) for c in rng.choice(LADDER, size=int(rng.integers(1, 5)), replace=False)),
+                       float(rng.choice([0, 0.0001, 0.002]))) for item_id in matrix.items] for _ in range(5)]  # fmt: skip
+    return matrix, {"t1": share, "t2": 1 - share}, policies
 
 
 def against_brute_force(rng: np.random.Generator) -> list[str]:
@@ -303,6 +364,20 @@ def same_estimate(estimate: Estimate, value: float, low: float, high: float, sta
     return all(math.isclose(got, want, rel_tol=0, abs_tol=1e-12) for got, want in
                zip((estimate.value, estimate.low, estimate.high, estimate.standard_error),
                    (value, low, high, standard_error)))  # fmt: skip
+
+
+def same_captured(captured: Captured, value: float | None, low: float | None, high: float | None,
+                  met: float) -> bool:  # fmt: skip
+    """A captured fraction is this value and interval, n/a (None) where None is expected, and met in this share."""
+    return math.isclose(captured.met, met, abs_tol=1e-12) and all(
+        got is want if want is None else got is not None and math.isclose(got, want, rel_tol=0, abs_tol=1e-12)
+        for got, want in zip((captured.value, captured.low, captured.high), (value, low, high)))  # fmt: skip
+
+
+def of_four(values: list[float]) -> tuple[float, float]:
+    """The percentile 95% interval of four sorted values, as worked by hand above HAND_HAIKU: 0.075 of the way from
+    the first to the second, and 0.925 of the way from the third to the fourth."""
+    return values[0] + 0.075 * (values[1] - values[0]), values[2] + 0.925 * (values[3] - values[2])
 
 
 def rounded(total: Total) -> tuple[str, str]:
@@ -531,6 +606,44 @@ def main() -> int:
           f"target, and less by at most the upgrade in progress; they agree at every corner, at the maximum quality "
           f"and below the first corner {misses[:3]}")  # fmt: skip
 
+    print("\n-- the captured fraction --")
+    a_hand = totals(simulate(HAND, always(HAND, "opus")), HAND_MIX)
+    as_oracle, cascade_total = (totals(simulate(HAND, traces), HAND_MIX) for traces in (ROUTED, CASCADED))
+    check(same_total(a_hand, 0.75, 6.25) and same_total(cascade_total, 0.75, 4.225),
+          "the frontier is at 75% and $6.25 per 1k, and the cascade, with its gate, at 75% and $4.225")  # fmt: skip
+    check(captured_fraction(a_hand, a_hand, hand, 0.75) == 0,
+          "the frontier's own captured fraction at the 100% target is 0: it saves nothing")  # fmt: skip
+    check(near(captured_fraction(cascade_total, a_hand, hand, 0.75), HAND_CAPTURED["cascade at 100%"])
+          and near(captured_fraction(cascade_total, a_hand, hand, 0.7425), HAND_CAPTURED["cascade at 99%"]),
+          "the cascade captures ($6.25 - $4.225) / ($6.25 - $3.375) of the oracle's savings at 100%, and "
+          "$2.025 / $2.905 at 99%, where the oracle costs $3.345 (§7)")  # fmt: skip
+    check(near(captured_fraction(as_oracle, a_hand, hand, 0.75), 1),
+          "a policy that makes the oracle's own choice captures all of its savings: 1")  # fmt: skip
+    check(captured_fraction(Total(0.75, 3.375 - 1e-12), a_hand, hand, 0.75) == 1,
+          "a policy a rounding error cheaper than the oracle counts as at its cost, so the fraction stays at most 1")  # fmt: skip
+    b_hand = totals(simulate(HAND, always(HAND, "haiku")), HAND_MIX)
+    check(captured_fraction(b_hand, a_hand, hand, 0.75) is None and captured_fraction(None, a_hand, hand, 0.75) is None,
+          "n/a where the policy misses the target: always-haiku's 37.5% misses 75%, and so does a reference that can't "
+          "reach it")  # fmt: skip
+    a_lone = totals(simulate(NO_SAVINGS, always(NO_SAVINGS, "opus")), {"t1": 1.0})
+    lone = oracle(NO_SAVINGS, {"s": 1.0})
+    check(a_lone.quality == 1 and captured_fraction(a_lone, a_lone, lone, 1) is None,
+          "n/a where the oracle saves nothing: when the frontier's answer is also the cheapest right one, the oracle "
+          "pays the frontier's cost, and the frontier, though it meets the target, captures n/a, not 0 / 0")  # fmt: skip
+    refuses(BoundError, lambda: captured_fraction(Total(0.75, 3.0), a_hand, hand, 0.75),
+            "a policy that meets a target for less than the oracle's cost stops the run: its fraction would exceed 1")  # fmt: skip
+    refuses(BoundError, lambda: captured_fraction(Total(0.8, 7), a_hand, hand, 0.8),
+            "a policy that meets a target above the oracle's maximum stops the run")  # fmt: skip
+    hand_envelope = envelope({"haiku": b_hand, "opus": a_hand})
+    check(hand_envelope.meeting(0.3) == b_hand and hand_envelope.meeting(0.8) is None
+          and same_total(hand_envelope.meeting(0.5) or Total(0, 0), 0.5, 1.875 + 4.375 / 3),
+          "the envelope's cheapest point that meets a target: haiku's corner below its quality, the mix of haiku and "
+          "opus at 50% ($1.875 + $4.375 / 3), and none above opus's 75%")  # fmt: skip
+    check(near(captured_fraction(hand_envelope.meeting(0.7425), a_hand, hand, 0.7425), HAND_CAPTURED["envelope at 99%"])
+          and captured_fraction(hand_envelope.meeting(0.75), a_hand, hand, 0.75) == 0,
+          "the envelope captures $0.0875 / $2.905 of the oracle's savings at 99%, and none at 100%, which only "
+          "always-opus reaches")  # fmt: skip
+
     print("\n-- the paired bootstrap's resamples --")
     grouped_draws = resample(GROUPED, 500, seed=1)
     column = {item_id: i for i, item_id in enumerate(grouped_draws.item_ids)}
@@ -538,12 +651,12 @@ def main() -> int:
     check(grouped_draws.counts.shape == (500, 8) and all(np.array_equal(counts[group[0]], counts[item_id])
                                                  for groups in GROUPED_GROUPS.values() for group in groups
                                                  for item_id in group),
-          "500 resamples, and in every one a source group's items are grouped_draws together, as often as each other")  # fmt: skip
+          "500 resamples, and in every one a source group's items are drawn together, as often as each other")  # fmt: skip
     check(all(np.array_equal(sum(counts[group[0]] for group in groups), np.full(500, len(groups)))
               for groups in GROUPED_GROUPS.values()),
           "each resample draws as many source groups from each task as it has: 3 from t1, 2 from t2")  # fmt: skip
     check(all(len({int(n) for n in counts[group[0]]}) > 1 for groups in GROUPED_GROUPS.values() for group in groups),
-          "groups are grouped_draws with replacement: each group's count varies across resamples")  # fmt: skip
+          "groups are drawn with replacement: each group's count varies across resamples")  # fmt: skip
     check(np.array_equal(resample(GROUPED, 500, seed=1).counts, grouped_draws.counts)
           and not np.array_equal(resample(GROUPED, 500, seed=2).counts, grouped_draws.counts),
           "the same seed gives identical resamples, and another seed different ones")  # fmt: skip
@@ -554,11 +667,11 @@ def main() -> int:
 
     print("\n-- the paired bootstrap's weights --")
     check(np.allclose(HAND_DRAWS.weights(HAND_MIX), HAND_DRAW_WEIGHTS, rtol=0, atol=1e-12),
-          "the mix weights are applied after resampling: a task's weight is shared among the items grouped_draws from it, by "
-          "how often each was grouped_draws")  # fmt: skip
+          "the mix weights are applied after resampling: a task's weight is shared among the items drawn from it, by "
+          "how often each was drawn")  # fmt: skip
     first = HAND_DRAWS.item_weights(HAND_MIX, 0)
     check(first == {"a": 0.75, "b": 0, "c": 0.25} and same_points(oracle(HAND, first).curve, [(0.75, 1.5)]),
-          "a resample's per-item weights, for the oracle to re-solve on: in the first, b isn't grouped_draws and weighs 0, so "
+          "a resample's per-item weights, for the oracle to re-solve on: in the first, b isn't drawn and weighs 0, so "
           "the oracle never upgrades it, and a and c gain nothing from opus, leaving one point, 75% at $1.50 per 1k")  # fmt: skip
     resampled = grouped_draws.weights({"t1": 0.3, "t2": 0.7})
     in_t1 = np.array([task == "t1" for task in grouped_draws.tasks])
@@ -609,6 +722,60 @@ def main() -> int:
                 f"a policy's outcomes that {what} are refused")  # fmt: skip
         refuses(BootstrapError, lambda: HAND_DRAWS.difference(hand_haiku, outcomes, HAND_MIX),
                 f"frontier outcomes that {what} are refused")  # fmt: skip
+
+    print("\n-- the captured fraction's paired intervals --")
+    hand_savings = HAND_DRAWS.savings(HAND, hand_opus, HAND_MIX)
+    hand_cascade = hand_savings.captured(simulate(HAND, CASCADED), 1.0)
+    check(same_captured(hand_cascade, 81 / 115, *of_four(HAND_CASCADE_VALUES), 1),
+          "the cascade over the four hand-drawn resamples, each with its own frontier, target and re-solved oracle: "
+          "81/115 on dev, the interval of 0.975, 81/115, 0.086 and 81/115, and it meets the target in all four")  # fmt: skip
+    check(same_captured(hand_savings.captured(hand_haiku, 1.0), None, None, 1, 0.25),
+          "always-haiku meets 75% only in the first resample, where b isn't drawn, capturing 1: n/a on dev, and with "
+          "n/a ranked below every number, 75% n/a makes the lower bound n/a but not the upper, and it meets the target "
+          "in 25% of resamples")  # fmt: skip
+    # 2,000 resamples of HAND drawn by hand, always-haiku missing 75% in some (b drawn) and capturing 1 in the rest.
+    for missed, low in ((49, 1.0), (50, 1.0), (51, None)):
+        edge = Bootstrap(("a", "b", "c"), ("t1", "t1", "t2"),
+                         np.array([[1, 1, 1]] * missed + [[2, 0, 1]] * (2000 - missed)))  # fmt: skip
+        check(same_captured(edge.savings(HAND, hand_opus, HAND_MIX).captured(hand_haiku, 1.0), None, low, 1,
+                            1 - missed / 2000),
+              f"n/a in {missed} of 2,000 resamples: the lower bound reads n/a only when more than 2.5% are "
+              f"({'n/a' if low is None else low})")  # fmt: skip
+    check(same_captured(hand_savings.captured(hand_opus, 1.0), 0, 0, 0, 1),
+          "the frontier captures exactly 0 at the 100% target in every resample, where it meets its own quality")  # fmt: skip
+    hand_fixed = {config: simulate(HAND, always(HAND, config)) for config in ("haiku", "opus")}
+    check(same_captured(hand_savings.envelope_captured(hand_fixed, 0.99), 0.0875 / 2.905, *of_four(HAND_ENVELOPE_VALUES), 1),
+          "the envelope at 99%, built afresh in each resample from the configs' points there: $0.0875 / $2.905 on "
+          "dev, the interval of 1, 0.030, 0.027 and 0.030")  # fmt: skip
+
+    near_miss = synthetic(NEAR_MISS)
+    gated = simulate(near_miss, [Trace(item_id, ("haiku",), 0.0002) for item_id in near_miss.items])
+    near_opus = simulate(near_miss, always(near_miss, "opus"))
+    missing_some = resample(near_miss).savings(near_miss, near_opus, {"t1": 1.0}).captured(gated, 1.0)
+    check(near(missing_some.value, 0.8) and missing_some.low is None and missing_some.high is not None
+          and NEAR_MISS_MET[0] <= missing_some.met <= NEAR_MISS_MET[1],
+          f"a gated policy 1.6 standard errors above the 100% target on dev meets it in {missing_some.met:.1%} of resamples, "
+          f"reported beside its interval; the misses, more than 2.5%, rank below every number and aren't dropped, so "
+          f"the lower bound reads n/a: {missing_some.value:.3f} (n/a to {missing_some.high:.3f})")  # fmt: skip
+    rng = np.random.default_rng(8)
+    fractions, breaches = [], []
+    for _ in range(RANDOM_POLICY_RUNS):
+        matrix_r, mix_r, policies = random_policies(rng)
+        draws_r = resample(matrix_r, RANDOM_POLICY_RESAMPLES, seed=int(rng.integers(1000)))
+        fixed_r = {config: simulate(matrix_r, always(matrix_r, config)) for config in LADDER}
+        try:
+            savings_r = draws_r.savings(matrix_r, fixed_r["opus"], mix_r)
+            for target_share in (1.0, 0.99, 0.97, float(rng.uniform(0.5, 1))):
+                fractions += [savings_r.captured(simulate(matrix_r, traces), target_share) for traces in policies]
+                fractions.append(savings_r.envelope_captured(fixed_r, target_share))
+        except BoundError as breach:
+            breaches.append(str(breach))
+    numbers = [n for f in fractions for n in (f.value, f.low, f.high) if n is not None]
+    check(not breaches and max(numbers) <= 1 and sum(f.value is not None for f in fractions) > 100,
+          f"{RANDOM_POLICY_RUNS} random matrices, {len(fractions)} random policies and envelopes at four targets, each in "
+          f"{RANDOM_POLICY_RESAMPLES} resamples: no captured fraction exceeds 1 wherever the target is met, the "
+          f"largest {max(numbers):.3f}, with {sum(f.value is not None for f in fractions)} met on the matrix itself "
+          f"{breaches[:1]}")  # fmt: skip
 
     print("\n-- the safety margin --")
     check(math.isclose(HAND_DRAWS.safety_margin(hand_haiku, hand_opus, HAND_MIX), HAND_SPREAD, rel_tol=0, abs_tol=1e-12)
@@ -751,6 +918,22 @@ def main() -> int:
           f"{', '.join(f'{bar:.2f}%' for bar in bars.values())} at the {'/'.join(f'{s:.0%}' for s in bars)} targets, "
           f"against Amendment A8 item 9's {', '.join(f'{bar}%' for bar in A8_UNPAIRED_BARS.values())} (within "
           f"{A8_BAR_TOLERANCE} points)")  # fmt: skip
+
+    print("\n-- the captured fraction on dev --")
+    for mix in ("realistic", "uniform"):
+        dev_savings = draws.savings(dev, fixed["opus"], mixes[mix])
+        a_itself = dev_savings.captured(fixed["opus"], 1.0)
+        check(same_captured(a_itself, 0, 0, 0, 1),
+              f"{mix} mix: the frontier's own captured fraction at the 100% target is 0, in every resample")  # fmt: skip
+        for target_share in (1.0, 0.99, 0.97):
+            bar = dev_savings.envelope_captured(fixed, target_share)
+            # 0 where opus is the envelope's cheapest point at the target, 1 where haiku alone meets it, as the oracle's
+            # every-item-on-haiku point does: both happen in some resamples.
+            check(bar.value is not None and bar.low is not None and bar.high is not None
+                  and 0 <= bar.low <= bar.value <= bar.high <= 1 and bar.met == 1,
+                  f"{mix} mix, {target_share:.0%} target: the envelope, the bar a router must clear, captures "
+                  f"{bar.value:.3f} ({bar.low:.3f} to {bar.high:.3f}) of the oracle's savings, and meets the target in "
+                  f"every resample")  # fmt: skip
 
     print("\n-- a toy cascade on dev --")
     outcomes = simulate(dev, toy_cascade(dev))

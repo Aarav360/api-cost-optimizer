@@ -3,15 +3,18 @@
 Source groups are resampled within each task, so a group's items are always drawn together, and the mix
 weights are applied afterwards: 2,000 resamples from a fixed seed, with percentile 95% intervals. The same
 resamples serve every policy and reference, so a policy's quality difference from the frontier is paired:
-the luck of which items were drawn moves both alike.
+the luck of which items were drawn moves both alike. So is its captured fraction: each resample re-solves the
+oracle on its own weights and takes its quality targets from its own frontier quality.
 """
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
 
 from analysis.matrix import Matrix
-from analysis.simulator import Outcome, check_mix, totals
+from analysis.references import Curve, Oracle, captured_fraction, envelope, oracle
+from analysis.simulator import Outcome, Total, check_mix, item_weights, totals
 
 RESAMPLES, SEED = 2000, 2026
 
@@ -37,6 +40,16 @@ class TotalEstimate:
 
 
 @dataclass(frozen=True)
+class Captured:
+    """A captured fraction with its paired interval, None being n/a (§7; Amendment A8, item 8)."""
+
+    value: float | None  # on dev
+    low: float | None  # the percentile 95% interval over every resample, n/a ranked below every number
+    high: float | None
+    met: float  # the share of resamples in which the policy meets the target
+
+
+@dataclass(frozen=True)
 class Bootstrap:
     item_ids: tuple[str, ...]  # the order of `counts`' columns
     tasks: tuple[str, ...]  # each column's item's task
@@ -51,12 +64,21 @@ class Bootstrap:
         """One resample's weight on each item, as the hindsight oracle takes them; an item not drawn weighs 0."""
         return dict(zip(self.item_ids, self._weights_for(self.counts[[resample]], mix)[0].tolist()))
 
+    def resampled(self, outcomes: list[Outcome], mix: dict[str, float]) -> tuple[np.ndarray, np.ndarray]:
+        """A policy's quality and cost per 1,000 requests under a mix, in each resample."""
+        success, cost = self._columns(outcomes)
+        weights = self.weights(mix)
+        return weights @ success, 1000 * weights @ cost
+
+    def resampled_totals(self, outcomes: list[Outcome], mix: dict[str, float]) -> list[Total]:
+        """A policy's totals under a mix, in each resample."""
+        quality, cost = self.resampled(outcomes, mix)
+        return [Total(q, c) for q, c in zip(quality.tolist(), cost.tolist())]
+
     def totals(self, outcomes: list[Outcome], mix: dict[str, float]) -> TotalEstimate:
         """A policy's totals under a mix (`simulator.totals`), each with its interval over the resamples."""
-        success, cost = self._columns(outcomes)
-        total, weights = totals(outcomes, mix), self.weights(mix)
-        return TotalEstimate(_estimate(total.quality, weights @ success),
-                             _estimate(total.cost_per_1k, 1000 * weights @ cost))  # fmt: skip
+        (quality, cost), total = self.resampled(outcomes, mix), totals(outcomes, mix)
+        return TotalEstimate(_estimate(total.quality, quality), _estimate(total.cost_per_1k, cost))
 
     def difference(self, policy: list[Outcome], frontier: list[Outcome], mix: dict[str, float]) -> Estimate:
         """The policy's quality less the frontier's, under a mix, each resample weighing both alike."""
@@ -73,6 +95,13 @@ class Bootstrap:
         the target and the policy together, so whether the target is met depends on their difference.
         """
         return self.difference(policy, frontier, mix).standard_error
+
+    def savings(self, matrix: Matrix, frontier: list[Outcome], mix: dict[str, float]) -> "Savings":
+        """What captured fractions under a mix are measured against. The oracle is solved once on dev and once on
+        each resample's weights, then shared by every policy and quality target (Amendment A8, item 8)."""
+        resampled_oracles = tuple(oracle(matrix, self.item_weights(mix, r)) for r in range(len(self.counts)))
+        return Savings(self, mix, totals(frontier, mix), oracle(matrix, item_weights(matrix.items.values(), mix)),
+                       tuple(self.resampled_totals(frontier, mix)), resampled_oracles)  # fmt: skip
 
     def _columns(self, outcomes: list[Outcome]) -> tuple[np.ndarray, np.ndarray]:
         """The outcomes' successes and costs, in the order of `counts`' columns."""
@@ -92,6 +121,46 @@ class Bootstrap:
             drawn = counts[:, in_task]
             weights[:, in_task] = share * drawn / drawn.sum(axis=1, keepdims=True)
         return weights
+
+
+@dataclass(frozen=True)
+class Savings:
+    """What captured fractions under one mix are measured against, on dev and in each resample: the frontier's
+    totals, and the hindsight oracle solved on that resample's weights (Amendment A8, item 8)."""
+
+    draws: Bootstrap
+    mix: dict[str, float]
+    frontier: Total  # on dev
+    oracle: Oracle
+    resampled_frontiers: tuple[Total, ...]
+    resampled_oracles: tuple[Oracle, ...]
+
+    def captured(self, policy: list[Outcome], share: float) -> Captured:
+        """A policy's captured fraction at the quality target that is `share` of frontier quality, with its interval."""
+        # A policy is a curve of one point: it meets a target at or below its quality, at its cost.
+        return self._captured(share, Curve({"policy": totals(policy, self.mix)}),
+                              [Curve({"policy": point}) for point in self.draws.resampled_totals(policy, self.mix)])  # fmt: skip
+
+    def envelope_captured(self, fixed: dict[str, list[Outcome]], share: float) -> Captured:
+        """The random-mixture envelope's captured fraction at a quality target, the bar any router must clear: its
+        cheapest mix of the fixed configs that meets the target, each resample's envelope from the configs' points
+        there."""
+        resampled = {config: self.draws.resampled_totals(outcomes, self.mix) for config, outcomes in fixed.items()}
+        curves = [envelope({config: points[r] for config, points in resampled.items()})
+                  for r in range(len(self.resampled_frontiers))]  # fmt: skip
+        return self._captured(share, envelope({config: totals(outcomes, self.mix) for config, outcomes in fixed.items()}),
+                              curves)  # fmt: skip
+
+    def _captured(self, share: float, on_dev: Curve, resampled: list[Curve]) -> Captured:
+        # Each resample's target is the share of its own frontier quality, so the target and the policy stay paired.
+        targets = [share * frontier.quality for frontier in self.resampled_frontiers]
+        reached = [curve.meeting(target) for curve, target in zip(resampled, targets)]
+        values = [captured_fraction(point, frontier, solved, target) for point, frontier, solved, target
+                  in zip(reached, self.resampled_frontiers, self.resampled_oracles, targets)]  # fmt: skip
+        target = share * self.frontier.quality
+        value = captured_fraction(on_dev.meeting(target), self.frontier, self.oracle, target)
+        met = sum(point is not None for point in reached) / len(reached)
+        return Captured(value, *_ranked_interval(values), met)
 
 
 def resample(matrix: Matrix, resamples: int = RESAMPLES, seed: int = SEED) -> Bootstrap:
@@ -119,3 +188,26 @@ def resample(matrix: Matrix, resamples: int = RESAMPLES, seed: int = SEED) -> Bo
 def _estimate(value: float, resampled: np.ndarray) -> Estimate:
     low, high = np.percentile(resampled, [2.5, 97.5])
     return Estimate(value, float(low), float(high), float(np.std(resampled, ddof=1)))
+
+
+def _ranked_interval(values: list[float | None]) -> tuple[float | None, float | None]:
+    """The percentile 95% interval of values where None, n/a, ranks below every number (Amendment A8, item 8).
+
+    The lower bound reads n/a when more than 2.5% of the values are n/a, the upper when more than 97.5% are.
+    Otherwise a bound interpolates between ranks as numpy's percentiles do, and one whose rank falls just short of
+    the first number, beside an n/a, is that number.
+    """
+    numbers = sorted(value for value in values if value is not None)
+    missing = len(values) - len(numbers)
+    bounds: list[float | None] = []
+    for share in (0.025, 0.975):
+        rank = share * (len(values) - 1)
+        below = math.floor(rank)
+        if missing > share * len(values):
+            bounds.append(None)
+        elif below < missing:
+            bounds.append(numbers[0])
+        else:
+            low, high = numbers[below - missing], numbers[min(below + 1, len(values) - 1) - missing]
+            bounds.append(low + (rank - below) * (high - low))
+    return bounds[0], bounds[1]

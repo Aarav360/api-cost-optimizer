@@ -18,7 +18,8 @@
     "oracle": "the oracle's corners: every item on its cheapest config, then the point after each upgrade, in the order taken, joined by straight lines in linear cost",
     "targets": "quality targets, as shares of A's (opus's) quality under the mix",
     "intervals": "each config's quality and cost per 1k with its percentile 95% interval (low, high) and standard error, the standard deviation over the resamples",
-    "difference_from_A": "each config's quality less A's, paired: the same resamples weigh both; its standard_error is the config's safety margin (Amendment A8, item 9)"
+    "difference_from_A": "each config's quality less A's, paired: the same resamples weigh both; its standard_error is the config's safety margin (Amendment A8, item 9)",
+    "envelope_captured": "at each quality target, the envelope's captured fraction of the oracle's savings (\u00a77), with its percentile 95% interval over every resample, null being n/a, ranked below every number, and the share of resamples in which the envelope meets the target (A8 item 8)"
   },
   "panels": {
     "realistic": {
@@ -404,6 +405,26 @@
           "high": 0.0,
           "standard_error": 0.0
         }
+      },
+      "envelope_captured": {
+        "100%": {
+          "value": 0.3824285826403047,
+          "low": 0.0,
+          "high": 0.9483175108200216,
+          "met": 1.0
+        },
+        "99%": {
+          "value": 0.5395906497231243,
+          "low": 0.22887365062656817,
+          "high": 1.0,
+          "met": 1.0
+        },
+        "97%": {
+          "value": 0.8504368124629016,
+          "low": 0.5152875548227904,
+          "high": 1.0,
+          "met": 1.0
+        }
       }
     },
     "uniform": {
@@ -788,6 +809,26 @@
           "low": 0.0,
           "high": 0.0,
           "standard_error": 0.0
+        }
+      },
+      "envelope_captured": {
+        "100%": {
+          "value": 0.2362537718497507,
+          "low": 0.0,
+          "high": 0.4407115397000047,
+          "met": 1.0
+        },
+        "99%": {
+          "value": 0.3745852108292449,
+          "low": 0.1712515187334656,
+          "high": 0.6056212012379862,
+          "met": 1.0
+        },
+        "97%": {
+          "value": 0.6491953902015831,
+          "low": 0.453283822444199,
+          "high": 1.0,
+          "met": 1.0
         }
       }
     }

@@ -6,12 +6,14 @@ Evaluates the four fixed configs as policies through the simulator, on dev (run 
 and totals them under both task mixes, with reference C, the random-mixture envelope
 of their points (Amendment A8, item 7), and reference D, the hindsight oracle, under
 each mix's item weights (item 6). The paired bootstrap (items 8 and 9) gives each
-config's totals their intervals, and its quality difference from A and its safety
-margin. Prints the totals with their intervals, differences and margins, the
-envelope's corners and the oracle's range, and its cost and routing mix at each
-quality target (§11). Draws the headline figure: a realistic and a uniform panel, cost
-per 1,000 requests at list price on a log x-axis and mix-weighted quality on y, each
-config a point with its intervals as a cross, and dotted lines at the targets.
+config's totals their intervals, its quality difference from A and its safety margin,
+and gives the envelope's captured fraction at each quality target (§11) its interval.
+Prints the totals with their intervals, differences and margins, the envelope's
+corners and the oracle's range, and at each quality target the oracle's cost, routing
+mix and savings and the envelope's cost and captured fraction. Draws the headline
+figure: a realistic and a uniform panel, cost per 1,000 requests at list price on a
+log x-axis and mix-weighted quality on y, each config a point with its intervals as a
+cross, and dotted lines at the targets.
 Writes figures/pareto.png and, with every plotted number, figures/pareto.json. Both
 are committed and overwritten as later stages add to the chart.
 """
@@ -60,6 +62,11 @@ def shown(estimate: Estimate, scale: float, form: str) -> str:
     """An estimate and its interval, scaled and formatted alike: 83.3 (78.9 to 87.6)."""
     value, low, high = (form.format(scale * n) for n in (estimate.value, estimate.low, estimate.high))
     return f"{value} ({low} to {high})"
+
+
+def shown_fraction(value: float | None) -> str:
+    """A captured fraction to 2 decimals, or n/a."""
+    return "n/a" if value is None else f"{value:.2f}"
 
 
 def sampled(curve: Curve) -> tuple[list[float], list[float | None]]:
@@ -147,6 +154,10 @@ def main() -> int:
                    for mix in PANELS}  # fmt: skip
     margins = {mix: {c: draws.safety_margin(outcomes[c], outcomes["opus"], mixes[mix]) for c in LADDER}
                for mix in PANELS}  # fmt: skip
+    # The oracle is re-solved on every resample's weights, once per mix, for every target (A8 item 8).
+    savings = {mix: draws.savings(dev, outcomes["opus"], mixes[mix]) for mix in PANELS}
+    captured = {mix: {share: savings[mix].envelope_captured(outcomes, share) for share in targets[mix]}
+                for mix in PANELS}  # fmt: skip
     basis = f"run 0, n = {len(dev.items)}, list prices {snapshot}"
 
     print(f"Fixed configs on dev ({basis}), with percentile 95% intervals from {RESAMPLES:,} paired bootstrap "
@@ -163,7 +174,7 @@ def main() -> int:
                             for config, total in curve.corners.items())  # fmt: skip
         print(f"{ENVELOPE_LABEL}, {mix} mix: {corners}")
     for mix, solved in oracles.items():
-        low, high = solved.curve.corners[START], list(solved.curve.corners.values())[-1]
+        low, high = solved.curve.corners[START], solved.curve.peak
         print(f"\n{ORACLE_LABEL}, {mix} mix: from {100 * low.quality:.1f}% at ${low.cost_per_1k:.2f} per 1k, every "
               f"item on its cheapest config, up to {100 * high.quality:.1f}% at ${high.cost_per_1k:.2f}")  # fmt: skip
         rows = []
@@ -172,6 +183,16 @@ def main() -> int:
             rows.append([f"{share:.0%} of A", f"{100 * quality:.1f}%", "n/a (infeasible)" if cost is None else f"${cost:.2f}",
                          *(f"{100 * routing[c]:.1f}%" if routing else "n/a" for c in LADDER)])  # fmt: skip
         print_table(["quality target", "quality", "oracle $ per 1k", *LADDER], rows)
+        rows = []
+        for share, quality in targets[mix].items():
+            bar, oracle_cost, reached = captured[mix][share], solved.cost_at(quality), envelopes[mix].meeting(quality)
+            oracle_savings = None if oracle_cost is None else points[mix]["opus"].cost_per_1k - oracle_cost
+            rows.append([f"{share:.0%} of A", "n/a" if oracle_savings is None else f"${oracle_savings:.2f}",
+                         "n/a" if reached is None else f"${reached.cost_per_1k:.2f}",
+                         f"{shown_fraction(bar.value)} ({shown_fraction(bar.low)} to {shown_fraction(bar.high)})", f"{bar.met:.1%}"])  # fmt: skip
+        print(f"Captured fraction of the oracle's savings, {mix} mix: C, the bar a router must clear, with its paired "
+              f"95% interval and the share of resamples in which it meets the target")  # fmt: skip
+        print_table(["quality target", "oracle savings per 1k", "C $ per 1k", "C captured", "resamples meeting"], rows)
 
     units = {
         "quality": "mix-weighted share of items answered correctly, 0 to 1",
@@ -184,6 +205,9 @@ def main() -> int:
                      "error, the standard deviation over the resamples",
         "difference_from_A": "each config's quality less A's, paired: the same resamples weigh both; its "
                              "standard_error is the config's safety margin (Amendment A8, item 9)",
+        "envelope_captured": "at each quality target, the envelope's captured fraction of the oracle's savings (§7), "
+                             "with its percentile 95% interval over every resample, null being n/a, ranked below every "
+                             "number, and the share of resamples in which the envelope meets the target (A8 item 8)",
     }  # fmt: skip
     panels = {mix: {"configs": {c: asdict(t) for c, t in points[mix].items()},
                     "envelope": {c: asdict(t) for c, t in envelopes[mix].corners.items()},
@@ -191,7 +215,8 @@ def main() -> int:
                     "oracle": [asdict(t) for t in oracles[mix].curve.corners.values()],
                     "targets": {f"{share:.0%}": quality for share, quality in targets[mix].items()},
                     "intervals": {c: asdict(spread) for c, spread in spreads[mix].items()},
-                    "difference_from_A": {c: asdict(difference) for c, difference in differences[mix].items()}}
+                    "difference_from_A": {c: asdict(difference) for c, difference in differences[mix].items()},
+                    "envelope_captured": {f"{share:.0%}": asdict(bar) for share, bar in captured[mix].items()}}
               for mix in PANELS}  # fmt: skip
     bootstrap = {"resamples": RESAMPLES, "seed": SEED, "interval": "percentile 95%",
                  "resampled": "source groups within each task, the mix weights applied afterwards"}  # fmt: skip

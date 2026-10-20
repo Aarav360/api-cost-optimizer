@@ -22,6 +22,8 @@ from analysis.simulator import Total, item_weights
 
 START = "every item on its cheapest config"  # the oracle curve's first corner
 TARGETS = (1.0, 0.99, 0.97)  # §11's quality targets, as shares of frontier quality
+# How far apart two sums of the same scores or dollars can land, added in another order: far below any digit reported.
+ROUNDING = 1e-9
 
 
 def quality_targets(frontier_quality: float) -> dict[float, float]:
@@ -62,6 +64,22 @@ class Curve:
         """The quality reachable at `cost_per_1k`, or None outside the curve's costs."""
         points = self.corners.values()
         return _along([p.cost_per_1k for p in points], [p.quality for p in points], cost_per_1k)
+
+    def meeting(self, quality: float) -> Total | None:
+        """The curve's cheapest point whose quality is at least `quality`, or None above its last corner.
+
+        A quality at or below the first corner's is met by that corner, as picking its config alone meets it.
+        """
+        first = next(iter(self.corners.values()))
+        if quality <= first.quality:
+            return first
+        cost = self.cost_at(quality)
+        return None if cost is None else Total(quality, cost)
+
+    @property
+    def peak(self) -> Total:
+        """The last corner: the curve's highest quality."""
+        return list(self.corners.values())[-1]
 
 
 def _along(xs: list[float], ys: list[float], x: float) -> float | None:
@@ -158,9 +176,10 @@ class Oracle:
 
     def cost_at(self, quality: float) -> float | None:
         """Dollars per 1,000 requests to reach `quality`, or None above the oracle's maximum: n/a (infeasible)."""
-        cheapest = self.curve.corners[START]
-        # Sending every item to its cheapest config already meets a target at or below its quality (A8 item 6).
-        return cheapest.cost_per_1k if quality <= cheapest.quality else self.curve.cost_at(quality)
+        # Sending every item to its cheapest config, the first corner, already meets a target at or below its
+        # quality (A8 item 6).
+        point = self.curve.meeting(quality)
+        return None if point is None else point.cost_per_1k
 
     def quality_at(self, cost_per_1k: float) -> float | None:
         """The quality reachable at `cost_per_1k`, or None outside the curve's costs."""
@@ -249,3 +268,33 @@ def task_oracles(matrix: Matrix) -> dict[str, Oracle]:
         own = matrix.task(task)
         oracles[task] = oracle(own, item_weights(own.items.values(), {task: 1.0}))
     return oracles
+
+
+class BoundError(RuntimeError):
+    """A policy met a quality target for less than the hindsight oracle's cost there, or met one above the oracle's
+    maximum: a captured fraction above 1, which can't happen (Amendment A8, item 6). The policy's accounting or the
+    oracle is wrong, so the run stops."""
+
+
+def captured_fraction(reached: Total | None, frontier: Total, solved: Oracle, target: float) -> float | None:
+    """The share of the oracle's savings at a quality target that a policy captures, or None: n/a (§7).
+
+    `reached` is the policy's totals, or None for a reference that can't reach the target. The fraction is
+    (frontier cost - policy cost) / oracle savings, where the oracle saves frontier cost - its cost at the target.
+    It is n/a where the policy misses the target or the oracle saves nothing there.
+    """
+    if reached is None or reached.quality < target:
+        return None
+    # The oracle picks each item's config with hindsight, so no policy can meet a target it can't, or for less.
+    # A target a rounding error above its maximum is the maximum, which it always reaches.
+    peak = solved.curve.peak.quality
+    if target > peak + ROUNDING or (oracle_cost := solved.cost_at(min(target, peak))) is None:
+        raise BoundError(f"a policy at {reached} meets a target of {target}, above the oracle's maximum quality, "
+                         f"{peak}")  # fmt: skip
+    if reached.cost_per_1k < oracle_cost - ROUNDING:
+        raise BoundError(f"a policy at {reached} meets a target of {target} for less than the oracle's "
+                         f"${oracle_cost} per 1k")  # fmt: skip
+    if (savings := frontier.cost_per_1k - oracle_cost) <= 0:
+        return None
+    # A policy on the oracle's own point can land a rounding error below its cost, which counts as its cost.
+    return (frontier.cost_per_1k - max(reached.cost_per_1k, oracle_cost)) / savings
