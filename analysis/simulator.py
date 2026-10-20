@@ -3,7 +3,8 @@
 A policy hands the simulator one trace per item: the configs it called, in order, and
 its overhead in dollars at list price. The answer returned is the last config's. The
 simulator looks each call up in the results matrix and returns one outcome per item,
-which `totals` combines under a task mix.
+which `totals` combines under a task mix and `task_totals` per task. It reads no gate
+verdicts, router scores or latencies: policies turn those into traces.
 """
 
 from collections import Counter
@@ -14,6 +15,7 @@ import yaml
 
 from analysis.matrix import LADDER, Matrix
 from harness.build_benchmark import TASK_MIX_FILE
+from harness.collect import FRONTIER
 
 
 @dataclass(frozen=True)
@@ -35,6 +37,8 @@ class Outcome:
 
 @dataclass(frozen=True)
 class Total:
+    """Under a task mix, or within one task."""
+
     quality: float  # mix-weighted share of items answered correctly, 0 to 1
     cost_per_1k: float  # mix-weighted dollars per 1,000 requests, at list price
 
@@ -66,6 +70,10 @@ def validate(matrix: Matrix, traces: list[Trace]) -> None:
         for config in trace.configs:
             if config not in LADDER:
                 raise TraceError(f"{trace.item_id} calls {config!r}, which is not a config on the ladder")
+            # Before the stored-answer check, which would also catch it on the real matrix, so the reason is the rule.
+            if config == FRONTIER and matrix.items[trace.item_id].split == "train":
+                raise TraceError(f"{trace.item_id} is a train item and calls {FRONTIER}, the frontier, which never "
+                                 f"runs on train (Amendment A1, item 3)")  # fmt: skip
             if (trace.item_id, config) not in matrix.cells:
                 raise TraceError(f"{trace.item_id} calls {config}, which has no stored answer for it")
 
@@ -101,3 +109,9 @@ def totals(outcomes: list[Outcome], mix: dict[str, float]) -> Total:
     quality = sum(weights[outcome.item_id] * outcome.success for outcome in outcomes)
     cost = sum(weights[outcome.item_id] * outcome.cost for outcome in outcomes)
     return Total(quality, cost * 1000)
+
+
+def task_totals(outcomes: list[Outcome]) -> dict[str, Total]:
+    """Each task's totals on its own, under the mix that weighs only it, in the order tasks first appear."""
+    tasks = dict.fromkeys(outcome.task for outcome in outcomes)
+    return {task: totals([outcome for outcome in outcomes if outcome.task == task], {task: 1.0}) for task in tasks}
