@@ -52,6 +52,10 @@ class TraceError(ValueError):
     """A set of traces the simulator refuses. Nothing in it is evaluated."""
 
 
+class MixError(ValueError):
+    """A task mix that doesn't weigh exactly the outcomes' tasks. Nothing is totalled."""
+
+
 def validate(matrix: Matrix, traces: list[Trace]) -> None:
     counts = Counter(trace.item_id for trace in traces)
     # A policy that skipped hard items would look cheaper, and one that covered an item
@@ -99,7 +103,7 @@ def item_weights(outcomes: list[Outcome], mix: dict[str, float]) -> dict[str, fl
     """Each item weighs its task's mix weight divided by its task's item count (Amendment A5, item 6)."""
     counts = Counter(outcome.task for outcome in outcomes)
     if set(counts) != set(mix):
-        raise ValueError(f"the mix weighs tasks {sorted(mix)}, but the outcomes are for {sorted(counts)}")
+        raise MixError(f"the mix weighs tasks {sorted(mix)}, but the outcomes are for {sorted(counts)}")
     return {outcome.item_id: mix[outcome.task] / counts[outcome.task] for outcome in outcomes}
 
 

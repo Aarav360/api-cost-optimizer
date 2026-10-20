@@ -295,7 +295,7 @@ Stage 3's decisions, from a design review made before any Stage 3 code, router o
     - **Files.** Each figure is a PNG with a JSON of every plotted number, committed under `figures/` and overwritten as later stages add to the chart; git keeps the history. They hold aggregates of dev only.
 11. **Code** (§13). `analysis/` is a package of scripts run like the harness (`uv run python -m analysis.<script>`), adding numpy and matplotlib. Pandas and notebooks are dropped, since the harness works with plain rows.
     - `analysis/check_simulator.py` checks the greedy oracle against a brute-force whole-item knapsack on small random matrices, and the envelope and trace accounting against hand-worked cases.
-    - The analysis code reads only `results/dev_matrix.sqlite`, refuses rows outside train and dev, and doesn't name the sealed store (A6 item 4).
+    - Of the results stores, the analysis code reads only `results/dev_matrix.sqlite` (and the frozen benchmark, for each item's source group). It refuses rows outside train and dev, and doesn't name the sealed store (A6 item 4).
 12. **Record.** When chart v0 runs, a short record of its headline numbers is added here, including the paired interval of the `opus_low` − `opus` quality gap.
 
 ---

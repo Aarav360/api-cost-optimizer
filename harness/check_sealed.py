@@ -32,6 +32,7 @@ def naming_files() -> list[str]:
 def main() -> int:
     named = naming_files()
     print(f"{'PASS' if not named else 'FAIL'}  only harness/collect.py names the sealed store in code {named}")
+    print("\nall checks passed" if not named else "\n1 check failed")
     return 1 if named else 0
 
 

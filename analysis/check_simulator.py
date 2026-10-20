@@ -8,19 +8,24 @@ On a synthetic matrix, where the right answer is worked out by hand:
   task;
 - a cascade's accounting: a trace that climbs from haiku to opus pays for both calls
   and its overhead, and is right exactly when opus is;
-- the simulator refuses a trace set that misses an item or covers one twice, and a
-  trace that names an unknown config, calls a config with no stored answer, calls no
-  config or calls one twice, or calls opus on a train item (with its own refusal, even
-  where no opus answer is stored), and evaluates none of the set;
+- the simulator refuses a trace set that misses an item, covers one twice or has a
+  trace for an item not in the matrix, and a trace that names an unknown config, calls
+  a config with no stored answer, calls no config or calls one twice, or calls opus on
+  a train item (with its own refusal, even where no opus answer is stored), and
+  evaluates none of the set;
 - a mix that doesn't weigh exactly the outcomes' tasks is refused.
 
 On the dev results matrix:
 
 - every row's cost recomputed from its tokens at list price is exactly twice its
   stored batch cost, and the loader refuses a row where it isn't, a row outside train
-  and dev, and a row for an item the benchmark doesn't hold in train or dev;
+  and dev, a row for an item the benchmark doesn't hold in train or dev, a row priced
+  at another snapshot, and two run-0 rows for one item and config;
 - only train and dev items are loaded, and only run 0;
 - the four fixed configs' totals match Amendment A8 item 1's table under both mixes;
+- the config ladder is the order of mean cost per request in every task and both
+  mixes, and its per-item inversions and exact cost ties are as Amendment A8 item 5
+  gives them;
 - a toy cascade (haiku, climbing to opus on MMLU-Pro and MBPP+) prints its per-task
   totals, each haiku's or opus's quality with the calls and gate it paid for, and its
   per-mix totals, each the mix's weighting of the per-task ones;
@@ -30,9 +35,20 @@ On the dev results matrix:
 import math
 import sys
 from collections import Counter
+from itertools import combinations, pairwise
 
-from analysis.matrix import Matrix, MatrixError, from_store, list_price, read_store
-from analysis.simulator import Total, Trace, TraceError, always, load_mixes, simulate, task_totals, totals
+from analysis.matrix import LADDER, Matrix, MatrixError, from_store, list_price, read_store
+from analysis.simulator import (
+    MixError,
+    Total,
+    Trace,
+    TraceError,
+    always,
+    load_mixes,
+    simulate,
+    task_totals,
+    totals,
+)
 from harness import check_sealed
 from harness.client import load_models
 
@@ -44,6 +60,10 @@ A8_TABLE = {
     "opus_low": {"uniform": (89.7, 9.61), "realistic": (87.8, 6.56)},
     "opus": {"uniform": (89.5, 12.01), "realistic": (86.7, 8.04)},
 }
+# Amendment A8, item 5 (dev): the % of items on which a config costs more than the next one up the ladder, and
+# the exact cost ties between two configs on one item.
+A8_ABOVE_NEXT = {("sonnet", "opus_low"): "4.8", ("opus_low", "opus"): "12.8"}
+A8_TIES, A8_TIES_BANKING77 = {("opus_low", "opus"): 234}, 209
 
 
 def synthetic(items: dict[str, tuple[str, dict[str, tuple[float, int]]]], split: str = "dev") -> Matrix:
@@ -115,7 +135,7 @@ def main() -> int:
     routed = [Trace("a", ("haiku",), 0.0001), Trace("b", ("opus",), 0.0001), Trace("c", ("haiku",), 0.0001)]
     check(same_total(totals(simulate(HAND, routed), HAND_MIX), 0.75, 3.475),
           "a routed policy pays $0.10 per 1k overhead: quality 75%, cost 0.75 x $3.60 + 0.25 x $3.10 = $3.475 per 1k")  # fmt: skip
-    refuses(ValueError, lambda: totals(simulate(HAND, routed), {"t1": 1.0}),
+    refuses(MixError, lambda: totals(simulate(HAND, routed), {"t1": 1.0}),
             "a mix that doesn't weigh exactly the outcomes' tasks is refused")  # fmt: skip
     by_task = task_totals(simulate(HAND, always(HAND, "haiku")))
     check(list(by_task) == ["t1", "t2"] and same_total(by_task["t1"], 0.5, 1.5) and same_total(by_task["t2"], 0, 3),
@@ -144,6 +164,8 @@ def main() -> int:
     refuses(TraceError, lambda: simulate(HAND, haiku[:2]), "a trace set that misses an item is refused")
     refuses(TraceError, lambda: simulate(HAND, [*haiku, Trace("a", ("opus",))]),
             "a trace set that covers an item twice is refused")  # fmt: skip
+    refuses(TraceError, lambda: simulate(HAND, [*haiku, Trace("z", ("haiku",))]),
+            "a trace for an item not in the matrix is refused")  # fmt: skip
     refuses(TraceError, lambda: simulate(HAND, [*haiku[:2], Trace("c", ("gpt",))]),
             "a trace naming an unknown config is refused")  # fmt: skip
     refuses(TraceError, lambda: simulate(HAND, [*haiku[:2], Trace("c", ("sonnet",))]),
@@ -178,23 +200,46 @@ def main() -> int:
             "a row for an item outside the benchmark's train and dev is refused")  # fmt: skip
     refuses(MatrixError, lambda: from_store([{**real, "cost_usd": real["cost_usd"] * (1 + 1e-9)}]),
             "a row whose list-price cost isn't exactly twice its stored cost is refused")  # fmt: skip
+    refuses(MatrixError, lambda: from_store([{**real, "price_snapshot": "2026-01-01"}]),
+            "a row priced at another snapshot is refused")  # fmt: skip
+    refuses(MatrixError, lambda: from_store([real, real]), "two run-0 rows for one item and config are refused")
 
     print("\n-- fixed configs on dev --")
     mixes = load_mixes()
+    fixed = {config: simulate(dev, always(dev, config)) for config in LADDER}
     for config, expected in A8_TABLE.items():
-        outcomes = simulate(dev, always(dev, config))
-        got = {mix: rounded(totals(outcomes, mixes[mix])) for mix in expected}
+        got = {mix: rounded(totals(fixed[config], mixes[mix])) for mix in expected}
         want = {mix: (f"{quality:.1f}", f"{cost:.2f}") for mix, (quality, cost) in expected.items()}
         shown = ", ".join(f"{mix} {quality}% ${cost}" for mix, (quality, cost) in got.items())
         check(got == want, f"{config}: {shown} per 1k, as in Amendment A8 item 1")
 
+    print("\n-- the config ladder on dev --")
+    fixed_by_task = {config: task_totals(outcomes) for config, outcomes in fixed.items()}
+    ladder_costs = {task: [fixed_by_task[config][task].cost_per_1k for config in LADDER] for task in DEV_TASKS}
+    ladder_costs |= {f"{mix} mix": [totals(fixed[config], mixes[mix]).cost_per_1k for config in LADDER]
+                     for mix in ("uniform", "realistic")}  # fmt: skip
+    for where, costs in ladder_costs.items():
+        check(all(lower < higher for lower, higher in pairwise(costs)),
+              f"{where}: {' < '.join(f'${cost:.2f}' for cost in costs)} per 1k, the ladder's order (A8 item 5)")  # fmt: skip
+    item_cost = {key: cell.cost for key, cell in dev.cells.items()}
+    for (lower, higher), share in A8_ABOVE_NEXT.items():
+        above = sum(item_cost[(item_id, lower)] > item_cost[(item_id, higher)] for item_id in dev.items)
+        got_share = f"{100 * above / len(dev.items):.1f}"
+        check(got_share == share,
+              f"{lower} costs more than {higher} on {above} items ({got_share}%), as in Amendment A8 item 5")  # fmt: skip
+    ties = [(item_id, pair) for item_id in dev.items for pair in combinations(LADDER, 2)
+            if item_cost[(item_id, pair[0])] == item_cost[(item_id, pair[1])]]  # fmt: skip
+    pairs, tasks = Counter(pair for _, pair in ties), Counter(dev.items[item_id].task for item_id, _ in ties)
+    check(pairs == A8_TIES and tasks["banking77"] == A8_TIES_BANKING77,
+          f"exact cost ties between two configs on one item {dict(pairs)}, {tasks['banking77']} of them on "
+          f"Banking77, as in Amendment A8 item 5")  # fmt: skip
+
     print("\n-- a toy cascade on dev --")
     outcomes = simulate(dev, toy_cascade(dev))
     by_task = task_totals(outcomes)
-    fixed = {config: task_totals(simulate(dev, always(dev, config))) for config in ("haiku", "opus")}
     gate = 1000 * TOY_GATE
     for task, total in by_task.items():
-        always_haiku, always_opus = fixed["haiku"][task], fixed["opus"][task]
+        always_haiku, always_opus = fixed_by_task["haiku"][task], fixed_by_task["opus"][task]
         quality, cost = rounded(total)
         if task in CLIMBS:
             check(same_total(total, always_opus.quality, always_haiku.cost_per_1k + always_opus.cost_per_1k + gate),
