@@ -1,0 +1,610 @@
+{
+  "figure": "pareto_tasks.png",
+  "built_by": "analysis/pareto.py",
+  "split": "dev",
+  "run": 0,
+  "n": 744,
+  "price_snapshot": "2026-10-12",
+  "bootstrap": {
+    "resamples": 2000,
+    "seed": 2026,
+    "interval": "percentile 95%",
+    "resampled": "source groups within each task, the mix weights applied afterwards"
+  },
+  "units": {
+    "quality": "share of items answered correctly, 0 to 1, mix-weighted in the headline figure",
+    "cost_per_1k": "dollars per 1,000 requests, at list price, mix-weighted in the headline figure",
+    "configs": "each config's quality and cost_per_1k: its value on dev, the point plotted, with its percentile 95% interval (low, high), the cross's arm, and its standard error, the standard deviation over the resamples",
+    "envelope": "the envelope's corners, cheapest first, joined by straight lines in linear cost",
+    "oracle": "the oracle's corners: every item on its cheapest config, then the point after each upgrade, in the order taken, joined by straight lines in linear cost",
+    "oracle_max_quality": "the quality at the oracle's last corner",
+    "items": "the task's dev items",
+    "warning": "Amendment A7 item 2's warning on the task's per-task results, or null"
+  },
+  "panels": {
+    "ifeval": {
+      "items": 157,
+      "warning": "Only 157 dev items, below the plan's minimum of a few hundred: indicative",
+      "configs": {
+        "haiku": {
+          "quality": {
+            "value": 0.8343949044585988,
+            "low": 0.7707006369426752,
+            "high": 0.89171974522293,
+            "standard_error": 0.03031519368267315
+          },
+          "cost_per_1k": {
+            "value": 0.9840490445859873,
+            "low": 0.828899347133758,
+            "high": 1.1816059076433119,
+            "standard_error": 0.08965339186261109
+          }
+        },
+        "sonnet": {
+          "quality": {
+            "value": 0.8980891719745223,
+            "low": 0.8471337579617835,
+            "high": 0.9426751592356689,
+            "standard_error": 0.024390714646470982
+          },
+          "cost_per_1k": {
+            "value": 12.540471337579618,
+            "low": 10.69982898089172,
+            "high": 14.813014012738853,
+            "standard_error": 1.0656928663800007
+          }
+        },
+        "opus_low": {
+          "quality": {
+            "value": 0.9363057324840764,
+            "low": 0.8980891719745223,
+            "high": 0.9745222929936307,
+            "standard_error": 0.019579941995384664
+          },
+          "cost_per_1k": {
+            "value": 20.21100636942675,
+            "low": 17.840532484076434,
+            "high": 22.865935668789806,
+            "standard_error": 1.2841760571082437
+          }
+        },
+        "opus": {
+          "quality": {
+            "value": 0.9363057324840764,
+            "low": 0.8980891719745223,
+            "high": 0.9683121019108274,
+            "standard_error": 0.019564088266067106
+          },
+          "cost_per_1k": {
+            "value": 27.17673885350319,
+            "low": 23.93806305732484,
+            "high": 30.79377197452229,
+            "standard_error": 1.7785754320751184
+          }
+        }
+      },
+      "envelope": {
+        "haiku": {
+          "quality": 0.8343949044585988,
+          "cost_per_1k": 0.9840490445859873
+        },
+        "sonnet": {
+          "quality": 0.8980891719745223,
+          "cost_per_1k": 12.540471337579618
+        },
+        "opus_low": {
+          "quality": 0.9363057324840764,
+          "cost_per_1k": 20.21100636942675
+        }
+      },
+      "oracle": [
+        {
+          "quality": 0.8343949044585988,
+          "cost_per_1k": 0.9840490445859873
+        },
+        {
+          "quality": 0.8407643312101911,
+          "cost_per_1k": 0.9992636942675159
+        },
+        {
+          "quality": 0.8471337579617835,
+          "cost_per_1k": 1.0193547770700637
+        },
+        {
+          "quality": 0.8535031847133758,
+          "cost_per_1k": 1.0475707006369428
+        },
+        {
+          "quality": 0.8598726114649682,
+          "cost_per_1k": 1.086071337579618
+        },
+        {
+          "quality": 0.8662420382165605,
+          "cost_per_1k": 1.1264764331210193
+        },
+        {
+          "quality": 0.8726114649681529,
+          "cost_per_1k": 1.172651592356688
+        },
+        {
+          "quality": 0.8789808917197452,
+          "cost_per_1k": 1.2208579617834396
+        },
+        {
+          "quality": 0.8853503184713376,
+          "cost_per_1k": 1.2775961783439491
+        },
+        {
+          "quality": 0.89171974522293,
+          "cost_per_1k": 1.3396248407643312
+        },
+        {
+          "quality": 0.8980891719745223,
+          "cost_per_1k": 1.4044821656050954
+        },
+        {
+          "quality": 0.9044585987261147,
+          "cost_per_1k": 1.4733617834394903
+        },
+        {
+          "quality": 0.910828025477707,
+          "cost_per_1k": 1.5442203821656049
+        },
+        {
+          "quality": 0.9171974522292994,
+          "cost_per_1k": 1.6346063694267514
+        },
+        {
+          "quality": 0.9235668789808917,
+          "cost_per_1k": 1.728073248407643
+        },
+        {
+          "quality": 0.9299363057324841,
+          "cost_per_1k": 1.8388630573248406
+        },
+        {
+          "quality": 0.9363057324840764,
+          "cost_per_1k": 1.9605987261146496
+        },
+        {
+          "quality": 0.9426751592356688,
+          "cost_per_1k": 2.0843554140127387
+        },
+        {
+          "quality": 0.9490445859872612,
+          "cost_per_1k": 2.273872611464968
+        },
+        {
+          "quality": 0.9554140127388535,
+          "cost_per_1k": 2.502448407643312
+        },
+        {
+          "quality": 0.9617834394904459,
+          "cost_per_1k": 2.7346885350318466
+        },
+        {
+          "quality": 0.9681528662420382,
+          "cost_per_1k": 2.980589808917197
+        },
+        {
+          "quality": 0.9745222929936306,
+          "cost_per_1k": 3.242157961783439
+        },
+        {
+          "quality": 0.9808917197452229,
+          "cost_per_1k": 3.5636566878980886
+        }
+      ],
+      "oracle_max_quality": 0.9808917197452229
+    },
+    "banking77": {
+      "items": 240,
+      "warning": null,
+      "configs": {
+        "haiku": {
+          "quality": {
+            "value": 0.8583333333333333,
+            "low": 0.8125000000000001,
+            "high": 0.9,
+            "standard_error": 0.022092734225620265
+          },
+          "cost_per_1k": {
+            "value": 0.24866708333333334,
+            "low": 0.24192443750000003,
+            "high": 0.25554176041666665,
+            "standard_error": 0.0035093164049022534
+          }
+        },
+        "sonnet": {
+          "quality": {
+            "value": 0.8624999999999999,
+            "low": 0.8208333333333333,
+            "high": 0.9041666666666668,
+            "standard_error": 0.022022269124477557
+          },
+          "cost_per_1k": {
+            "value": 4.093341666666666,
+            "low": 4.087916666666667,
+            "high": 4.098867708333334,
+            "standard_error": 0.0027613710832672866
+          }
+        },
+        "opus_low": {
+          "quality": {
+            "value": 0.9041666666666667,
+            "low": 0.8666666666666667,
+            "high": 0.9416666666666667,
+            "standard_error": 0.01900058990111201
+          },
+          "cost_per_1k": {
+            "value": 8.1861,
+            "low": 8.175427916666667,
+            "high": 8.197200833333333,
+            "standard_error": 0.005599590226457759
+          }
+        },
+        "opus": {
+          "quality": {
+            "value": 0.9125,
+            "low": 0.8791666666666667,
+            "high": 0.9458333333333334,
+            "standard_error": 0.018140819496163488
+          },
+          "cost_per_1k": {
+            "value": 8.606516666666666,
+            "low": 8.462161250000001,
+            "high": 8.76762,
+            "standard_error": 0.07845463614155528
+          }
+        }
+      },
+      "envelope": {
+        "haiku": {
+          "quality": 0.8583333333333333,
+          "cost_per_1k": 0.24866708333333334
+        },
+        "opus": {
+          "quality": 0.9125,
+          "cost_per_1k": 8.606516666666666
+        }
+      },
+      "oracle": [
+        {
+          "quality": 0.8583333333333333,
+          "cost_per_1k": 0.24866708333333337
+        },
+        {
+          "quality": 0.8624999999999999,
+          "cost_per_1k": 0.2637945833333334
+        },
+        {
+          "quality": 0.8666666666666666,
+          "cost_per_1k": 0.2791829166666667
+        },
+        {
+          "quality": 0.8708333333333332,
+          "cost_per_1k": 0.29477541666666673
+        },
+        {
+          "quality": 0.8749999999999999,
+          "cost_per_1k": 0.31055541666666675
+        },
+        {
+          "quality": 0.8791666666666665,
+          "cost_per_1k": 0.32651666666666673
+        },
+        {
+          "quality": 0.8833333333333332,
+          "cost_per_1k": 0.34256375000000006
+        },
+        {
+          "quality": 0.8874999999999998,
+          "cost_per_1k": 0.3586558333333334
+        },
+        {
+          "quality": 0.8916666666666665,
+          "cost_per_1k": 0.3748204166666667
+        },
+        {
+          "quality": 0.8958333333333331,
+          "cost_per_1k": 0.3910483333333334
+        },
+        {
+          "quality": 0.8999999999999998,
+          "cost_per_1k": 0.42361000000000004
+        },
+        {
+          "quality": 0.9041666666666665,
+          "cost_per_1k": 0.45624833333333337
+        },
+        {
+          "quality": 0.9083333333333331,
+          "cost_per_1k": 0.4889779166666667
+        },
+        {
+          "quality": 0.9124999999999998,
+          "cost_per_1k": 0.5217216666666666
+        },
+        {
+          "quality": 0.9166666666666664,
+          "cost_per_1k": 0.5546599999999999
+        },
+        {
+          "quality": 0.9208333333333331,
+          "cost_per_1k": 0.5877125
+        },
+        {
+          "quality": 0.9249999999999997,
+          "cost_per_1k": 0.6215824999999999
+        },
+        {
+          "quality": 0.9291666666666664,
+          "cost_per_1k": 0.6675304166666666
+        },
+        {
+          "quality": 0.933333333333333,
+          "cost_per_1k": 0.7270258333333333
+        }
+      ],
+      "oracle_max_quality": 0.933333333333333
+    },
+    "mmlu_pro": {
+      "items": 240,
+      "warning": null,
+      "configs": {
+        "haiku": {
+          "quality": {
+            "value": 0.8666666666666667,
+            "low": 0.8242553501611907,
+            "high": 0.9090909090909092,
+            "standard_error": 0.021943009722581945
+          },
+          "cost_per_1k": {
+            "value": 0.2910916666666667,
+            "low": 0.2629660382161163,
+            "high": 0.32198855339086463,
+            "standard_error": 0.01497725409028362
+          }
+        },
+        "sonnet": {
+          "quality": {
+            "value": 0.85,
+            "low": 0.8041666666666667,
+            "high": 0.8949579831932772,
+            "standard_error": 0.022925100468540186
+          },
+          "cost_per_1k": {
+            "value": 4.278833333333333,
+            "low": 3.397114435146443,
+            "high": 5.6899893989328305,
+            "standard_error": 0.662029762496768
+          }
+        },
+        "opus_low": {
+          "quality": {
+            "value": 0.8875,
+            "low": 0.8464730290456431,
+            "high": 0.925925925925926,
+            "standard_error": 0.020191627968960398
+          },
+          "cost_per_1k": {
+            "value": 6.015416666666666,
+            "low": 5.602252716942149,
+            "high": 6.4932278806923724,
+            "standard_error": 0.22525222861942554
+          }
+        },
+        "opus": {
+          "quality": {
+            "value": 0.8916666666666666,
+            "low": 0.8541514121338911,
+            "high": 0.9288702928870292,
+            "standard_error": 0.01933173085276468
+          },
+          "cost_per_1k": {
+            "value": 7.286083333333334,
+            "low": 6.761196322342033,
+            "high": 7.865904032426779,
+            "standard_error": 0.28172838924428467
+          }
+        }
+      },
+      "envelope": {
+        "haiku": {
+          "quality": 0.8666666666666667,
+          "cost_per_1k": 0.2910916666666667
+        },
+        "opus_low": {
+          "quality": 0.8875,
+          "cost_per_1k": 6.015416666666666
+        },
+        "opus": {
+          "quality": 0.8916666666666666,
+          "cost_per_1k": 7.286083333333334
+        }
+      },
+      "oracle": [
+        {
+          "quality": 0.8666666666666667,
+          "cost_per_1k": 0.2910916666666667
+        },
+        {
+          "quality": 0.8708333333333333,
+          "cost_per_1k": 0.29962083333333334
+        },
+        {
+          "quality": 0.875,
+          "cost_per_1k": 0.31217666666666666
+        },
+        {
+          "quality": 0.8791666666666667,
+          "cost_per_1k": 0.3260220833333333
+        },
+        {
+          "quality": 0.8833333333333333,
+          "cost_per_1k": 0.34018125
+        },
+        {
+          "quality": 0.8875,
+          "cost_per_1k": 0.35648708333333334
+        },
+        {
+          "quality": 0.8916666666666666,
+          "cost_per_1k": 0.37289375
+        },
+        {
+          "quality": 0.8958333333333333,
+          "cost_per_1k": 0.3943966666666667
+        },
+        {
+          "quality": 0.8999999999999999,
+          "cost_per_1k": 0.42141125
+        },
+        {
+          "quality": 0.9041666666666666,
+          "cost_per_1k": 0.45037083333333333
+        },
+        {
+          "quality": 0.9083333333333332,
+          "cost_per_1k": 0.4827295833333333
+        },
+        {
+          "quality": 0.9124999999999999,
+          "cost_per_1k": 0.5176145833333333
+        },
+        {
+          "quality": 0.9166666666666665,
+          "cost_per_1k": 0.5545875
+        },
+        {
+          "quality": 0.9208333333333332,
+          "cost_per_1k": 0.5921329166666667
+        },
+        {
+          "quality": 0.9249999999999998,
+          "cost_per_1k": 0.6344704166666667
+        },
+        {
+          "quality": 0.9291666666666665,
+          "cost_per_1k": 0.67901
+        },
+        {
+          "quality": 0.9333333333333331,
+          "cost_per_1k": 0.7268858333333333
+        }
+      ],
+      "oracle_max_quality": 0.9333333333333331
+    },
+    "mbppplus": {
+      "items": 107,
+      "warning": "Only 107 dev items, below the plan's minimum of a few hundred: indicative",
+      "configs": {
+        "haiku": {
+          "quality": {
+            "value": 0.822429906542056,
+            "low": 0.747663551401869,
+            "high": 0.8878504672897196,
+            "standard_error": 0.037058290705392176
+          },
+          "cost_per_1k": {
+            "value": 0.19197943925233643,
+            "low": 0.15798906542056076,
+            "high": 0.23147960280373828,
+            "standard_error": 0.019126747106173906
+          }
+        },
+        "sonnet": {
+          "quality": {
+            "value": 0.8317757009345794,
+            "low": 0.7570093457943923,
+            "high": 0.8971962616822429,
+            "standard_error": 0.036923315696226665
+          },
+          "cost_per_1k": {
+            "value": 2.333981308411215,
+            "low": 2.037485981308411,
+            "high": 2.6765640186915887,
+            "standard_error": 0.16047637072322066
+          }
+        },
+        "opus_low": {
+          "quality": {
+            "value": 0.8598130841121495,
+            "low": 0.7943925233644857,
+            "high": 0.9158878504672896,
+            "standard_error": 0.03326441448367982
+          },
+          "cost_per_1k": {
+            "value": 4.0087102803738315,
+            "low": 3.459926168224299,
+            "high": 4.6383345794392525,
+            "standard_error": 0.30297918840398685
+          }
+        },
+        "opus": {
+          "quality": {
+            "value": 0.8411214953271028,
+            "low": 0.7663551401869158,
+            "high": 0.9065420560747661,
+            "standard_error": 0.03559385547614811
+          },
+          "cost_per_1k": {
+            "value": 4.9840373831775695,
+            "low": 4.277131775700934,
+            "high": 5.763013084112148,
+            "standard_error": 0.3820635581897216
+          }
+        }
+      },
+      "envelope": {
+        "haiku": {
+          "quality": 0.822429906542056,
+          "cost_per_1k": 0.19197943925233643
+        },
+        "opus_low": {
+          "quality": 0.8598130841121495,
+          "cost_per_1k": 4.0087102803738315
+        }
+      },
+      "oracle": [
+        {
+          "quality": 0.822429906542056,
+          "cost_per_1k": 0.19197943925233646
+        },
+        {
+          "quality": 0.8317757009345794,
+          "cost_per_1k": 0.2174803738317757
+        },
+        {
+          "quality": 0.8411214953271028,
+          "cost_per_1k": 0.24975981308411216
+        },
+        {
+          "quality": 0.8504672897196262,
+          "cost_per_1k": 0.28236168224299063
+        },
+        {
+          "quality": 0.8598130841121495,
+          "cost_per_1k": 0.3161130841121495
+        },
+        {
+          "quality": 0.8691588785046729,
+          "cost_per_1k": 0.35698037383177567
+        },
+        {
+          "quality": 0.8785046728971962,
+          "cost_per_1k": 0.39808411214953265
+        },
+        {
+          "quality": 0.8878504672897196,
+          "cost_per_1k": 0.441322429906542
+        },
+        {
+          "quality": 0.897196261682243,
+          "cost_per_1k": 0.5080803738317756
+        }
+      ],
+      "oracle_max_quality": 0.897196261682243
+    }
+  }
+}

@@ -49,8 +49,9 @@ On a synthetic matrix, where the right answer is worked out by hand:
   seed whatever order the matrix holds its items in; the mix weights are applied after
   resampling, so each resample's weights sum to 1, and the oracle takes one resample's;
   a mix that doesn't weigh exactly the items' tasks is refused;
-- its intervals and standard errors on four hand-drawn resamples, and on 400 coin flips,
-  one or two to a source group, as the textbook standard error of a mean gives them;
+- its intervals and standard errors on four hand-drawn resamples, under a mix and per
+  task, and on 400 coin flips, one or two to a source group, as the textbook standard
+  error of a mean gives them;
 - the paired difference from the frontier on the hand-drawn resamples; a policy less
   itself is exactly 0 with no width; on the coin flips, two policies' paired standard
   error is the one their disagreements give, well under each one's own; it refuses
@@ -91,18 +92,34 @@ On the dev results matrix:
 - a toy cascade (haiku, climbing to opus on MMLU-Pro and MBPP+) prints its per-task
   totals, each haiku's or opus's quality with the calls and gate it paid for, and its
   per-mix totals, each the mix's weighting of the per-task ones;
+- chart v0's committed figures (analysis.pareto) are of dev, run 0, n = 744 at the
+  snapshot's prices; their config points, under both mixes and per task, are the
+  package's fixed-config totals to the last bit; all three quality targets are feasible
+  under both mixes; at each the oracle costs no more than the envelope; every captured
+  fraction, interval bounds included, is at most 1; the items every config fails are
+  Amendment A8 item 6's; and only IFEval's and MBPP+'s panels carry A7's warning, with
+  their dev counts;
+- every number in Amendment A8 item 12's record is the one figures/pareto.json gives, at
+  the precision the record prints, and the check catches a slip in one number and a
+  number it doesn't compare;
 - no analysis module names the sealed store (check_sealed, over the whole repo).
 """
 
+import json
 import math
+import re
 import sys
 from collections import Counter
-from itertools import combinations, pairwise, product
+from collections.abc import Callable
+from dataclasses import astuple
+from itertools import combinations, pairwise, product, zip_longest
+from operator import itemgetter
 
 import numpy as np
 
 from analysis.bootstrap import Bootstrap, BootstrapError, Captured, Estimate, resample
 from analysis.matrix import LADDER, Item, Matrix, MatrixError, from_store, list_price, read_store
+from analysis.pareto import FIGURE_DATA, TASK_FIGURE_DATA
 from analysis.references import (
     BoundError,
     Curve,
@@ -127,7 +144,7 @@ from analysis.simulator import (
     totals,
 )
 from harness import check_sealed
-from harness.client import load_models
+from harness.client import PROJECT_ROOT, load_models
 
 DEV_TASKS = {"ifeval": 157, "banking77": 240, "mmlu_pro": 240, "mbppplus": 107}  # Amendment A5, item 3
 # Amendment A8, item 1 (dev, run 0, list prices): quality % and $ per 1k under each mix.
@@ -148,6 +165,9 @@ A8_ORACLE_ITEMS = (46, 28)
 # would ask for at each quality target. Ranges allow for the seed.
 A8_OWN_SE, A8_PAIRED_SE = (2.1, 2.6), (1.2, 1.8)
 A8_UNPAIRED_BARS, A8_BAR_TOLERANCE = {1.0: 89.1, 0.99: 88.3, 0.97: 86.5}, 0.15
+# Amendment A7, item 2: the tasks whose per-task results carry a warning, which names the task's dev count.
+A7_WARNED = {"ifeval", "mbppplus"}
+PLAN = PROJECT_ROOT / "PLAN_v4.md"
 
 
 def synthetic(items: dict[str, tuple[str, dict[str, tuple[float, float]]]], split: str = "dev",
@@ -234,6 +254,14 @@ HAND_SPREAD = math.sqrt(2 * 0.375**2 / 3)
 # Always-haiku's quality less always-opus's, resample by resample: 0, -37.5%, -75%, -37.5%; on the items as they
 # are, 37.5% - 75%. Its interval and standard error are found the same way.
 HAND_DIFFERENCE = (-0.375, -0.721875, -0.028125, HAND_SPREAD)
+# Always-haiku within each task over the same resamples. t1's draws weigh a and b 1 and 0, then .5 each, 0 and 1, .5
+# each: quality 100%, 50%, 0, 50% and $1, $1.50, $2, $1.50 per 1k, each with a standard deviation of sqrt(0.5^2 x 2 /
+# 3). t2 draws c alone every time: 0 at $3. Percentiles as above.
+HAND_TASK_SPREAD = math.sqrt(0.5**2 * 2 / 3)
+HAND_TASKS: dict[str, dict[str, tuple[float, float, float, float]]] = {
+    "t1": {"quality": (0.5, 0.0375, 0.9625, HAND_TASK_SPREAD), "cost_per_1k": (1.5, 1.0375, 1.9625, HAND_TASK_SPREAD)},
+    "t2": {"quality": (0, 0, 0, 0), "cost_per_1k": (3, 3, 3, 0)},
+}
 # Each hand-drawn resample has its own frontier, target and oracle. Always-opus: 75% in each, at $5.50, $6.25, $7,
 # $6.25 per 1k. At the 100% target, 75%, the oracle costs $1.50 (a and c on haiku already meet it, b undrawn), $3.375,
 # $5.25 (only b, moved to opus), $3.375. The cascade costs $1.60, $4.225, $6.85, $4.225, so it captures 3.9 / 4,
@@ -378,6 +406,72 @@ def of_four(values: list[float]) -> tuple[float, float]:
     """The percentile 95% interval of four sorted values, as worked by hand above HAND_HAIKU: 0.075 of the way from
     the first to the second, and 0.925 of the way from the third to the fourth."""
     return values[0] + 0.075 * (values[1] - values[0]), values[2] + 0.925 * (values[3] - values[2])
+
+
+def plotted_point(config: dict) -> tuple[float, float]:
+    """A figure JSON's point for a config: its quality and cost per 1k on dev, the values its intervals surround."""
+    return config["quality"]["value"], config["cost_per_1k"]["value"]
+
+
+def signed(points: float) -> str:
+    """Points to 1 decimal, signed, with the plan's minus sign."""
+    return f"{points:+.1f}".replace("-", "\u2212")
+
+
+def record_lines(headline: dict) -> list[str]:
+    """Amendment A8 item 12's lines that hold a number, as chart v0's JSON gives them, at the precision the record
+    prints. None of the record's other lines holds one."""
+    panels = [headline["panels"][mix] for mix in ("realistic", "uniform")]
+
+    def row(label: str, cell: Callable[[dict], str]) -> str:
+        return f"| {label} | {' | '.join(cell(panel) for panel in panels)} |"
+
+    def point(config: str) -> Callable[[dict], str]:
+        def cell(panel: dict) -> str:
+            quality, cost = panel["configs"][config]["quality"], panel["configs"][config]["cost_per_1k"]
+            return f"{100 * quality['value']:.1f}% ({100 * quality['low']:.1f} to {100 * quality['high']:.1f}), ${cost['value']:.2f}"  # fmt: skip
+
+        return cell
+
+    def at_targets(shown: Callable[[dict], str]) -> Callable[[dict], str]:
+        return lambda panel: ", ".join(shown(target) for target in panel["targets"].values())
+
+    def gap(panel: dict) -> str:
+        return "{} points ({} to {})".format(*(signed(100 * panel["configs"]["opus_low"]["difference_from_A"][bound])
+                                               for bound in ("value", "low", "high")))  # fmt: skip
+
+    gaps = [panel["configs"]["opus_low"]["difference_from_A"] for panel in panels]
+    holds = "contains 0 under both mixes" if all(d["low"] <= 0 <= d["high"] for d in gaps) else "doesn't contain 0"
+    targets = ", ".join(panels[0]["targets"])
+    return [
+        f"12. **Record.** Chart v0's headline numbers on {headline['split']} (run {headline['run']}, n = "
+        f"{headline['n']}, list prices of {headline['price_snapshot']}), from `figures/pareto.json`. Intervals are "
+        f"percentile 95% from {headline['bootstrap']['resamples']:,} paired resamples, and "
+        f"`analysis/check_simulator.py` compares every number here with that file.",
+        row("A (`opus`): quality, $ per 1k", point("opus")),
+        row("B (`haiku`): quality, $ per 1k", point("haiku")),
+        row("`opus_low` \u2212 `opus`: paired quality difference", gap),
+        row("D: maximum quality", lambda panel: f"{100 * panel['oracle_max_quality']:.1f}%"),
+        row(f"D: $ per 1k at {targets} of A's quality", at_targets(lambda t: f"${t['oracle']['cost_per_1k']:.2f}")),
+        row("D: savings against A there", at_targets(lambda t: f"{t['oracle']['savings_vs_A']['share']:.1%}")),
+        row("C: captured fraction there", at_targets(lambda t: f"{t['envelope']['captured']['value']:.2f}")),
+        f"- The paired interval of the `opus_low` \u2212 `opus` gap {holds}, so item 1's reading stands: the gap is "
+        f"likely noise, and the frontier stays `opus`.",
+    ]  # fmt: skip
+
+
+def a8_record(plan: str) -> list[str]:
+    """Amendment A8 item 12's lines, from its number to the rule that ends the amendment."""
+    amendment = plan[plan.index("## Amendment A8") :]
+    record = amendment[amendment.index("12. **Record.**") :]
+    return record[: record.index("\n---\n")].splitlines()
+
+
+def record_mismatches(record: list[str], headline: dict) -> list[tuple[str, str]]:
+    """Each line of the record holding a number that differs from the line chart v0's JSON gives, paired with it; a
+    line missing on either side is paired with ''. A digit after a letter is part of a name, as in v0 or A8."""
+    held = [line.strip() for line in record if re.search(r"(?<![A-Za-z0-9_.])\d", line)]
+    return [(says, gives) for says, gives in zip_longest(held, record_lines(headline), fillvalue="") if says != gives]
 
 
 def rounded(total: Total) -> tuple[str, str]:
@@ -690,6 +784,12 @@ def main() -> int:
     steady = HAND_DRAWS.totals(hand_opus, HAND_MIX).quality
     check(same_estimate(steady, 0.75, 0.75, 0.75, 0),
           "always-opus is 75% in every hand-drawn resample, so its interval has no width and its standard error is 0")  # fmt: skip
+    spread_by_task = HAND_DRAWS.task_totals(hand_haiku)
+    check(list(spread_by_task) == list(HAND_TASKS)
+          and all(same_estimate(getattr(spread_by_task[task], measure), *expected)
+                  for task, measures in HAND_TASKS.items() for measure, expected in measures.items()),
+          "always-haiku per task over the same resamples: t1 50% (3.75% to 96.25%) at $1.50 per 1k ($1.04 to $1.96), "
+          "t2 0 at $3 in every one")  # fmt: skip
     for name, groups, own_se in (("one item per source group", None, COIN_SE),
                                  ("two items per source group", {f"i{i:03}": f"pair{i // 2}" for i in range(400)},
                                   COIN_PAIRS_SE)):  # fmt: skip
@@ -720,6 +820,8 @@ def main() -> int:
                            ("cover an item not resampled", hand_haiku + simulate(TRAIN, always(TRAIN, "haiku"))[:1])):  # fmt: skip
         refuses(BootstrapError, lambda: HAND_DRAWS.totals(outcomes, HAND_MIX),
                 f"a policy's outcomes that {what} are refused")  # fmt: skip
+        refuses(BootstrapError, lambda: HAND_DRAWS.task_totals(outcomes),
+                f"a policy's outcomes that {what} are refused per task too")  # fmt: skip
         refuses(BootstrapError, lambda: HAND_DRAWS.difference(hand_haiku, outcomes, HAND_MIX),
                 f"frontier outcomes that {what} are refused")  # fmt: skip
 
@@ -956,6 +1058,57 @@ def main() -> int:
                    for measure in ("quality", "cost_per_1k")]  # fmt: skip
         check(same_total(total, *weighed),
               f"{mix} mix: {quality}% ${cost} per 1k, the mix's weighting of the per-task totals (A5 item 6)")  # fmt: skip
+
+    print("\n-- chart v0's figures --")
+    # The committed JSONs, which every number quoted from chart v0 comes from, so a stale figure fails here too.
+    headline, per_task = (json.loads(path.read_text()) for path in (FIGURE_DATA, TASK_FIGURE_DATA))
+    snapshot = load_models()["price_snapshot"]
+    check(all((data["split"], data["run"], data["n"], data["price_snapshot"]) == ("dev", 0, 744, snapshot)
+              for data in (headline, per_task)),
+          f"both figures are of dev, run 0, n = 744, at the list prices of {snapshot}")  # fmt: skip
+    for mix in ("realistic", "uniform"):
+        panel = headline["panels"][mix]
+        plotted = {config: plotted_point(panel["configs"][config]) for config in panel["configs"]}
+        check(plotted == {config: astuple(totals(fixed[config], mixes[mix])) for config in LADDER},
+              f"{mix} mix: the figure's config points are the package's fixed-config totals, to the last bit")  # fmt: skip
+        oracle_costs = {share: target["oracle"]["cost_per_1k"] for share, target in panel["targets"].items()}
+        check(list(oracle_costs) == ["100%", "99%", "97%"] and None not in oracle_costs.values(),
+              f"{mix} mix: all three quality targets are feasible on dev "
+              f"({', '.join(f'{share} ${cost:.2f}' for share, cost in oracle_costs.items() if cost is not None)} per 1k)")  # fmt: skip
+        envelope_costs = {share: target["envelope"]["cost_per_1k"] for share, target in panel["targets"].items()}
+        check(all(oracle_costs[share] <= cost for share, cost in envelope_costs.items()),
+              f"{mix} mix: at every target the oracle costs no more than the envelope "
+              f"({', '.join(f'{share} ${cost:.2f}' for share, cost in envelope_costs.items())} per 1k)")  # fmt: skip
+        bounds = [bound for target in panel["targets"].values()
+                  for bound in itemgetter("value", "low", "high")(target["envelope"]["captured"])]  # fmt: skip
+        check(all(bound <= 1 for bound in bounds if bound is not None),
+              f"{mix} mix: every captured fraction, interval bounds included, is at most 1")  # fmt: skip
+        check(panel["failed_by_every_config"] == A8_ORACLE_ITEMS[0],
+              f"{mix} mix: {panel['failed_by_every_config']} items fail on every config, as in Amendment A8 item 6")  # fmt: skip
+    for task, panel in per_task["panels"].items():
+        plotted = {config: plotted_point(panel["configs"][config]) for config in panel["configs"]}
+        check(plotted == {config: astuple(fixed_by_task[config][task]) for config in LADDER},
+              f"{task}: the per-task figure's config points are the package's per-task totals, to the last bit")  # fmt: skip
+    warned = {task: panel["warning"] for task, panel in per_task["panels"].items() if panel["warning"]}
+    check(list(per_task["panels"]) == list(DEV_TASKS) and set(warned) == A7_WARNED
+          and all(f"{DEV_TASKS[task]} dev items" in warning for task, warning in warned.items()),
+          f"the per-task figure has a panel per task, and only IFEval's and MBPP+'s carry Amendment A7's warning, "
+          f"with their dev counts {warned}")  # fmt: skip
+
+    print("\n-- chart v0's record (Amendment A8, item 12) --")
+    record = a8_record(PLAN.read_text())
+    mismatches = record_mismatches(record, headline)
+    check(not mismatches,
+          "every number in Amendment A8 item 12's record is the one figures/pareto.json gives, at the precision the "
+          "record prints" + ("".join(f"\n      record: {says!r}\n      JSON:   {gives!r}" for says, gives in mismatches)))  # fmt: skip
+    # A guard proves it can fail: a rounding slip in one number, as item 1's table once carried, and a number the
+    # check doesn't know.
+    a_row = next(i for i, line in enumerate(record) if line.strip().startswith("| A ("))
+    slip = re.sub(r"\$(\d+\.\d)(\d)", lambda m: f"${m[1]}{(int(m[2]) + 1) % 10}", record[a_row], count=1)
+    check(len(record_mismatches(record[:a_row] + [slip] + record[a_row + 1 :], headline)) == 1,
+          f"the record check catches a slip in one number: {slip.strip()!r}")  # fmt: skip
+    check(len(record_mismatches([*record, "    - One number more: 1.0 points."], headline)) == 1,
+          "the record check catches a number it doesn't compare")  # fmt: skip
 
     print("\n-- the sealed store --")
     named = check_sealed.naming_files()

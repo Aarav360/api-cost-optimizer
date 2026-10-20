@@ -297,7 +297,20 @@ Stage 3's decisions, from a design review made before any Stage 3 code, router o
 11. **Code** (§13). `analysis/` is a package of scripts run like the harness (`uv run python -m analysis.<script>`), adding numpy and matplotlib. Pandas and notebooks are dropped, since the harness works with plain rows.
     - `analysis/check_simulator.py` checks the greedy oracle against a brute-force whole-item knapsack on small random matrices, and the envelope and trace accounting against hand-worked cases.
     - Of the results stores, the analysis code reads only `results/dev_matrix.sqlite` (and the frozen benchmark, for each item's source group). It refuses rows outside train and dev, and doesn't name the sealed store (A6 item 4).
-12. **Record.** When chart v0 runs, a short record of its headline numbers is added here, including the paired interval of the `opus_low` − `opus` quality gap.
+12. **Record.** Chart v0's headline numbers on dev (run 0, n = 744, list prices of 2026-10-12), from `figures/pareto.json`. Intervals are percentile 95% from 2,000 paired resamples, and `analysis/check_simulator.py` compares every number here with that file.
+
+    | | Realistic | Uniform |
+    |---|---|---|
+    | A (`opus`): quality, $ per 1k | 86.7% (81.8 to 91.1), $8.04 | 89.5% (87.2 to 91.9), $12.01 |
+    | B (`haiku`): quality, $ per 1k | 83.3% (78.2 to 87.9), $0.29 | 84.5% (81.6 to 87.2), $0.43 |
+    | `opus_low` − `opus`: paired quality difference | +1.0 points (−1.3 to +3.6) | +0.2 points (−1.2 to +1.6) |
+    | D: maximum quality | 91.5% | 93.6% |
+    | D: $ per 1k at 100%, 99%, 97% of A's quality | $0.40, $0.37, $0.31 | $0.65, $0.59, $0.51 |
+    | D: savings against A there | 95.0%, 95.4%, 96.1% | 94.6%, 95.1%, 95.8% |
+    | C: captured fraction there | 0.38, 0.54, 0.85 | 0.24, 0.37, 0.65 |
+
+    - The paired interval of the `opus_low` − `opus` gap contains 0 under both mixes, so item 1's reading stands: the gap is likely noise, and the frontier stays `opus`.
+    - The rest of table v0, every config's row and the per-task figure's numbers among them, is in `figures/pareto.json` and `figures/pareto_tasks.json`.
 
 ---
 

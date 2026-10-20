@@ -80,6 +80,16 @@ class Bootstrap:
         (quality, cost), total = self.resampled(outcomes, mix), totals(outcomes, mix)
         return TotalEstimate(_estimate(total.quality, quality), _estimate(total.cost_per_1k, cost))
 
+    def task_totals(self, outcomes: list[Outcome]) -> dict[str, TotalEstimate]:
+        """Each task's totals on its own (`simulator.task_totals`), with intervals over the same resamples, in the
+        order tasks first appear.
+
+        Tasks are resampled apart, so a task's share of every resample is a bootstrap of that task alone. A mix that
+        weighs only the task gives it.
+        """
+        tasks = dict.fromkeys(outcome.task for outcome in outcomes)
+        return {task: self.totals(outcomes, {other: float(other == task) for other in tasks}) for task in tasks}
+
     def difference(self, policy: list[Outcome], frontier: list[Outcome], mix: dict[str, float]) -> Estimate:
         """The policy's quality less the frontier's, under a mix, each resample weighing both alike."""
         (success, _), (frontier_success, _) = self._columns(policy), self._columns(frontier)
