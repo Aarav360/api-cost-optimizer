@@ -351,6 +351,13 @@ def plan_number_checks(dev: Matrix, headline: dict, dev_rows: int) -> None:
     claims.append((9, f"all {NUMBER_WORDS[len(rates)]} between {low:.2f} and {high:.2f}", "the twelve per-task rates"))
     grid = [Fraction(k, 20) for k in range(1, 20)]
     policies = {tuple(next((c for c in SCORED if rates[(task, c)] >= t), FRONTIER) for task in DEV_TASKS) for t in grid}
+
+    def config_at(task: str, threshold: Fraction) -> str:
+        return next((c for c in SCORED if rates[(task, c)] >= threshold), FRONTIER)
+
+    # The walk runs from the highest threshold down, so "at t = 0.85" is the step down from the grid's 0.90.
+    moved = sum(config_at(task, Fraction(9, 10)) != config_at(task, Fraction(17, 20)) for task in DEV_TASKS)
+    claims.append((9, f"at t = 0.85 {NUMBER_WORDS[moved]} tasks change config at once", "tasks changing at t = 0.85"))
     steps = len(set(rates.values()))
     claims.append((9, f"it gives {NUMBER_WORDS[len(policies)]} policies against {NUMBER_WORDS[steps]} steps on "
                       f"distinct values", "grid policies against steps"))  # fmt: skip
@@ -384,6 +391,8 @@ def plan_number_checks(dev: Matrix, headline: dict, dev_rows: int) -> None:
     for number, sentence, what in claims:
         check(sentence in items[number], f"item {number}: {what}: “{sentence}”")
     check(said is not None, "known positive: item 4's range is found in its text")
+    check(not any(f"at t = 0.85 {word} tasks change" in items[9] for word in ("two", "three", "five")),
+          "and no other count of tasks is said to change at t = 0.85")  # fmt: skip
     check(not any(slipped(sentence) in items[number] for number, sentence, _ in claims),
           "the check can fail: each sentence with one digit slipped is not in the plan")  # fmt: skip
     check(slipped("on 4.8% of") == "on 5.8% of" and slipped("$9.61") == "$0.61"
