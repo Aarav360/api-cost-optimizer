@@ -10,6 +10,11 @@ amendments in [PLAN_v4.md](PLAN_v4.md).
 One benchmark prompt with its expected answer, belonging to one task and one split.
 _Avoid_: question, example, sample
 
+**Request**:
+What every config receives for an item: its prompt and, if it has one, its output schema. All a
+router sees. An API request is a request plus one config's settings.
+_Avoid_: input, query
+
 **Task**:
 One of the four core benchmark sources (IFEval, Banking77, MMLU-Pro, MBPP+), each with its own
 success rule.
@@ -52,7 +57,7 @@ Fixed configs, routers and cascades are policies.
 _Avoid_: system, strategy, decision strategy
 
 **Router**:
-A policy that reads only the prompt and calls exactly one config per item.
+A policy that reads only the request and calls exactly one config per item.
 
 **Cascade**:
 A policy that calls configs up the config ladder, returning the first answer its gate accepts, or
@@ -71,6 +76,28 @@ _Avoid_: decision, route
 **Overhead**:
 What a policy pays per item beyond model answers: its router and gate calls.
 _Avoid_: router cost (when gates are included)
+
+## Routers
+
+**Router score**:
+A router's estimate, for one request and one config below the frontier, that the config would
+succeed.
+_Avoid_: score (alone), confidence, probability
+
+**Threshold**:
+The value router scores are compared with. A request goes to the cheapest config on the ladder
+whose router score is at least the threshold, or to the frontier if none is.
+_Avoid_: cutoff, quality threshold
+
+**Breakpoint**:
+A threshold at which some item's config changes: a router score for a request that is higher than
+every cheaper config's router score for it. A router's walk steps are taken from its breakpoints.
+_Avoid_: cut point (the boundary of a rules router's bucket)
+
+**Router-score table**:
+A router's router scores and overhead for every item of a split, from which its traces at any
+threshold are built.
+_Avoid_: predictions
 
 ## References and metrics
 
@@ -91,7 +118,7 @@ _Avoid_: optimal router, perfect router
 
 **Quality target**:
 A required quality, stated as a share of frontier quality under a task mix (100%, 99%, 97%).
-_Avoid_: quality threshold (thresholds belong to routers and gates)
+_Avoid_: quality threshold (thresholds belong to routers, cutoffs to gates)
 
 **Safety margin**:
 How far a policy's dev quality must clear a quality target when its threshold is chosen: one
@@ -102,3 +129,16 @@ _Avoid_: buffer, cushion
 The share of the hindsight oracle's savings at a quality target that a policy meeting that target
 achieves.
 _Avoid_: % of oracle savings, efficiency
+
+## Selecting thresholds
+
+**Walk**:
+The fixed sequence of steps in which a router's thresholds are tried for one task mix and quality
+target, from always-frontier down, each step a lower threshold. It stops at the first step whose
+dev quality doesn't clear the quality target by the safety margin. Every step before that is
+certified. A cascade's order of steps is fixed when cascades are designed.
+
+**Operating point**:
+A policy at the thresholds selected for one task mix and quality target: the cheapest step its
+walk certifies, or always-frontier where the walk certifies nothing cheaper.
+_Avoid_: setting, configuration

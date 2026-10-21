@@ -11,23 +11,20 @@ prices isn't exactly twice its stored batch cost (Amendment A8, item 2). Only ru
 goes into the matrix: runs 1 and 2 feed only the noise measure (Amendment A6, item 1).
 """
 
-import json
 import sqlite3
 from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 
-from harness.build_benchmark import BENCHMARK_FILE
+from analysis.benchmark import SPLITS, read_rows
 from harness.client import cost_usd, load_models
 from harness.collect import FRONTIER, MAIN
+from routers.ladder import LADDER
 
-# The config ladder, cheapest to dearest (Amendment A8, item 5): the order of mean dev
-# cost per request in every task and both mixes. "Cheapest config" and "one config up"
-# always mean this order, and exact cost ties go to the lower config.
-LADDER = ("haiku", "sonnet", "opus_low", "opus")
+# The config ladder lives in routers/ladder.py, which can't import the harness; this module re-exports it (so every
+# existing import keeps working) and holds the assertion that it ends at the collection runner's frontier.
 assert LADDER[-1] == FRONTIER
 
-SPLITS = ("train", "dev")  # test stays sealed until Stage 8 (Amendment A6)
 # A task (GLOSSARY.md) is the store's `source` column. Its `task_type` column holds a coarser label
 # (coding, classification, ...) that the analysis doesn't use.
 STORE_COLUMNS = ("item_id", "split", "source", "config", "model", "run", "input_tokens", "output_tokens", "cost_usd",
@@ -99,12 +96,8 @@ def list_price(row: dict, prices: dict) -> float:
 def from_store(rows: list[dict]) -> Matrix:
     """Check every stored row, then build the matrix from the run-0 rows."""
     models = load_models()
-    # The benchmark gives each item's source group. Only train and dev items are kept.
-    benchmark = {}
-    for line in BENCHMARK_FILE.open():
-        item = json.loads(line)
-        if item["split"] in SPLITS:
-            benchmark[item["item_id"]] = item
+    # The benchmark gives each item's source group, through the reader, which yields train and dev items only.
+    benchmark = {item["item_id"]: item for item in read_rows()}
 
     matrix_rows = []
     for row in rows:

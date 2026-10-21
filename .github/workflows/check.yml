@@ -17,3 +17,7 @@ jobs:
       - run: uv run ruff format --check
       - run: uv run mypy
       - run: uv run python -m harness.check_sealed
+      - run: uv run python -m analysis.check_routers
+      - run: uv run python -m analysis.check_comparisons
+      - run: uv run python -m analysis.check_walk
+      - run: uv run python -m analysis.check_rules_router

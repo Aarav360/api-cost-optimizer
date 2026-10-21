@@ -1,4 +1,4 @@
-"""Pareto chart v0 on dev (PLAN_v4.md §12; Amendment A8, item 10).
+"""Pareto chart v1 on dev (PLAN_v4.md §12; Amendment A8, item 10; Amendment A9, items 14 and 15).
 
 Run from the project root:  uv run python -m analysis.pareto
 
@@ -26,6 +26,19 @@ and quality on y, each config a point with its intervals as a cross:
 Each is written with a JSON of every number it plots, table v0 included:
 figures/pareto.json and figures/pareto_tasks.json. All four are committed and
 overwritten as later stages add to the chart.
+
+Chart and table v1 add the rules router, E, to both (Amendment A9, items 14 and 15), keeping every number and key of v0
+and adding new keys:
+- the headline figure draws E's steps as markers joined by straight lines in linear cost, in walk order from A, doubling
+  back where they do and never hulled, the same on both panels, and a cross with 95% intervals at each of E's operating
+  points, points that coincide sharing one with a combined label; there is no band;
+- the per-task figure draws E's steps in each task as a line with markers and no operating points;
+- table v1 adds, per mix at each operating point, the walk's verdict, quality and cost with intervals, the margin, the
+  paired difference from A, savings against A, the captured fraction with the share of resamples meeting the target,
+  the routing mix and the comparison with the envelope at matched cost; and per task each operating point's quality and
+  cost with intervals and McNemar's test against A, with "—" for a row that falls back to A, the fixed configs'
+  rows included. E's walks come from the operating-points file's rules (`analysis/rules_walk.py`), and the run stops
+  if the file is not what the walk gives now.
 """
 
 import json
@@ -41,9 +54,14 @@ from matplotlib.figure import Figure
 from matplotlib.patheffects import withStroke
 from matplotlib.ticker import FixedLocator, FuncFormatter, MaxNLocator, NullLocator, PercentFormatter
 
-from analysis.bootstrap import RESAMPLES, SEED, Bootstrap, Estimate, TotalEstimate, resample
+from analysis.bootstrap import RESAMPLES, SEED, Bootstrap, Estimate, Savings, TotalEstimate, resample
+from analysis.dev_diagnostic import dev_diagnostic
 from analysis.matrix import LADDER, Matrix, load
+from analysis.operating_points import OPERATING_POINTS_FILE, build_section, read_section, section_hash
 from analysis.references import START, Curve, Oracle, envelope, oracle, quality_targets, task_oracles
+from analysis.router_panels import config_mcnemar, router_part_of_mix_panel, router_part_of_task_panel, step_outcomes
+from analysis.rules_table import dev_table
+from analysis.rules_walk import ROUTER, dev_walks
 from analysis.simulator import Outcome, Total, always, item_weights, load_mixes, simulate, task_totals, totals
 from harness.client import PROJECT_ROOT, load_models
 from harness.run_pilot import print_table
@@ -65,13 +83,26 @@ OFFSETS = {"haiku": (8, -9, "left"), "sonnet": (8, 0, "left"), "opus_low": (-8, 
 TASK_OFFSETS = {task: OFFSETS | {"sonnet": (8, -9, "left")} for task in TASKS}
 TASK_OFFSETS["mbppplus"] |= {"sonnet": (-8, -9, "right")}
 
+# E's operating points' labels, by the targets they carry, in points from the cross; placed by eye on the committed
+# figure and checked against it, so a different walk needs them moved.
+POINT_OFFSETS: dict[tuple[str, str], tuple[int, int, str]] = {
+    ("realistic", "97%"): (-14, 22, "right"),
+    ("realistic", "99%"): (-4, 56, "right"),
+    ("realistic", "100%: falls back to A"): (24, 80, "right"),
+    ("uniform", "97%"): (8, -16, "left"),
+    ("uniform", "99%"): (-6, 44, "right"),
+    ("uniform", "100%: falls back to A"): (24, 66, "right"),
+}
+
 # The data-viz reference palette's light surface and inks; the config points are series 1, the envelope series 2
 # and the oracle series 3.
 SURFACE, INK, INK_SECONDARY, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
-SERIES_1, SERIES_2, SERIES_3 = "#2a78d6", "#eb6834", "#1baf7a"
+SERIES_1, SERIES_2, SERIES_3, SERIES_4 = "#2a78d6", "#eb6834", "#1baf7a", "#8e5bd0"  # series 4 is the router, E
 ENVELOPE_LABEL = "C: random-mixture envelope"
 ORACLE_LABEL = "D: hindsight oracle (optimistic upper bound)"  # run 0 only, its flip rates over 5% (A6 item 2)
 CONFIGS_LABEL = "Fixed configs, with 95% intervals"
+STEPS_LABEL = "E: rules router, its steps from A (straight lines in linear cost)"
+POINTS_LABEL = "E's operating points, with 95% intervals"
 TARGETS_LABEL = "Quality targets, % of A's quality"
 CAPTION_WIDTH, NOTE_WIDTH = 150, 80  # characters per line at 8.5 and 8 points, across a 10-inch figure and a panel
 LINE = 1 / 6  # inches per line of 8.5-point text, for the space under the panels
@@ -111,14 +142,18 @@ def references(curve: Curve, solved: Oracle) -> dict:
             "oracle_max_quality": solved.curve.peak.quality}  # fmt: skip
 
 
-def mix_panel(dev: Matrix, draws: Bootstrap, outcomes: dict[str, list[Outcome]], mix: dict[str, float]) -> dict:
-    """One mix's panel of the headline figure, with its part of table v0: every number plotted or tabled."""
+def mix_panel(dev: Matrix, draws: Bootstrap, outcomes: dict[str, list[Outcome]], mix: dict[str, float],
+              savings: Savings | None = None) -> dict:  # fmt: skip
+    """One mix's panel of the headline figure, with its part of table v0: every number plotted or tabled.
+
+    `savings` is the mix's resampled oracles, solved once if the caller has them (E's part of table v1 needs them
+    too); otherwise they are solved here."""
     frontier = totals(outcomes["opus"], mix)
     points = {config: totals(outcomes[config], mix) for config in LADDER}
     curve = envelope(points)
     solved = oracle(dev, item_weights(dev.items.values(), mix))
     # The oracle is re-solved on every resample's weights, for every target (A8 item 8).
-    savings = draws.savings(dev, outcomes["opus"], mix)
+    savings = savings or draws.savings(dev, outcomes["opus"], mix)
     configs = {config: {**asdict(draws.totals(outcomes[config], mix)),
                         "savings_vs_A": savings_against(frontier, points[config].cost_per_1k),
                         "difference_from_A": asdict(draws.difference(outcomes[config], outcomes["opus"], mix))}
@@ -231,12 +266,66 @@ def as_spread(row: dict) -> TotalEstimate:
     return TotalEstimate(Estimate(**row["quality"]), Estimate(**row["cost_per_1k"]))
 
 
-def draw_panel(ax: Axes, panel: dict, title: str, note: str | None, note_lines: int, offsets: dict) -> None:
-    """A panel's references and config points with their crosses, on the shared axes style.
+def step_line(steps: list[dict]) -> tuple[np.ndarray, np.ndarray]:
+    """E's steps joined by straight lines in linear cost, sampled along each segment so the log axis bends them.
 
-    `note_lines` is the most lines any panel's note in the figure takes, so panels side by side keep their titles
-    level.
+    In walk order, so the line doubles back where a step costs less than the one before it, and is never hulled.
     """
+    costs, qualities = [steps[0]["cost_per_1k"]], [steps[0]["quality"]]
+    for low, high in pairwise(steps):
+        along = np.linspace(0, 1, 100)[1:]
+        costs += (low["cost_per_1k"] + along * (high["cost_per_1k"] - low["cost_per_1k"])).tolist()
+        qualities += (low["quality"] + along * (high["quality"] - low["quality"])).tolist()
+    return np.array(costs), np.array(qualities)
+
+
+def point_labels(points: dict[str, dict]) -> list[tuple[dict, str]]:
+    """E's operating points grouped where they coincide, each with its combined label: "99%, 97%", or
+    "100%: falls back to A"."""
+    groups: dict[tuple[float, float], list[str]] = {}
+    for target, point in points.items():
+        groups.setdefault((point["quality"]["value"], point["cost_per_1k"]["value"]), []).append(target)
+    labelled = []
+    for targets in groups.values():
+        point = points[targets[0]]
+        labelled.append((point, ", ".join(targets) + (": falls back to A" if point["fell_back"] else "")))
+    return labelled
+
+
+def draw_steps(ax: Axes, router: dict) -> None:
+    """E's steps as a line with markers, on every panel. No band: E's uncertainty is the crosses and the table's
+    paired intervals (item 14)."""
+    costs, qualities = step_line(router["steps"])
+    ax.plot(costs, qualities, color=SERIES_4, linewidth=1.2, zorder=2, label=STEPS_LABEL)
+    ax.plot([s["cost_per_1k"] for s in router["steps"]], [s["quality"] for s in router["steps"]], "s", markersize=4,
+            color=SERIES_4, markeredgecolor=SURFACE, markeredgewidth=0.8, zorder=3)  # fmt: skip
+
+
+def draw_operating_points(ax: Axes, router: dict, mix: str) -> None:
+    """A cross at each of E's operating points on a headline panel, `mix` naming it; the per-task panels show them in
+    the table only (Amendment A7, item 2)."""
+    shown_points = point_labels(router["operating_points"])
+    for point, _ in shown_points:
+        spread = as_spread(point)
+        quality, cost = spread.quality, spread.cost_per_1k
+        ax.vlines(cost.value, quality.low, quality.high, color=SERIES_4, linewidth=1.2, zorder=4)
+        ax.hlines(quality.value, cost.low, cost.high, color=SERIES_4, linewidth=1.2, zorder=4)
+    ax.plot([as_spread(p).cost_per_1k.value for p, _ in shown_points],
+            [as_spread(p).quality.value for p, _ in shown_points], "D", markersize=6.5, color=SERIES_4,
+            markeredgecolor=SURFACE, markeredgewidth=1.2, zorder=5, label=POINTS_LABEL)  # fmt: skip
+    for point, label in shown_points:
+        dx, dy, ha = POINT_OFFSETS.get((mix, label), (8, -10, "left"))
+        # A thin leader to a label that sits clear of the crowd.
+        leader = {"arrowstyle": "-", "color": SERIES_4, "linewidth": 0.6, "shrinkA": 2, "shrinkB": 4}
+        ax.annotate(label, (point["cost_per_1k"]["value"], point["quality"]["value"]), xytext=(dx, dy),
+                    textcoords="offset points", ha=ha, va="center", fontsize=8.5, color=SERIES_4, zorder=6,
+                    arrowprops=leader if max(abs(dx), abs(dy)) > 20 else None,
+                    path_effects=[withStroke(linewidth=3, foreground=SURFACE)])  # fmt: skip
+
+
+def draw_references(ax: Axes, panel: dict, offsets: dict) -> None:
+    """A panel's references and config points with their crosses. E's layer goes on next, before `frame_panel` fixes
+    the axes to everything drawn."""
     ax.set_facecolor(SURFACE)
     ax.plot(*sampled(as_curve(panel["envelope"])), color=SERIES_2, linewidth=1.8, zorder=2, label=ENVELOPE_LABEL)
     ax.plot(*sampled(as_curve(panel["oracle"])), color=SERIES_3, linewidth=1.8, zorder=2, label=ORACLE_LABEL)
@@ -254,6 +343,14 @@ def draw_panel(ax: Axes, panel: dict, title: str, note: str | None, note_lines: 
         ax.annotate(LABELS[config], (spread.cost_per_1k.value, spread.quality.value), xytext=(dx, dy),
                     textcoords="offset points", ha=ha, va="center", fontsize=9, color=INK, zorder=4,
                     path_effects=[withStroke(linewidth=3, foreground=SURFACE)])  # fmt: skip
+
+
+def frame_panel(ax: Axes, title: str, note: str | None, note_lines: int) -> None:
+    """The shared axes style, the title and the note.
+
+    `note_lines` is the most lines any panel's note in the figure takes, so panels side by side keep their titles
+    level.
+    """
     ax.set_xscale("log")
     # Dollars, not powers of ten: the ticks a reader prices requests in.
     ax.xaxis.set_major_locator(FixedLocator([0.1, 0.3, 1, 3, 10, 30]))
@@ -283,11 +380,12 @@ def finish(fig: Figure, caption: str, path: Path) -> None:
     """One legend under every panel, which plot the same series, so the first panel's handles serve; inside a panel
     it would cover a curve. Under it the caption, and the figure is saved."""
     handles, labels = fig.axes[0].get_legend_handles_labels()
-    order = [labels.index(label) for label in (ENVELOPE_LABEL, ORACLE_LABEL, CONFIGS_LABEL, TARGETS_LABEL)
+    order = [labels.index(label) for label in (ENVELOPE_LABEL, ORACLE_LABEL, CONFIGS_LABEL, STEPS_LABEL, POINTS_LABEL, TARGETS_LABEL)
              if label in labels]  # fmt: skip
     caption = textwrap.fill(caption, CAPTION_WIDTH)
-    # The panels end above the legend's two rows and the caption's lines.
-    bottom = (LINE * (3 + caption.count("\n") + 1) + 0.15) / fig.get_figheight()
+    # The panels end above the legend's rows (two entries to a row) and the caption's lines.
+    legend_rows = -(-len(order) // 2)
+    bottom = (LINE * (legend_rows + 1 + caption.count("\n") + 1) + 0.15) / fig.get_figheight()
     fig.legend([handles[i] for i in order], [labels[i] for i in order], loc="upper center",
                bbox_to_anchor=(0.5, bottom), ncol=2, frameon=False, fontsize=8.5, labelcolor=INK)  # fmt: skip
     fig.text(0.01, 0.01, caption, fontsize=8.5, color=INK_SECONDARY, va="bottom")
@@ -305,7 +403,10 @@ def draw_headline(panels: dict[str, dict], notes: dict[str, str], caption: str, 
                        label=TARGETS_LABEL if i == 0 else None)  # fmt: skip
             ax.annotate(share, (1, target["quality"]), xycoords=("axes fraction", "data"), xytext=(4, 0),
                         textcoords="offset points", ha="left", va="center", fontsize=8, color=INK_SECONDARY)  # fmt: skip
-        draw_panel(ax, panel, f"{mix.capitalize()} mix", notes.get(mix), note_lines, OFFSETS)
+        draw_references(ax, panel, OFFSETS)
+        draw_steps(ax, panel["routers"][ROUTER])
+        draw_operating_points(ax, panel["routers"][ROUTER], mix)
+        frame_panel(ax, f"{mix.capitalize()} mix", notes.get(mix), note_lines)
         ax.set_xlim(0.2, 30)
         ax.set_xlabel("Cost per 1,000 requests, list price (log scale)", fontsize=9, color=INK_SECONDARY)
         ax.set_ylabel("Mix-weighted quality", fontsize=9, color=INK_SECONDARY)
@@ -318,15 +419,78 @@ def draw_tasks(panels: dict[str, dict], caption: str, path: Path) -> None:
     axes = fig.subplots(2, 2, sharex=True)
     note_lines = max(len(textwrap.wrap(panel["warning"], NOTE_WIDTH)) for panel in panels.values() if panel["warning"])
     for ax, (task, panel) in zip(axes.flat, panels.items()):
-        draw_panel(ax, panel, TASKS[task], panel["warning"], note_lines, TASK_OFFSETS[task])
+        draw_references(ax, panel, TASK_OFFSETS[task])
+        draw_steps(ax, panel["routers"][ROUTER])
+        frame_panel(ax, TASKS[task], panel["warning"], note_lines)
     for ax in axes[1]:
         ax.set_xlabel("Cost per 1,000 requests, list price (log scale)", fontsize=9, color=INK_SECONDARY)
     for ax in axes[:, 0]:
         ax.set_ylabel("Quality", fontsize=9, color=INK_SECONDARY)
     costs = [row["cost_per_1k"][bound] for panel in panels.values() for row in panel["configs"].values()
              for bound in ("low", "high")]  # fmt: skip
+    costs += [step["cost_per_1k"] for panel in panels.values() for step in panel["routers"][ROUTER]["steps"]]
     axes[0, 0].set_xlim(min(costs) / 1.6, max(costs) * 1.6)
     finish(fig, caption, path)
+
+
+def shown_threshold(point: dict) -> str:
+    return "falls back to A" if point["fell_back"] else f"{point['threshold']:.4f}"
+
+
+def shown_gap(matched: dict) -> str:
+    """E's paired quality difference from the envelope at E's cost, with its interval, in points; n/a where unread."""
+
+    def points(value: float | None) -> str:
+        return "n/a" if value is None else f"{100 * value:+.1f}"
+
+    if matched["difference"] is None:
+        return "n/a"
+    return f"{points(matched['difference'])} ({points(matched['low'])} to {points(matched['high'])}) pts"
+
+
+def print_router_mix(mix: str, router: dict) -> None:
+    """E's part of table v1 for one mix (Amendment A9, item 15), at each of its operating points."""
+    points = router["operating_points"]
+    print(f"\n{mix.capitalize()} mix, E at its operating points")
+    rows = [[share, shown_threshold(p), f"{p['steps_certified']} of {p['steps_tried']}",
+             f"{shown(p['quality'], 100, '{:.1f}')}%", f"${shown(p['cost_per_1k'], 1, '{:.2f}')}",
+             f"{100 * p['margin']:.2f} pts", f"{shown(p['difference_from_A'], 100, '{:+.1f}')} pts",
+             shown_savings(p["savings_vs_A"])] for share, p in points.items()]  # fmt: skip
+    print_table(["quality target", "threshold", "steps certified", "quality", "$ per 1k", "safety margin",
+                 "difference from A", "savings against A"], rows)  # fmt: skip
+    rows = []
+    for share, p in points.items():
+        captured, matched = p["captured"], p["matched_cost"]
+        reading = matched["envelope"]
+        rows.append([share, f"{shown_fraction(captured['value'])} ({shown_fraction(captured['low'])} to "
+                     f"{shown_fraction(captured['high'])})", f"{captured['met']:.1%}",
+                     "n/a" if reading is None else f"{100 * reading:.1f}%", shown_gap(matched),
+                     *(f"{100 * p['routing'][c]:.1f}%" for c in LADDER)])  # fmt: skip
+    print(
+        "Captured fraction of D's savings with its paired 95% interval and the share of resamples meeting the "
+        "target; the envelope's quality at E's cost and E's paired difference from it (matched cost); the routing mix"
+    )
+    print_table(["quality target", "captured", "resamples meeting", "C at E's cost", "E less C", *LADDER], rows)
+
+
+def print_router_task(task: str, panel: dict) -> None:
+    """The fixed configs' and E's McNemar tests against A in one task, with E's operating points there."""
+    print(f"\n{TASKS[task]}: McNemar's test against A (b: items only the row gets right, c: only A; exact, two-sided, "
+          f"descriptive only)")  # fmt: skip
+    dash = ("—",) * 3
+    rows = []
+    for config, test in panel["mcnemar_vs_A"].items():
+        row = panel["configs"][config]
+        rows.append([LABELS[config], f"{shown(row['quality'], 100, '{:.1f}')}%",
+                     f"${shown(row['cost_per_1k'], 1, '{:.2f}')}",
+                     *(dash if test is None else (test["b"], test["c"], f"{test['p']:.3f}"))])  # fmt: skip
+    for mix, by_share in panel["routers"][ROUTER]["operating_points"].items():
+        for share, p in by_share.items():
+            test = p["mcnemar"]
+            rows.append([f"E, {mix} {share}: {shown_threshold(p)}", f"{shown(p['quality'], 100, '{:.1f}')}%",
+                         f"${shown(p['cost_per_1k'], 1, '{:.2f}')}",
+                         *(dash if test is None else (test["b"], test["c"], f"{test['p']:.3f}"))])  # fmt: skip
+    print_table(["row", "quality", "$ per 1k", "b", "c", "p"], rows)
 
 
 def main() -> int:
@@ -336,7 +500,16 @@ def main() -> int:
     outcomes = {config: simulate(dev, always(dev, config)) for config in LADDER}
     # One set of resamples serves every config, mix and task, so each difference from A is paired (A8 item 8).
     draws = resample(dev)
-    panels = {mix: mix_panel(dev, draws, outcomes, mixes[mix]) for mix in PANELS}
+    # E's walks, which must be the ones the operating-points file holds: the chart draws the file's operating points.
+    table = dev_table()
+    walks = dev_walks(dev, table, draws)
+    if build_section(walks) != read_section(ROUTER):
+        print(f"{OPERATING_POINTS_FILE.relative_to(PROJECT_ROOT)} is not what the walk on dev gives; "
+              f"run analysis.rules_walk first, and see why they differ")  # fmt: skip
+        return 1
+    steps = step_outcomes(dev, table, outcomes["opus"])
+    savings = {mix: draws.savings(dev, outcomes["opus"], mixes[mix]) for mix in PANELS}
+    panels = {mix: mix_panel(dev, draws, outcomes, mixes[mix], savings[mix]) for mix in PANELS}
     per_task = task_panels(dev, draws, outcomes)
     basis = f"run 0, n = {len(dev.items)}, list prices {snapshot}"
 
@@ -349,6 +522,25 @@ def main() -> int:
           "(Amendment A7, item 2).")  # fmt: skip
     for task, panel in per_task.items():
         print_task(task, panel)
+
+    # Table v1 adds keys to table v0's panels and changes none of them (Amendment A9, item 15).
+    for mix in PANELS:
+        router = router_part_of_mix_panel(draws, savings[mix], steps, walks[mix], outcomes, mixes[mix])
+        panels[mix] = {**panels[mix], "routers": {ROUTER: router}}
+    for task in TASKS:
+        per_task[task] = {**per_task[task], "mcnemar_vs_A": config_mcnemar(outcomes, task),
+                          "routers": {ROUTER: router_part_of_task_panel(draws, steps, walks, task)}}  # fmt: skip
+    section = read_section(ROUTER)
+    where = OPERATING_POINTS_FILE.relative_to(PROJECT_ROOT)
+    inference = dev_diagnostic()  # one pass over the dev requests, for the printout and the JSON
+    print(f"\nTable v1: E, the rules router, on dev. {inference}. Its operating points are the cheapest "
+          f"certified steps of the walk (Amendment A9, items 9 and 10), written to {where}.")  # fmt: skip
+    for mix in PANELS:
+        print_router_mix(mix, panels[mix]["routers"][ROUTER])
+    print("\nPer task, the fixed configs' and E's operating points' McNemar tests (Amendment A9, item 11). —: "
+          "a row that falls back to A, or A itself.")  # fmt: skip
+    for task, panel in per_task.items():
+        print_router_task(task, panel)
 
     bootstrap = {"resamples": RESAMPLES, "seed": SEED, "interval": "percentile 95%",
                  "resampled": "source groups within each task, the mix weights applied afterwards"}  # fmt: skip
@@ -378,19 +570,73 @@ def main() -> int:
     }  # fmt: skip
     task_units = units | {"items": "the task's dev items",
                           "warning": "Amendment A7 item 2's warning on the task's per-task results, or null"}  # fmt: skip
+    # Table v1's keys, added to v0's (Amendment A9, items 14 and 15).
+    router_units = {
+        "routers": "the routers on the chart, keyed by their name in the operating-points file; E is `rules`, the "
+        "rules router",
+        "steps": "E's steps in walk order: A (threshold null) first, then each step from the highest threshold to the "
+        "lowest, each with its quality and cost_per_1k on dev (mix-weighted in the headline figure), joined "
+        "by straight lines in linear cost and never hulled, so the line can double back; the same steps on "
+        "both mixes' panels since they come from router scores",
+        "operating_points": "E's operating points, keyed by quality target (the headline figure's panel, one mix) or "
+        "by mix and then quality target (the per-task figure), each the cheapest certified step "
+        "of the walk (Amendment A9, items 9 and 10), whose quality and cost_per_1k are each "
+        + estimate
+        + ", and whose difference_from_A and savings_vs_A are the config rows' (against A)",
+        "threshold": "the operating point's threshold, null for a fallback to A",
+        "fell_back": "whether the walk certified nothing cheaper than A, so the operating point is A itself: no "
+        "router call, no overhead, captured fraction 0",
+        "steps_certified": "the steps the walk certified, A not counted",
+        "steps_tried": "the steps the walk tried, the last of which may be the first that missed",
+        "target": "the quality target on dev: its share of A's quality under the mix",
+        "margin": "the safety margin: one paired standard error of the point's quality difference from A "
+        "(Amendment A8, item 9)",
+        "captured": "the operating point's captured fraction of the oracle's savings at its target (§7), with its "
+        "percentile 95% interval over every resample (null being n/a, ranked below every number), and "
+        "met, the share of resamples in which it meets the target (Amendment A8, item 8)",
+        "routing": "the share of requests answered by each config, weighted like quality and cost",
+        "matched_cost": "the envelope's quality at the operating point's cost (envelope; flat at its top quality "
+        "past its costliest corner, Amendment A8 item 7; null below its cheapest), the operating "
+        "point's paired quality difference from it (difference) with its percentile 95% interval "
+        "(low, high; each resample rebuilds the envelope from its own config points, null being "
+        "n/a), and unread, the share of resamples in which the point costs less than the "
+        "envelope's cheapest corner (Amendment A9, items 12 and 15)",
+        "label": "the router's name on the chart",
+        "operating_points_file": "the file holding the router's section: every threshold, margin and step of its walks",
+        "operating_points_sha256": "the sha256 of E's section of the operating-points file, written with sorted "
+        "keys (Amendment A9, item 18)",
+        "task_inference_dev": "how often E's inferred type is the item's task over the dev requests, on this "
+        "benchmark's templates only (Amendment A9, item 5)",
+    }
+    mcnemar_units = {
+        "mcnemar": "McNemar's test of the row against A within the task (Amendment A9, item 11): b, the items only "
+        "the row gets right; c, the items only A gets right; p, exact and two-sided, descriptive only. "
+        "Null (shown as —) for an operating point that falls back to A",
+        "mcnemar_vs_A": "the same for each fixed config against A; A's own row is null",
+    }
+    headline_units |= router_units
+    task_units |= router_units | mcnemar_units
+    section_name = str(OPERATING_POINTS_FILE.relative_to(PROJECT_ROOT))
+    router_meta = {ROUTER: {"label": "E: rules router", "task_inference_dev": inference,
+                            "operating_points_file": section_name,
+                            "operating_points_sha256": section_hash(section)}}  # fmt: skip
     FIGURES.mkdir(exist_ok=True)
-    for path, data in ((FIGURE_DATA, {"figure": FIGURE.name, **meta, "units": headline_units, "panels": panels}),
-                       (TASK_FIGURE_DATA, {"figure": TASK_FIGURE.name, **meta, "units": task_units, "panels": per_task})):  # fmt: skip
+    for path, data in ((FIGURE_DATA, {"figure": FIGURE.name, **meta, "units": headline_units, "routers": router_meta,
+                                      "panels": panels}),
+                       (TASK_FIGURE_DATA, {"figure": TASK_FIGURE.name, **meta, "units": task_units,
+                                           "panels": per_task})):  # fmt: skip
         path.write_text(json.dumps(data, indent=2) + "\n")
 
     crosses = f"Crosses are 95% intervals from {RESAMPLES:,} resamples of source groups within each task."
+    stepped = "E's steps are joined by straight lines in linear cost, in walk order from A"
     draw_headline(panels, {"realistic": realistic_note(mixes["realistic"], per_task["mbppplus"]["items"])},
                   f"Dev split, {basis}. {crosses} Differences between policies are judged by the paired intervals "
-                  f"in table v0 ({FIGURE_DATA.relative_to(PROJECT_ROOT)}), not by whether crosses overlap.", FIGURE)  # fmt: skip
+                  f"in tables v0 and v1 ({FIGURE_DATA.relative_to(PROJECT_ROOT)}), not by whether crosses overlap. "
+                  f"{stepped}; its crosses mark its operating points, each labeled with its target.", FIGURE)  # fmt: skip
     counts = ", ".join(f"{TASKS[task]} {panel['items']}" for task, panel in per_task.items())
     draw_tasks(per_task, f"Dev split, {basis} ({counts}). Each task on its own, with its own envelope and oracle. "
-                         f"{crosses} No quality targets: verdicts are given for the two mixes only (Amendment A7).",
-               TASK_FIGURE)  # fmt: skip
+                         f"{crosses} No quality targets: verdicts are given for the two mixes only (Amendment A7). "
+                         f"{stepped}, with no operating points.", TASK_FIGURE)  # fmt: skip
     written = (FIGURE, FIGURE_DATA, TASK_FIGURE, TASK_FIGURE_DATA)
     print(f"\nWrote {', '.join(str(path.relative_to(PROJECT_ROOT)) for path in written)}")
     return 0

@@ -50,6 +50,18 @@ class Captured:
 
 
 @dataclass(frozen=True)
+class MatchedCost:
+    """A policy's paired quality difference from the random-mixture envelope at the policy's own cost, with its
+    interval, None being n/a (Amendment A9, item 12; A8 items 7 and 8)."""
+
+    envelope: float | None  # the envelope's quality at the policy's cost, on dev
+    difference: float | None  # the policy's quality less that, on dev
+    low: float | None  # the percentile 95% interval over every resample, n/a ranked below every number
+    high: float | None
+    unread: float  # the share of resamples in which the policy costs less than the envelope's cheapest corner
+
+
+@dataclass(frozen=True)
 class Bootstrap:
     item_ids: tuple[str, ...]  # the order of `counts`' columns
     tasks: tuple[str, ...]  # each column's item's task
@@ -105,6 +117,37 @@ class Bootstrap:
         the target and the policy together, so whether the target is met depends on their difference.
         """
         return self.difference(policy, frontier, mix).standard_error
+
+    def matched_cost(
+        self, policy: list[Outcome], fixed: dict[str, list[Outcome]], mix: dict[str, float]
+    ) -> MatchedCost:
+        """The envelope's quality at the policy's cost under a mix, and the policy's paired quality difference from
+        it, with an interval (Amendment A9, items 12 and 15).
+
+        The envelope is read as A8 item 7 settles: flat at its top corner's quality past its costliest corner, n/a
+        below its cheapest. Each resample rebuilds the envelope from its own fixed-config points and reads it at its
+        own policy cost, as the envelope's captured fraction does, so the difference is paired. A resample that
+        reads n/a ranks below every number (A8 item 8), so the lower bound reads n/a when more than 2.5% do.
+        """
+        on_dev = envelope({config: totals(outcomes, mix) for config, outcomes in fixed.items()})
+        point = totals(policy, mix)
+        reading = on_dev.quality_at(point.cost_per_1k)
+        differences = self.matched_cost_differences(policy, fixed, mix)
+        low, high = _ranked_interval(differences)
+        unread = sum(difference is None for difference in differences) / len(differences)
+        return MatchedCost(reading, None if reading is None else point.quality - reading, low, high, unread)
+
+    def matched_cost_differences(
+        self, policy: list[Outcome], fixed: dict[str, list[Outcome]], mix: dict[str, float]
+    ) -> list[float | None]:
+        """In each resample, the policy's quality less the quality its envelope reads at the policy's cost there, or
+        None (n/a) where the policy costs less than the envelope's cheapest corner."""
+        resampled = {config: self.resampled_totals(outcomes, mix) for config, outcomes in fixed.items()}
+        differences: list[float | None] = []
+        for r, own in enumerate(self.resampled_totals(policy, mix)):
+            reading = envelope({config: points[r] for config, points in resampled.items()}).quality_at(own.cost_per_1k)
+            differences.append(None if reading is None else own.quality - reading)
+        return differences
 
     def savings(self, matrix: Matrix, frontier: list[Outcome], mix: dict[str, float]) -> "Savings":
         """What captured fractions under a mix are measured against. The oracle is solved once on dev and once on

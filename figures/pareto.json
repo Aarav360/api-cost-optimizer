@@ -21,7 +21,31 @@
     "savings_vs_A": "A's cost per 1k less the config's or the oracle's (per_1k), and that as a share of A's (share)",
     "difference_from_A": "each config's quality less A's, paired: the same resamples weigh both; its standard_error is the config's safety margin (Amendment A8, item 9)",
     "failed_by_every_config": "the dev items no config gets right",
-    "targets": "each quality target, keyed by its share of A's (opus's) quality under the mix: its quality, the oracle's cost there (null: infeasible), savings against A and routing mix (each config's share of requests), and the envelope's cost there and captured fraction of the oracle's savings (\u00a77), with its percentile 95% interval over every resample, null being n/a, ranked below every number, and met, the share of resamples in which the envelope meets the target (A8 item 8)"
+    "targets": "each quality target, keyed by its share of A's (opus's) quality under the mix: its quality, the oracle's cost there (null: infeasible), savings against A and routing mix (each config's share of requests), and the envelope's cost there and captured fraction of the oracle's savings (\u00a77), with its percentile 95% interval over every resample, null being n/a, ranked below every number, and met, the share of resamples in which the envelope meets the target (A8 item 8)",
+    "routers": "the routers on the chart, keyed by their name in the operating-points file; E is `rules`, the rules router",
+    "steps": "E's steps in walk order: A (threshold null) first, then each step from the highest threshold to the lowest, each with its quality and cost_per_1k on dev (mix-weighted in the headline figure), joined by straight lines in linear cost and never hulled, so the line can double back; the same steps on both mixes' panels since they come from router scores",
+    "operating_points": "E's operating points, keyed by quality target (the headline figure's panel, one mix) or by mix and then quality target (the per-task figure), each the cheapest certified step of the walk (Amendment A9, items 9 and 10), whose quality and cost_per_1k are each its value on dev, the point plotted, with its percentile 95% interval (low, high), the cross's arm, and its standard error, the standard deviation over the resamples, and whose difference_from_A and savings_vs_A are the config rows' (against A)",
+    "threshold": "the operating point's threshold, null for a fallback to A",
+    "fell_back": "whether the walk certified nothing cheaper than A, so the operating point is A itself: no router call, no overhead, captured fraction 0",
+    "steps_certified": "the steps the walk certified, A not counted",
+    "steps_tried": "the steps the walk tried, the last of which may be the first that missed",
+    "target": "the quality target on dev: its share of A's quality under the mix",
+    "margin": "the safety margin: one paired standard error of the point's quality difference from A (Amendment A8, item 9)",
+    "captured": "the operating point's captured fraction of the oracle's savings at its target (\u00a77), with its percentile 95% interval over every resample (null being n/a, ranked below every number), and met, the share of resamples in which it meets the target (Amendment A8, item 8)",
+    "routing": "the share of requests answered by each config, weighted like quality and cost",
+    "matched_cost": "the envelope's quality at the operating point's cost (envelope; flat at its top quality past its costliest corner, Amendment A8 item 7; null below its cheapest), the operating point's paired quality difference from it (difference) with its percentile 95% interval (low, high; each resample rebuilds the envelope from its own config points, null being n/a), and unread, the share of resamples in which the point costs less than the envelope's cheapest corner (Amendment A9, items 12 and 15)",
+    "label": "the router's name on the chart",
+    "operating_points_file": "the file holding the router's section: every threshold, margin and step of its walks",
+    "operating_points_sha256": "the sha256 of E's section of the operating-points file, written with sorted keys (Amendment A9, item 18)",
+    "task_inference_dev": "how often E's inferred type is the item's task over the dev requests, on this benchmark's templates only (Amendment A9, item 5)"
+  },
+  "routers": {
+    "rules": {
+      "label": "E: rules router",
+      "task_inference_dev": "On this benchmark's templates the inferred type is the item's task for 744 of 744 dev items (100.0%), and for 744 of 744 (100.0%) with the output schema withheld",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "66cf01b0c0e9b071df8e003c598c2603617dafb57f98916300286a1fb04ebd50"
+    }
   },
   "panels": {
     "realistic": {
@@ -477,6 +501,251 @@
             }
           }
         }
+      },
+      "routers": {
+        "rules": {
+          "steps": [
+            {
+              "threshold": null,
+              "quality": 0.8674428785443579,
+              "cost_per_1k": 8.04290568441574
+            },
+            {
+              "threshold": 0.9743589743589743,
+              "quality": 0.8672345452110245,
+              "cost_per_1k": 7.917619788582407
+            },
+            {
+              "threshold": 0.9487179487179487,
+              "quality": 0.8672345452110245,
+              "cost_per_1k": 7.781582845907247
+            },
+            {
+              "threshold": 0.9408284023668639,
+              "quality": 0.8672345452110245,
+              "cost_per_1k": 7.14615609431489
+            },
+            {
+              "threshold": 0.926829268292683,
+              "quality": 0.8672345452110245,
+              "cost_per_1k": 7.106422760981557
+            },
+            {
+              "threshold": 0.9173553719008265,
+              "quality": 0.8674428785443579,
+              "cost_per_1k": 7.064726927648223
+            },
+            {
+              "threshold": 0.9171597633136095,
+              "quality": 0.8636212224934025,
+              "cost_per_1k": 6.372563870323383
+            },
+            {
+              "threshold": 0.9142857142857143,
+              "quality": 0.8696959888485426,
+              "cost_per_1k": 4.5447085899495505
+            },
+            {
+              "threshold": 0.893491124260355,
+              "quality": 0.8646004474472687,
+              "cost_per_1k": 3.4835533670196144
+            },
+            {
+              "threshold": 0.8904109589041096,
+              "quality": 0.8585256810921286,
+              "cost_per_1k": 2.8607197221598013
+            },
+            {
+              "threshold": 0.8719512195121951,
+              "quality": 0.8568590144254619,
+              "cost_per_1k": 2.5011697221598013
+            },
+            {
+              "threshold": 0.8536585365853658,
+              "quality": 0.8568590144254619,
+              "cost_per_1k": 2.162846388826468
+            },
+            {
+              "threshold": 0.8512396694214877,
+              "quality": 0.8551923477587952,
+              "cost_per_1k": 2.083826388826468
+            },
+            {
+              "threshold": 0.8493150684931506,
+              "quality": 0.8430428150485149,
+              "cost_per_1k": 1.419677650508711
+            },
+            {
+              "threshold": 0.8305785123966942,
+              "quality": 0.8434594817151815,
+              "cost_per_1k": 1.3159297963420444
+            },
+            {
+              "threshold": 0.8269230769230769,
+              "quality": 0.8417928150485148,
+              "cost_per_1k": 1.2715797963420443
+            },
+            {
+              "threshold": 0.8205128205128205,
+              "quality": 0.8405189296981963,
+              "cost_per_1k": 1.1770927899726176
+            },
+            {
+              "threshold": 0.8076923076923077,
+              "quality": 0.8330189296981964,
+              "cost_per_1k": 0.28747953997261744
+            }
+          ],
+          "operating_points": {
+            "100%": {
+              "threshold": null,
+              "fell_back": true,
+              "steps_certified": 0,
+              "steps_tried": 1,
+              "target": 0.8674428785443579,
+              "margin": 0.0,
+              "quality": {
+                "value": 0.8674428785443579,
+                "low": 0.8181213763138152,
+                "high": 0.9112464181015134,
+                "standard_error": 0.02338704738314108
+              },
+              "cost_per_1k": {
+                "value": 8.04290568441574,
+                "low": 7.500959949110459,
+                "high": 8.680603810391984,
+                "standard_error": 0.305980085998855
+              },
+              "difference_from_A": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "standard_error": 0.0
+              },
+              "savings_vs_A": {
+                "per_1k": 0.0,
+                "share": 0.0
+              },
+              "captured": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "met": 1.0
+              },
+              "routing": {
+                "haiku": 0.0,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 0.9999999999999918
+              },
+              "matched_cost": {
+                "envelope": 0.8777174112546382,
+                "difference": -0.010274532710280337,
+                "low": -0.036490545309875215,
+                "high": 0.0,
+                "unread": 0.0
+              }
+            },
+            "99%": {
+              "threshold": 0.9171597633136095,
+              "fell_back": false,
+              "steps_certified": 6,
+              "steps_tried": 7,
+              "target": 0.8587684497589143,
+              "margin": 0.0021087546877365635,
+              "quality": {
+                "value": 0.8636212224934025,
+                "low": 0.814225814265952,
+                "high": 0.9079991844371277,
+                "standard_error": 0.023408109632321372
+              },
+              "cost_per_1k": {
+                "value": 6.372563870323383,
+                "low": 5.888614574136232,
+                "high": 6.944915155818014,
+                "standard_error": 0.27045819522463965
+              },
+              "difference_from_A": {
+                "value": -0.003821656050955413,
+                "low": -0.008052540914601425,
+                "high": 0.00018281378439685884,
+                "standard_error": 0.0021087546877365635
+              },
+              "savings_vs_A": {
+                "per_1k": 1.6703418140923567,
+                "share": 0.2076789010878094
+              },
+              "captured": {
+                "value": 0.21774401840238816,
+                "low": 0.19018287272759535,
+                "high": 0.24205836225428828,
+                "met": 0.9855
+              },
+              "routing": {
+                "haiku": 0.013958333333333316,
+                "sonnet": 0.09999999999999999,
+                "opus_low": 0.12437500000000092,
+                "opus": 0.7616666666666657
+              },
+              "matched_cost": {
+                "envelope": 0.8763488921146733,
+                "difference": -0.01272766962127081,
+                "low": -0.03793628929615532,
+                "high": 0.0047473781498509155,
+                "unread": 0.0
+              }
+            },
+            "97%": {
+              "threshold": 0.8536585365853658,
+              "fell_back": false,
+              "steps_certified": 11,
+              "steps_tried": 12,
+              "target": 0.8414195921880271,
+              "margin": 0.015365234162033054,
+              "quality": {
+                "value": 0.8568590144254619,
+                "low": 0.807869428364662,
+                "high": 0.9006569528568169,
+                "standard_error": 0.023708404632616954
+              },
+              "cost_per_1k": {
+                "value": 2.162846388826468,
+                "low": 1.9543942887190409,
+                "high": 2.3961339977987786,
+                "standard_error": 0.11320823298276567
+              },
+              "difference_from_A": {
+                "value": -0.010583864118896003,
+                "low": -0.04064122502378232,
+                "high": 0.018778346747588593,
+                "standard_error": 0.015365234162033054
+              },
+              "savings_vs_A": {
+                "per_1k": 5.880059295589271,
+                "share": 0.7310864414315728
+              },
+              "captured": {
+                "value": 0.7604727749184673,
+                "low": null,
+                "high": 0.7900144655137873,
+                "met": 0.8405
+              },
+              "routing": {
+                "haiku": 0.5268496760719888,
+                "sonnet": 0.3254419905946783,
+                "opus_low": 0.036041666666666694,
+                "opus": 0.1116666666666669
+              },
+              "matched_cost": {
+                "envelope": 0.8463728243472225,
+                "difference": 0.010486190078239366,
+                "low": -0.014090853388141084,
+                "high": 0.030281530700436616,
+                "unread": 0.0
+              }
+            }
+          }
+        }
       }
     },
     "uniform": {
@@ -929,6 +1198,251 @@
               "low": 0.453283822444199,
               "high": 1.0,
               "met": 1.0
+            }
+          }
+        }
+      },
+      "routers": {
+        "rules": {
+          "steps": [
+            {
+              "threshold": null,
+              "quality": 0.8953984736194615,
+              "cost_per_1k": 12.013344059170189
+            },
+            {
+              "threshold": 0.9743589743589743,
+              "quality": 0.8943568069527948,
+              "cost_per_1k": 11.386914580003522
+            },
+            {
+              "threshold": 0.9487179487179487,
+              "quality": 0.8943568069527948,
+              "cost_per_1k": 11.046822223315624
+            },
+            {
+              "threshold": 0.9408284023668639,
+              "quality": 0.8943568069527948,
+              "cost_per_1k": 9.458255344334733
+            },
+            {
+              "threshold": 0.926829268292683,
+              "quality": 0.8943568069527948,
+              "cost_per_1k": 9.408588677668066
+            },
+            {
+              "threshold": 0.9173553719008265,
+              "quality": 0.8953984736194615,
+              "cost_per_1k": 9.200109511001399
+            },
+            {
+              "threshold": 0.9171597633136095,
+              "quality": 0.8858443334920729,
+              "cost_per_1k": 7.469701867689297
+            },
+            {
+              "threshold": 0.9142857142857143,
+              "quality": 0.8881807820902038,
+              "cost_per_1k": 6.766680606007054
+            },
+            {
+              "threshold": 0.893491124260355,
+              "quality": 0.8754419285870191,
+              "cost_per_1k": 4.113792548682214
+            },
+            {
+              "threshold": 0.8904109589041096,
+              "quality": 0.8731054799888882,
+              "cost_per_1k": 3.874241146813054
+            },
+            {
+              "threshold": 0.8719512195121951,
+              "quality": 0.8710221466555549,
+              "cost_per_1k": 3.424803646813054
+            },
+            {
+              "threshold": 0.8536585365853658,
+              "quality": 0.8710221466555549,
+              "cost_per_1k": 3.001899480146388
+            },
+            {
+              "threshold": 0.8512396694214877,
+              "quality": 0.8626888133222216,
+              "cost_per_1k": 2.606799480146388
+            },
+            {
+              "threshold": 0.8493150684931506,
+              "quality": 0.8580159161259598,
+              "cost_per_1k": 2.3513576577164814
+            },
+            {
+              "threshold": 0.8305785123966942,
+              "quality": 0.8600992494592932,
+              "cost_per_1k": 1.8326183868831478
+            },
+            {
+              "threshold": 0.8269230769230769,
+              "quality": 0.8580159161259598,
+              "cost_per_1k": 1.7771808868831478
+            },
+            {
+              "threshold": 0.8205128205128205,
+              "quality": 0.8548312027501637,
+              "cost_per_1k": 1.540963370959581
+            },
+            {
+              "threshold": 0.8076923076923077,
+              "quality": 0.8454562027501636,
+              "cost_per_1k": 0.42894680845958094
+            }
+          ],
+          "operating_points": {
+            "100%": {
+              "threshold": null,
+              "fell_back": true,
+              "steps_certified": 0,
+              "steps_tried": 1,
+              "target": 0.8953984736194615,
+              "margin": 0.0,
+              "quality": {
+                "value": 0.8953984736194615,
+                "low": 0.8719608182383103,
+                "high": 0.919242595327193,
+                "standard_error": 0.011983471310118465
+              },
+              "cost_per_1k": {
+                "value": 12.013344059170189,
+                "low": 11.169522236723441,
+                "high": 12.954388026408292,
+                "standard_error": 0.4620598923661789
+              },
+              "difference_from_A": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "standard_error": 0.0
+              },
+              "savings_vs_A": {
+                "per_1k": 0.0,
+                "share": 0.0
+              },
+              "captured": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "met": 1.0
+              },
+              "routing": {
+                "haiku": 0.0,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 1.0000000000000144
+              },
+              "matched_cost": {
+                "envelope": 0.8969463708157231,
+                "difference": -0.0015478971962616939,
+                "low": -0.01587445972780933,
+                "high": 0.0,
+                "unread": 0.0
+              }
+            },
+            "99%": {
+              "threshold": 0.9173553719008265,
+              "fell_back": false,
+              "steps_certified": 5,
+              "steps_tried": 6,
+              "target": 0.8864444888832669,
+              "margin": 0.0052641411566333495,
+              "quality": {
+                "value": 0.8953984736194615,
+                "low": 0.8711241678572137,
+                "high": 0.9191978909707955,
+                "standard_error": 0.012047856399448473
+              },
+              "cost_per_1k": {
+                "value": 9.200109511001399,
+                "low": 8.587613746857784,
+                "high": 9.916692836026575,
+                "standard_error": 0.33905069684869943
+              },
+              "difference_from_A": {
+                "value": 0.0,
+                "low": -0.010538051367710159,
+                "high": 0.010485939097271363,
+                "standard_error": 0.0052641411566333495
+              },
+              "savings_vs_A": {
+                "per_1k": 2.81323454816879,
+                "share": 0.23417580769455726
+              },
+              "captured": {
+                "value": 0.24623491432427766,
+                "low": null,
+                "high": 0.27059241597196504,
+                "met": 0.9565
+              },
+              "routing": {
+                "haiku": 0.06979166666666672,
+                "sonnet": 0.023885350318471336,
+                "opus_low": 0.5167396496815285,
+                "opus": 0.3895833333333315
+              },
+              "matched_cost": {
+                "envelope": 0.8946727294386085,
+                "difference": 0.0007257441808529164,
+                "low": -0.009541196888880684,
+                "high": 0.009803412447020304,
+                "unread": 0.0
+              }
+            },
+            "97%": {
+              "threshold": 0.9142857142857143,
+              "fell_back": false,
+              "steps_certified": 7,
+              "steps_tried": 8,
+              "target": 0.8685365194108776,
+              "margin": 0.008101725965755343,
+              "quality": {
+                "value": 0.8881807820902038,
+                "low": 0.8635444720638322,
+                "high": 0.9124836051620465,
+                "standard_error": 0.012545025965440885
+              },
+              "cost_per_1k": {
+                "value": 6.766680606007054,
+                "low": 6.260708634015789,
+                "high": 7.351700226408764,
+                "standard_error": 0.281454431885842
+              },
+              "difference_from_A": {
+                "value": -0.007217691529257664,
+                "low": -0.022918040136317642,
+                "high": 0.008285317178900192,
+                "standard_error": 0.008101725965755343
+              },
+              "savings_vs_A": {
+                "per_1k": 5.246663453163134,
+                "share": 0.4367363015095018
+              },
+              "captured": {
+                "value": 0.4559034875019199,
+                "low": 0.42286949858223133,
+                "high": 0.48463297889072976,
+                "met": 0.9915
+              },
+              "routing": {
+                "haiku": 0.198296339563863,
+                "sonnet": 0.24999999999999997,
+                "opus_low": 0.2906249999999993,
+                "opus": 0.26107866043613676
+              },
+              "matched_cost": {
+                "envelope": 0.8810183346099297,
+                "difference": 0.007162447480274059,
+                "low": -0.00803892672852991,
+                "high": 0.021062954916030562,
+                "unread": 0.0
+              }
             }
           }
         }

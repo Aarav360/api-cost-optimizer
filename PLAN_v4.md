@@ -5,7 +5,7 @@
 | Version | v4 |
 | Status | Final — frozen before Stage 0, then changed only by the amendments below |
 | Date | 2026-10-12 |
-| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed, and A8, Stage 3 decisions |
+| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed, and A8, Stage 3 decisions; 2026-10-20: Amendment A9, Stage 4 decisions, and A10, the Stage 4 review's records |
 | Supersedes | [PLAN_v3.md](docs/history/PLAN_v3.md) — earlier versions in [docs/history/](docs/history/) |
 
 ## What changed from v3
@@ -35,6 +35,8 @@
 | v4-A6 | 2026-10-18 | Amendment A6: collection-run decisions: noise runs and how they're used, sealed test store, batch safeguards; the collection run's record |
 | v4-A7 | 2026-10-19 | Amendment A7: pilot latency and cost per item recorded; claims on the mixes, per-task warnings for IFEval and MBPP+; freeze hashes; MBPP+ reference check under the grader's limits |
 | v4-A8 | 2026-10-19 | Amendment A8: Stage 3 decisions: frontier stays `opus`; list-price costs; the simulator's trace interface; config ladder; oracle edge cases; paired bootstrap and paired safety margin; chart v0 |
+| v4-A9 | 2026-10-20 | Amendment A9: Stage 4 decisions: routers see the request; router-score tables; a train-fitted rules router; the walk over breakpoints; McNemar's test; the freeze; chart v1 |
+| v4-A10 | 2026-10-20 | Amendment A10: Stage 4 review: the decision rule frozen; how the rules router's frozen cues read A9's |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -312,6 +314,121 @@ Stage 3's decisions, from a design review made before any Stage 3 code, router o
     - The paired interval of the `opus_low` − `opus` gap contains 0 under both mixes, so item 1's reading stands: the gap is likely noise, and the frontier stays `opus`.
     - The rest of table v0, every config's row and the per-task figure's numbers among them, is in `figures/pareto.json` and `figures/pareto_tasks.json`.
 
+## Amendment A9 — Stage 4 decisions: the rules router and threshold selection (2026-10-20)
+
+Stage 4's decisions, from a design review made after chart v0 and before any Stage 4 code, rule or router score existed. Nothing new was computed for them: the dev numbers they cite are Stage 3's. They use train and dev only and change no item, split, mix, evaluator, stored answer or the sealed store, so the A5 and A7 hashes and the A6 sealed store stand. Items 1–3 and 9–12 apply to every router from here on; items 4–6 and 13 are the rules router's. Applied in §4, §5, §8, §12, §13 and `GLOSSARY.md`. Two record items follow later, as A7 item 3 and A8 item 12 did: item 17, the freeze hashes, in the freeze commit (item 13), and item 18, E's operating points and the hash of its section, when Stage 4 finishes.
+
+1. **A router sees the request** (§8). A request is what every config receives for an item: its prompt and, if it has one, its output schema, which the API carries as `output_config.format` (the collection run sends no system prompt). A router sees what the model sees, minus the settings that depend on the config (effort, `max_tokens`). The task, source, source group, split, `meta` and expected answer, and anything else the model never sees, stay off limits. §8's `score(prompt)` becomes `score(request)`.
+   - A live router, the S4 proxy and Jev's Variant 1 ("State: the request") all sit where the request is.
+   - On this benchmark only Banking77 and MMLU-Pro have schemas, and both repeat the label or option list already in the prompt, so the schema matters as a general "structured output requested" cue.
+2. **Vocabulary.** `GLOSSARY.md` adds **request**, **router score**, **threshold**, **breakpoint**, **router-score table**, **walk** and **operating point**. A router score is never called bare "score", which is an item's quality score, nor "probability", which implies calibration that Jev's needn't have. A router reads the request, not only the prompt. "Cutoff" is kept for gates, so a later "gate score" can follow the same pattern.
+3. **The deployable router and its router-score table** (§8). In Stage 5 no single model scores every dev item (cross-fitting, A5), and Jev's responses are paid for and stored, so selection reads a table, not a router.
+   - **The router.** `score(request)` returns a router score for `haiku`, `sonnet` and `opus_low`. The frontier is never scored: it is the fallback, and needs no train labels (A1 item 3). Stage 8 and S4 call this.
+   - **The decision rule.** A request goes to the cheapest config on the config ladder (A8 item 5) whose router score is at least the threshold, or to the frontier if none is.
+   - **The table.** A router-score table holds a router's router scores and overhead, in dollars at list price, for every item of a split. The walk and the curves read only the table, never a router: a router's traces at any threshold are built from it. E builds its table by calling its own `score(request)` on every request, so the two can't drift apart. Stage 5 builds its from out-of-fold predictions, each fold's model scoring its held-out items. Stage 6 builds its from Jev's stored responses, each item's overhead from its tokens.
+   - **Refusal.** A table is refused whole, as traces are (A8 item 4), if it misses or repeats an item, scores the frontier, leaves out a config below it, has a router score that isn't a number from 0 to 1, or has an overhead that is negative or not finite.
+   - **Test.** Stage 8 builds test's table the same way, after the freeze. Stage 5 decides which model scores test, one refit on train and dev or the fold models; the table supports either.
+4. **The rules router's router scores are train success rates** (§8 3a). Hand-written rules put each request in a bucket (item 5). A bucket's router score for `haiku`, `sonnet` and `opus_low` is that config's run-0 success rate on the bucket's train items. The minimum bucket size, 30 train items, is fixed here, before any rate is computed; a smaller bucket folds into its type's bucket. Rules are written from train prompts only, and dev only selects thresholds, which narrows §5's "dev: tune rules".
+   - **Why train.** Hand-set numbers, as in §8's sketch, can't be set fairly: they come from intuition or from looking at success rates somewhere. Rates estimated on dev would fit router scores, thresholds and margins on the same items, so dev quality would look better than it is, and test would miss targets more often than A8 item 9's one in six.
+   - **E against F.** Both learn from the same train labels, so the comparison is hand-written cues against embeddings, with the labels held equal.
+   - **Expect about one config per task.** At 30 items, a rate near 85% has a standard error of about 6.5 points, more than most config gaps within a task on dev (1–5 points).
+   - **Absolute rates.** Train has no frontier runs, so router scores are success rates, not gaps to the frontier. A hard bucket where every config is weak goes to `opus` even if `opus` does no better there. That follows from §8's rule, and the write-up says so.
+5. **Buckets.** Four inferred types with one difficulty cue each, so up to eight buckets.
+   - **Type checks**, in this order: an output schema, whose answer being a set of letters marks multiple choice and a set of other labels classification; then a lettered option list (multiple choice); then a request to classify or categorize with a list of labels (classification); then a request for a function or a code block (code). Anything else is open-ended, so every request has a bucket. Code comes after the option list because some MMLU-Pro computer-science questions contain code.
+   - **Multiple choice:** a yes/no "needs a calculation" flag (digits with operators or units, or LaTeX), since MMLU-Pro's physics, chemistry and engineering questions carry numbers and units but rarely LaTeX. Its two buckets' sizes depend on how common the flag is.
+   - **Classification and code:** prompt length in characters, split at the type's train median. Token counts would need an API call, and the stored `input_tokens` come from the response.
+   - **Open-ended:** the number of sentences with general constraint markers ("must", "at least", "do not", "exactly", "end your response with"), split at the train median. An IFEval answer counts only if every instruction is followed, so each constraint is one more chance to fail, and IFEval is where routing has the most room (`haiku` 83.4% on dev, against its own oracle's 98.1%).
+   - **Generic cues.** The rules look for cues real traffic would also show, never this benchmark's template lines or dataset-specific words such as Banking77's label names, so S4 could reuse them. The task-inference diagnostic, how often the inferred type is the item's task, is expected near 100% here and is described as holding "on this benchmark's templates", not as evidence that the cues transfer.
+   - Medians come from train prompts, which involves no outcomes.
+6. **Overhead and latency** (§8: "router cost and latency are added to every request"). E runs locally, so every trace's overhead is an explicit $0. Its latency is measured once over the dev requests, which shows no outcomes: median and p90, with the patterns compiled at import, warm-up excluded and the machine noted. It feeds Stage 7's latency estimate. No per-item latency field is added until Jev, whose latency varies by request.
+7. **Keeping routers off test items** (§5–6, A6). A router can't know an item's split, so the guard sits where requests are made.
+   - **One benchmark reader** on the analysis side yields train and dev items only, and a request for a test item is refused whole. `analysis/matrix.py` takes its source groups from it instead of opening the file itself. A check shows the refusal on a synthetic test item, never a real one.
+   - **The conversion from a benchmark row to a request** lives in `routers/` (item 8) and builds each request from the stored `prompt` and `output_schema`, the fields the collection run sent.
+   - **An allowlist check** searches tracked files for both `BENCHMARK_FILE` and `benchmark.jsonl`, so a path written out by hand is caught too. It allows the four harness modules that name the file (`build_benchmark`, `check_benchmark`, `collect` and `review_collection`), the reader, `data/benchmark_manifest.json` (whose hash keys hold the name) and Markdown files, and must find `harness/build_benchmark.py` as its known positive.
+   - **A8 item 11 is widened:** analysis code may also read the benchmark's prompts and output schemas for train and dev items, through the reader only.
+   - **Stage 8's unlock is specified now and built in Stage 8**, so no code able to produce test requests exists before then. The hashes it checks are all valid today, so they couldn't enforce the timing. It is a separate function, not a flag on the reader. It verifies A7 item 3's two hashes and runs `check_benchmark`, checks the sealed store's hash through `harness/collect.py`'s own path, and checks the freeze hashes (item 13), which is where §14's freeze of policies, thresholds and margins is enforced. If any check fails, it refuses everything.
+8. **Code layout** (§13).
+   - **`routers/` is deployable.** It imports nothing from `analysis/` or `harness/`, so S4 could load it, and `harness/collect.py`, which names the sealed store, never enters its imports. It holds the config ladder (moved from `analysis/matrix.py`, which re-exports it and still asserts it ends at `harness/collect.py`'s frontier), the request, the `Router` protocol, the decision rule, the row-to-request conversion, the rules router and its rates file. Fitting is a pure function there, taking requests and train successes as plain data.
+   - **`analysis/`** holds the reader, the router-score table and its refusal, the walk and operating points, McNemar's test, and chart and table v1.
+9. **Threshold selection: the walk** (§8). Each threshold is its own policy, with its own safety margin (A8 item 9). Thresholds are tried in a fixed sequence (fixed-sequence testing, as in Learn-then-Test), so trying many doesn't raise the chance of missing a target on test.
+   - **Breakpoints.** An item's breakpoints are its router scores that are strictly higher than every cheaper config's router score for it: the thresholds at which its config changes. A score that can never change a decision, such as `sonnet` scored below `haiku` on the same item, isn't one.
+   - **Steps.** If the router's dev items have 24 or fewer distinct breakpoints (E's eight buckets × 3 configs), each is a step. Otherwise the steps are the 0%, 5%, …, 95% quantiles of its pooled dev breakpoints with duplicates removed, at most 20: the first moves about 5% of decisions, and the last reaches the bottom of the router's range. Steps come from the router-score table alone, before any outcome is looked up, which is what keeps the guarantee.
+   - **The walk**, one per task mix and quality target, starts at always-frontier (A) and tries the steps from the highest threshold to the lowest. At a step, each item goes to the cheapest config whose router score is at least the step's threshold. A step clears if its dev quality less the target is at least its margin. The walk stops at the first step that doesn't clear, and every step before it is certified.
+   - **The operating point** is the cheapest certified step under that mix, which isn't always the last: per-item cost isn't monotone on the ladder (`sonnet` costs more than `opus_low` on 4.8% of dev items, A8 item 5), and fixed-sequence testing certifies every step before the first failure together.
+   - **Rejected.** Taking the cheapest threshold that clears, among all of them, picks the luckiest of many, so it would miss on test more often than one in six. A fixed grid of 0.05 is too coarse for scores that bunch: with dev's per-task success rates as router scores (all twelve between 0.82 and 0.94), it gives four policies against twelve steps on distinct values, and at t = 0.85 four tasks change config at once.
+   - **Cascades.** A cascade's order of steps (router thresholds and gate cutoffs together) is fixed when cascades are designed, in Stage 7.
+10. **Six operating points per router**, one per task mix and quality target, since quality targets are defined per mix. Where the walk certifies nothing cheaper than A, the operating point is A itself: no router call and no overhead, captured fraction 0.00 (A meets the target and saves nothing), labeled "falls back to A". A router that never changes a decision isn't worth calling, and for Jev, sending every item to `opus` through the router would cost more than A.
+11. **McNemar's test** (§4), which A8 item 8 left to this stage.
+    - Exact and two-sided: a binomial on the discordant pairs, computed with `math.comb`, with no scipy. Every task scores 1 or 0 (A5 item 5), so it compares items' successes.
+    - Per task, every policy row against A: the fixed configs (so `opus_low` against `opus` gets one too) and every operating point. It runs on dev now and on test in Stage 8. Reported as the two discordant counts and p, with "—" for a row that falls back to A.
+    - None under the mixes, where items weigh unequally. There the paired bootstrap interval of the difference (A8 item 8) is the test.
+    - Descriptive only: no multiplicity correction, never used to select a threshold, and A7 item 2's warning applies to IFEval and MBPP+. McNemar tests for a difference, so p > 0.05 never reads as "matches `opus`"; whether a policy loses no material quality is answered by its paired interval against the target. It also treats items as independent, ignoring the source groups the bootstrap keeps together. The effect is negligible, and the write-up says so.
+12. **Matched cost uses A8 item 7's reading** (§8: "compared at matched cost"). Past a reference's costliest corner, the quality it reaches at a cost is its top quality (A8 item 7, as the Stage 3 review settled it). So E is compared with the envelope even where E costs more than always-`opus_low`, at which the envelope ends on dev ($6.56 per 1k realistic, $9.61 uniform). To certify the 100% realistic target, E needs dev quality of about 86.7% plus a margin of about 1.2–1.8 points, at or above `opus_low`'s 87.8%, so it will probably send some items to `opus` and cost more than that. E costing more than always-`opus_low` for no more quality is the result the comparison exists to show. This design review had planned a separate "quality within a budget" query for it; A8 item 7's revision made that unnecessary.
+    - Below a reference's cheapest corner the reading stays n/a. On dev that can't happen to E: `haiku` is the cheapest config on every dev item (A8 item 6), and E has no overhead, so E can't cost less than B. That holds on dev only. On a test item where another config happens to cost less than `haiku` it is possible, if unlikely, and reads n/a.
+13. **The freeze** (§8: "record the margin, selection method, and chosen thresholds before Stage 8"; §14).
+    - **Rates file.** Beside the rules router: each bucket's router scores and train count, and the cut points (the train medians), so Stage 8 uses exactly these numbers and never re-reads train.
+    - **Hashes** (sha256, as in A7 item 3): the rates file, and every `routers/` module in the rules router's import closure, `routers/__init__.py` included, plus the row-to-request conversion's module if the closure doesn't hold it. A check works the closure out from the imports and fails if the recorded list differs, so a module imported later can't sit outside the freeze.
+    - **Order, provable in git.** Cues may be tuned on train prompts, train outcomes and the train task-inference diagnostic. The freeze comes before any E number on dev, in this order: the freeze, then the dev router-score table, then the dev task-inference diagnostic, then the walk. Simulating E's dev traces reveals dev outcomes as surely as the walk does, and the dev diagnostic uses dev task labels, so neither may come first. The freeze commit, holding the rules router, the rates file and the hashes (item 17), comes before any commit that holds an E number on dev, so the order can be checked in the log.
+    - **Train rates are optimistic** if cues were tuned on train outcomes: they are measured on the items the cues were fitted to, so the buckets look more separated than they are. That can make the walk less efficient but can't break its guarantee, which rests on dev alone. The train rates aren't read as unbiased.
+    - **After the freeze**, the modules E's hashes cover are never edited. Stages 5–7 add files to `routers/`; an edit to a frozen one means re-selecting E's operating points under a new amendment.
+    - **One operating-points file**, shared by every router, holds for each router, mix and target the threshold, its margin, the selection method, the walk's steps and whether it fell back. Stage 8 reads thresholds only from it. E's section, written with sorted keys, gets its own sha256 when Stage 4 finishes (item 18), and the whole file is hashed once Stage 7 has finished adding to it. A hash catches any change, where a check against the record's rounded numbers would pass a threshold that moved in the fourth decimal.
+14. **Chart v1** (§12), overwriting chart v0's files (A8 item 10).
+    - **Headline figure.** E's steps are markers joined by straight lines in linear cost, drawn as a curve on the log axis like the envelope: mixing two adjacent steps at fixed odds traces that line. The steps are the same on both panels, since they come from router scores, not the mix. The curve runs in walk order from A, which is E's first point since it has no overhead. A step can cost more than the one before it, so the line may double back; it isn't hulled.
+    - **Crosses** with 95% intervals on both axes mark E's operating points only, each labeled with its target. Points that coincide share one cross with a combined label ("99%, 97%"; "100%: falls back to A").
+    - **No band**, for A8 item 10's reasons. This changes §12's "one curve per router and cascade, with CI bands": a router's uncertainty is shown by the crosses at its operating points and by the table's paired intervals.
+    - **Per-task figure.** E's steps in each task as a line with markers, with no operating points, since verdicts are given for the mixes only (A7 item 2).
+    - Called v1 so that A8 item 12 keeps naming v0.
+15. **Table v1** adds rows and keys to table v0 and changes none of v0's, so the check on A8 item 12 keeps passing.
+    - **Per mix, at each operating point:** target, threshold, steps certified and whether it fell back to A; quality and cost per 1k with intervals; margin; paired quality difference from A with its interval; savings against A; captured fraction with its interval and the share of resamples that meet the target (A8 item 8); and the routing mix.
+    - **At matched cost:** the envelope's quality at the operating point's cost (item 12), and E's paired quality difference from it with an interval. Each resample rebuilds the envelope from its own config points, as the envelope's captured fraction does.
+    - **Per task:** each operating point's quality and cost with intervals, and McNemar's test (item 11). The fixed configs' rows get McNemar too.
+16. **Build order within Stage 4** (§14). The tickets run in parallel worktrees, branched from one Stage 4 branch and merged back into it.
+    - **Wave 0:** this amendment, the glossary entries and the parent issue, before any code.
+    - **Wave 1, in parallel:** the shared foundation (the ladder's move, re-exported from `analysis/matrix.py` so existing imports keep working; the request, the `Router` protocol and the decision rule; the row-to-request conversion; the reader, with `matrix.py` switched to it; the allowlist check; the router-score table and its refusal), and McNemar's test, which needs only the simulator's outcomes.
+    - **Wave 2, in parallel, after the foundation:** the rules router on train only (cues, medians, fitted rates, the train diagnostic and latency over the dev requests), ending with the freeze commit; and the walk with the operating-points file, checked on hand-worked synthetic tables.
+    - **Wave 3:** the dev router-score table, the dev diagnostic, the first walk on dev, chart and table v1, E's operating points and its section's hash (item 18) with a check on them, and the README.
+    - Each parallel ticket owns its new check script and wires it into the pre-commit hook and CI. A check that needs `results/`, such as "the committed rates match a refit from the train matrix", runs in the hook only, like `check_simulator`. The cues on synthetic requests and the rates file's shape run in CI too.
+
+17. **The rules router's freeze** (item 13), recorded in the freeze commit, before any E number on dev. The rules router was written and fitted on train only (items 4 and 5); it and its rates file are frozen as they stand. `analysis/check_rules_router.py` compares this list with the import closure worked out from `routers/rules.py`'s imports, and each hash with its file. sha256, as in A7 item 3:
+    - `routers/__init__.py`: `1c93dfb7989a0b24c0989368c751cc0b6fdab3d17a280ff68a1c31cb84136bf3`
+    - `routers/ladder.py`: `35448ba6ccf6b6d9a504d56127d40ad5e2f3b18c3ee0a562ad3b5bdbd299818d`
+    - `routers/request.py`: `15c809b5d422074f2c6a526d5ce2b542d0e8155930269a9b5763eb62463472e2`
+    - `routers/rules.py`: `231db1b7e9fc3f52ec1233f335242efc3ab41c85c8695d65972cab515d021216`
+    - The rates file, `routers/rules_rates.json`: `4210dfa7b543d6702b5664650210ae57f92aee5e14764ec6b44f008138d065fd`
+    - **Train task-inference diagnostic** (item 5): On this benchmark's templates the inferred type is the item's task for 991 of 991 train items (100.0%), and for 991 of 991 (100.0%) with the output schema withheld. It says nothing about traffic outside these templates. The check recomputes it where the train matrix is present.
+    - **Latency** (item 6), as A7 item 1 recorded the pilot's: `score(request)` over the 744 dev requests, patterns compiled at import, 50 warm-up calls excluded, the router scores thrown away: median 4.1 us, p90 14.0 us, on an Apple M5 Pro, Darwin 27.0.0 arm64, Python 3.13.13. It depends on the machine, so it is quoted as measured and isn't re-checked.
+    - The decision rule and the Router protocol (`routers/decision.py`) are outside the closure and not frozen by this item.
+
+18. **Record.** E's operating points on dev (run 0, n = 744, list prices of 2026-10-12), from `figures/pareto.json`, and the hash of its section of `routers/operating_points.json`. Intervals are percentile 95% from 2,000 paired resamples, and `analysis/check_stage4.py` compares every number here with those two files.
+
+    | | Realistic | Uniform |
+    |---|---|---|
+    | E: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.9172, 0.8537 | falls back to A, 0.9174, 0.9143 |
+    | E: quality there | 86.7%, 86.4%, 85.7% | 89.5%, 89.5%, 88.8% |
+    | E: $ per 1k there | $8.04, $6.37, $2.16 | $12.01, $9.20, $6.77 |
+    | E: savings against A there | 0.0%, 20.8%, 73.1% | 0.0%, 23.4%, 43.7% |
+    | E: captured fraction there | 0.00, 0.22, 0.76 | 0.00, 0.25, 0.46 |
+    | E: share of resamples meeting the target there | 100.0%, 98.6%, 84.0% | 100.0%, 95.7%, 99.2% |
+
+    - Where a target reads "falls back to A", the walk certified nothing cheaper than A (item 10): the operating point is A itself, with no router call and no overhead, and its captured fraction is 0.00.
+    - On this benchmark's templates the inferred type is the item's task for 744 of 744 dev items (100.0%), and for 744 of 744 (100.0%) with the output schema withheld. It says nothing about traffic outside these templates.
+    - E's section of `routers/operating_points.json`, written with sorted keys, has the 64-digit sha256 `66cf01b0c0e9b071df8e003c598c2603617dafb57f98916300286a1fb04ebd50`.
+    - The rest of table v1, E's steps, margins, intervals, paired differences, matched-cost comparisons and McNemar rows among them, is in `figures/pareto.json`, `figures/pareto_tasks.json` and `routers/operating_points.json`.
+
+## Amendment A10 — Stage 4 review: the decision rule frozen, the rules router's cues recorded (2026-10-20)
+
+Two records from Stage 4's branch review, made after E's operating points (A9 item 18). Neither changes a frozen file, a rate, a cut point, a threshold or an operating point, so A9 items 17 and 18 stand. Applied in §8.
+
+1. **The decision rule joins the freeze** (A9 items 3 and 13). A9 item 13 froze the rules router's import closure, which doesn't hold `routers/decision.py`, so A9 item 17 left it out. But Stage 8 turns E's router scores into configs through it: a router-score table's traces at a threshold come from its `choose`. It is frozen now, under item 13's rule: an edit means re-selecting, under a new amendment, the operating points of every router selected with it. `analysis/check_rules_router.py` compares the hash with the file. sha256, as in A7 item 3:
+    - `routers/decision.py`: `48ae591021293820be7d871c4c40a523fc4468fb9181d0ae046201c1dfe4aaeb`
+    - These are its bytes as first committed with the router foundation, before the freeze commit, and the bytes every commit that computed an E number on dev ran with. The review had renamed `choose`'s parameter, which changes no decision; the rename was undone, so the hash is the one E's dev numbers were computed with.
+2. **How the frozen cues read A9 item 5.** The rules were tuned on train prompts and outcomes, as item 13 allows, and they are frozen as they stand (item 17). This records what the hashed code does, so the write-up can describe E without reading it. In places it goes beyond item 5's wording, never against it.
+    - **Type checks.** An output schema's first property that lists its allowed answers gives the answer's set: single letters mark multiple choice, anything else classification. A lettered option list is an `A` line followed by a `B` line (`A.`, `B)`, `(C)` and so on), so a roman-numeral list ahead of the options doesn't hide them. A classification request says "classify", "classification" or "categorize" and lists three or more labels, as short lines in a row or inline after a colon or "one of". A code request asks to write, implement, create, complete, define or develop something, with at most two words between the article and "function", "program", "script", "method" or "class", or asks for the answer in a code block. So "write a review of a chess program" isn't a code request.
+    - **The calculation flag** reads only the text before the options: LaTeX, digits beside an operator (or a letter set equal to a number), or digits beside a unit that ends the word.
+    - **Constraint markers.** Eleven: item 5's five ("must", "at least", "do not", "exactly", "end your response with") and six more found in train prompts ("at most", "don't", "should not", "no more than", "never", "make sure"). A sentence ends at a full stop, question mark or exclamation mark followed by a space, or at a line break, so each line of a list counts on its own.
+    - **Cut points.** A request goes to its type's lower bucket at or below the cut point and to the other above it. Classification and code split on prompt length at their train medians, open-ended requests on the constraint count at its train median, and multiple choice's flag at 0.5.
+    - **The rates file** holds, beside each bucket's router scores and train count and the cut points, each type's own rates and count and whether each bucket folded. A bucket under 30 train items takes its type's rates (item 4). A type with no train items would take the rates of all train items; on this benchmark every type has train items.
+
 ---
 
 # 1. Goal
@@ -423,7 +540,7 @@ The core study uses only task types with **objective evaluators**, so it needs n
 All systems run on the same items, so comparisons are **paired**:
 
 - 95% confidence intervals for paired quality and cost differences: bootstrap within task types, keep near-duplicates and shared-source groups together, then apply the task weights.
-- McNemar's test for binary-scored tasks ("is system X different from frontier?").
+- McNemar's test for binary-scored tasks ("is system X different from frontier?"), per task and descriptive only (Amendment A9 item 11).
 - A 2-point gap on a few hundred items may be noise. No claim without a CI.
 
 ---
@@ -472,8 +589,8 @@ Watch for:
 ## Splits
 
 ```text
-train  40%   fit the trained router (no frontier runs; Amendment A1)
-dev    30%   tune rules, thresholds, gate cutoffs
+train  40%   fit the trained router and the rules router's rates (no frontier runs; Amendments A1, A9)
+dev    30%   tune thresholds, gate cutoffs (not rules; Amendment A9)
 test   30%   sealed until Stage 8
 ```
 
@@ -610,16 +727,16 @@ Every router and cascade is then scored by lookup: for each item, read the cost 
 
 ```python
 class Router(Protocol):
-    def score(self, prompt: str) -> dict[str, float]:
-        """For each config, estimated P(this config succeeds)."""
+    def score(self, request: Request) -> dict[str, float]:
+        """For each config below the frontier, its router score: an estimate that the config succeeds."""
 ```
 
-Shared decision rule: **pick the cheapest config whose score ≥ t.** Sweeping `t` traces a cost–quality curve. Routers are compared at matched cost or matched quality, not as single points.
+Shared decision rule: **pick the cheapest config on the ladder whose router score ≥ t, else the frontier.** Sweeping `t` traces a cost–quality curve. Routers are compared at matched cost or matched quality, not as single points. A request is the prompt plus its output schema, and each router's scores for a split are kept in a router-score table, from which its traces at any threshold are built (Amendment A9 items 1 and 3).
 
 ## Fairness rules
 
-- Routers see only `prompt` — no `task_type`, `expected_answer`, or metadata.
-- Router cost and latency are added to every request.
+- Routers see only the request, the prompt and its output schema: no `task_type`, `expected_answer`, or metadata (Amendment A9 item 1).
+- Router cost and latency are added to every request (for the rules router, $0 and a measured latency; Amendment A9 item 6).
 - Thresholds are selected before Stage 8 and never changed on test.
 
 ## Selecting operating thresholds
@@ -628,6 +745,7 @@ For each headline quality target (§11), choose `t` where estimated quality **cl
 
 - Select on dev; for the trained router, on its out-of-fold dev predictions (cross-fitting, Amendment A5). v4 also allowed cross-validation over train+dev; Amendment A1 drops it because the frontier config doesn't run on train, and every threshold replay needs frontier outcomes for the items it escalates. The larger 30% dev split offsets most of the lost precision.
 - Record the margin, selection method, and chosen thresholds before Stage 8.
+- The walk down from always-frontier over a router's breakpoints, the six operating points and the fallback to A: Amendment A9 items 9 and 10. What is recorded and frozen: item 13, and the decision rule too (Amendment A10 item 1).
 
 ## 3a — Rules router
 
@@ -647,6 +765,8 @@ elif contains_code(prompt):
 ```
 
 Rules give only a few operating points, not a smooth curve. That's fine for a dumb baseline.
+
+The sketch's numbers are illustrative: each bucket's router scores are its train success rates, and the buckets and cues are fixed in Amendment A9 items 4 and 5, and Amendment A10 item 2 records how the frozen rules read them.
 
 ## 3b — Trained router
 
@@ -810,9 +930,10 @@ Quality
   +-----------------------------------> Cost / 1k (log)
 ```
 
-- One curve per router and cascade, with CI bands
+- One curve per router and cascade, with CI bands (for routers, crosses at their operating points instead; Amendment A9 item 14)
 - Oracle curve and frontier point as references; random-mixture envelope as the prompt-independent floor
 - Chart v0's contents, its table and where its files go: Amendment A8 item 10
+- Chart v1 and table v1, which add the rules router: Amendment A9 items 14 and 15
 
 > For a given budget, what's the highest quality obtainable? For a required quality, what's the lowest cost?
 
@@ -841,7 +962,7 @@ Start with 2–3 providers at most.
 data/benchmark.jsonl          frozen, hashed
 configs/models.yaml           pinned model versions + dated price snapshot
 harness/                      runner, evaluators
-routers/                      rules.py, trained.py, jev.py
+routers/                      request, ladder, decision rule; rules.py, trained.py, jev.py (Amendment A9)
 gates/                        schema.py, code_exec.py, jev_gate.py, verifier.py
 analysis/                     offline simulator, oracle LP, bootstrap, plots
 figures/                      charts on dev, each with a JSON of its numbers (Amendment A8)
