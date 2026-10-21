@@ -9,18 +9,25 @@ check_simulator. It reads train and dev only, through the reader, and never a te
   passes the table's refusal; the refusal itself is shown on a table that leaves out an item and on one that scores
   the frontier;
 - the dev task-inference diagnostic (item 5) is a recount of the inferred type against each dev item's task, in the
-  words item 13 asks for ("on this benchmark's templates"), and it can fail: with the tasks shuffled it drops.
+  words item 13 asks for ("on this benchmark's templates"), and it can fail: with the tasks shifted it changes;
+- the walk on dev, for both mixes and all three targets, reproduces E's section of the operating-points file to the
+  last bit (and so its hash); in that file every certified step clears its target by its margin, the walk stops at
+  the first step that doesn't, and the operating point is the cheapest certified step by the file's own costs.
 """
 
 import sys
 from collections.abc import Callable
+from typing import Any
 
 from analysis import matrix as results_matrix
 from analysis.benchmark import read_rows
 from analysis.dev_diagnostic import dev_diagnostic, dev_inputs
 from analysis.fit_rules_router import diagnostic
+from analysis.operating_points import read_section, section_hash
+from analysis.references import ROUNDING, TARGETS
 from analysis.router_table import ItemScores, RouterScoreTable, TableError
 from analysis.rules_table import dev_table
+from analysis.rules_walk import ROUTER, rebuilt_section
 from routers import rules
 from routers.ladder import FRONTIER, SCORED
 from routers.request import Request, from_row
@@ -84,6 +91,42 @@ def main() -> int:
     shuffled = dict(zip(ordered, [tasks[i] for i in ordered[1:] + ordered[:1]]))
     check(f"for {full} of" not in diagnostic(requests, shuffled, split="dev"),
           "the diagnostic can fail: with the tasks shifted by one item the count changes")  # fmt: skip
+
+    print("\n-- the walk on dev and the operating-points file (Amendment A9, items 9, 10 and 13) --")
+    section = read_section(ROUTER)
+    check(list(section) == ["realistic", "uniform"] and all(set(by_target) == {"100%", "99%", "97%"}
+                                                           for by_target in section.values()),
+          "E's section holds both mixes and all three targets: six operating points")  # fmt: skip
+    rebuilt = rebuilt_section()
+    check(rebuilt == section and section_hash(rebuilt) == section_hash(section),
+          "the walk on dev reproduces E's section of the operating-points file, so its hash too")  # fmt: skip
+    for mix, by_target in section.items():
+        for key, point in by_target.items():
+            steps: list[dict[str, Any]] = point["steps"]
+            target = point["target"]
+            where = f"{mix} mix, {key} of A"
+            stop = next((i for i, step in enumerate(steps) if not step["clears"]), len(steps))
+            certified = steps[:stop]
+            check(steps[0]["threshold"] is None and steps[0]["margin"] == 0 and float(key.rstrip("%")) / 100 in TARGETS,
+                  f"{where}: the walk starts at A, threshold null, margin 0")  # fmt: skip
+            check(all(step["quality"] - target >= step["margin"] - ROUNDING for step in certified),
+                  f"{where}: all {len(certified)} certified steps (A included) clear the target by their margin")  # fmt: skip
+            # A step that clears is certified only if every step before it did; the walk ends at the first miss.
+            missed = steps[stop:]
+            check(not missed or (len(missed) == 1 and missed[0]["quality"] - target < missed[0]["margin"] - ROUNDING),
+                  f"{where}: the walk ends at the first step that misses its target, or tried them all")  # fmt: skip
+            thresholds = [step["threshold"] for step in steps[1:]]
+            check(thresholds == sorted(thresholds, reverse=True),
+                  f"{where}: the steps run from the highest threshold down")  # fmt: skip
+            cheapest = certified[0]
+            for step in certified[1:]:
+                # Costs within rounding of each other are a tie, which goes to the earlier step.
+                if step["cost_per_1k"] < cheapest["cost_per_1k"] - ROUNDING:
+                    cheapest = step
+            check(point["threshold"] == cheapest["threshold"] and point["margin"] == cheapest["margin"]
+                  and point["fell_back"] == (point["threshold"] is None),
+                  f"{where}: the operating point is the cheapest certified step: "
+                  + ("A, it falls back" if point["fell_back"] else f"threshold {point['threshold']:.3f}"))  # fmt: skip
 
     print("\nall checks passed" if not problems else f"\n{len(problems)} checks failed")
     return 1 if problems else 0
