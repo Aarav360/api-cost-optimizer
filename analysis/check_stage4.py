@@ -1,4 +1,4 @@
-"""Check E on dev and Stage 4's outputs (PLAN_v4.md §8, §12; Amendment A9, items 3, 9-11 and 13-15).
+"""Check E on dev and Stage 4's outputs (PLAN_v4.md §8, §12; Amendment A9, items 3, 13-15 and 18).
 
 Run from the project root:  uv run python -m analysis.check_stage4
 
@@ -17,15 +17,19 @@ check_simulator. It reads train and dev only, through the reader, and never a te
   figure JSONs equal a rebuild, and what they hold is consistent: E's line starts at A and runs the table's steps from
   the highest threshold down, each cross sits on the step the file picked, savings, the routing mix, the envelope's
   reading at E's cost and every McNemar count (recounted from the matrix's cells) are right, and every captured
-  fraction is at most 1 and 0 for a fallback.
+  fraction is at most 1 and 0 for a fallback;
+- Amendment A9 item 18's record: every number in it is the one the JSONs give at the precision it prints, and the
+  hash is E's section's, with guards that a one-digit slip and an uncompared number both fail.
 """
 
+import hashlib
 import json
+import re
 import sys
 from collections.abc import Callable
 from dataclasses import astuple
 from fractions import Fraction
-from itertools import pairwise
+from itertools import pairwise, zip_longest
 from math import comb
 from typing import Any
 
@@ -35,7 +39,7 @@ from analysis.bootstrap import resample
 from analysis.dev_diagnostic import dev_diagnostic, dev_inputs
 from analysis.fit_rules_router import diagnostic
 from analysis.matrix import LADDER, Matrix
-from analysis.operating_points import read_section, section_hash
+from analysis.operating_points import OPERATING_POINTS_FILE, read_section, section_hash
 from analysis.pareto import FIGURE_DATA, PANELS, TASK_FIGURE_DATA
 from analysis.references import ROUNDING, TARGETS
 from analysis.router_panels import config_mcnemar, mix_router, step_outcomes, task_router
@@ -44,11 +48,13 @@ from analysis.rules_table import dev_table
 from analysis.rules_walk import ROUTER, dev_walks, rebuilt_section
 from analysis.simulator import always, load_mixes, simulate, totals
 from analysis.walk import step_thresholds
+from harness.client import PROJECT_ROOT
 from routers import rules
 from routers.decision import choose
 from routers.ladder import FRONTIER, SCORED
 from routers.request import Request, from_row
 
+PLAN = PROJECT_ROOT / "PLAN_v4.md"
 DEV_TASKS = ("ifeval", "banking77", "mmlu_pro", "mbppplus")  # A5's order, as the per-task figure has them
 
 problems: list[str] = []
@@ -244,6 +250,79 @@ def shown_pts(value: float) -> str:
     return f"{100 * value:+.1f}"
 
 
+def record_lines(headline: dict, section: dict[str, Any]) -> list[str]:
+    """Amendment A9 item 18's lines that hold a number, as chart v1's JSON and the operating-points file give them,
+    at the precision the record prints. None of the record's other lines holds one."""
+    router = headline["routers"][ROUTER]
+    mixes = [headline["panels"][mix]["routers"][ROUTER]["operating_points"] for mix in ("realistic", "uniform")]
+
+    def row(label: str, cell: Callable[[dict], str]) -> str:
+        return f"| {label} | {' | '.join(', '.join(cell(p) for p in points.values()) for points in mixes)} |"
+
+    def threshold(point: dict) -> str:
+        return "falls back to A" if point["fell_back"] else f"{point['threshold']:.4f}"
+
+    targets = ", ".join(mixes[0])
+    bootstrap = headline["bootstrap"]
+    return [
+        f"18. **Record.** E's operating points on {headline['split']} (run {headline['run']}, n = {headline['n']}, "
+        f"list prices of {headline['price_snapshot']}), from `figures/pareto.json`, and the hash of its section of "
+        f"`routers/operating_points.json`. Intervals are percentile 95% from {bootstrap['resamples']:,} paired "
+        f"resamples, and `analysis/check_stage4.py` compares every number here with those two files.",
+        row(f"E: threshold at {targets} of A's quality", threshold),
+        row("E: quality there", lambda p: f"{100 * p['quality']['value']:.1f}%"),
+        row("E: $ per 1k there", lambda p: f"${p['cost_per_1k']['value']:.2f}"),
+        row("E: savings against A there", lambda p: f"{p['savings_vs_A']['share']:.1%}"),
+        row("E: captured fraction there", lambda p: f"{p['captured']['value']:.2f}"),
+        row("E: share of resamples meeting the target there", lambda p: f"{p['captured']['met']:.1%}"),
+        '- Where a target reads "falls back to A", the walk certified nothing cheaper than A (item 10): the operating '
+        "point is A itself, with no router call and no overhead, and its captured fraction is 0.00.",
+        f"- {router['task_inference_dev']}. It says nothing about traffic outside these templates.",
+        f"- E's section of `routers/operating_points.json`, written with sorted keys, has the 64-digit sha256 "
+        f"`{section_hash(section)}`.",
+    ]
+
+
+def a9_item(plan: str, number: int) -> str:
+    """Amendment A9 item `number`'s text, from its number to the next item's, or to the end of the amendment (the rule
+    after it, the last amendment's end)."""
+    amendment = re.split(r"\n## |\n---\n", plan[plan.index("## Amendment A9") :], maxsplit=1)[0]
+    start = amendment.index(f"\n{number}. **") + 1
+    end = amendment.find(f"\n{number + 1}. **", start)
+    return amendment[start : None if end == -1 else end]
+
+
+def record_mismatches(record: list[str], headline: dict, section: dict[str, Any]) -> list[tuple[str, str]]:
+    """Each line of the record holding a number that differs from the line the JSON gives, paired with it; a line
+    missing on either side is paired with ''. A digit after a letter is part of a name, as in v1 or A9."""
+    held = [line.strip() for line in record if re.search(r"(?<![A-Za-z0-9_.])\d", line)]
+    return [(says, gives) for says, gives in zip_longest(held, record_lines(headline, section), fillvalue="")
+            if says != gives]  # fmt: skip
+
+
+def record_checks(headline: dict, section: dict[str, Any]) -> None:
+    print("\n-- E's record (Amendment A9, item 18) --")
+    check(headline["routers"][ROUTER]["operating_points_sha256"] == section_hash(section)
+          == hashlib.sha256(json.dumps(section, sort_keys=True, indent=2).encode()).hexdigest(),
+          "the figure JSON's hash of E's section is the sha256 of the section read from the file, sorted keys")  # fmt: skip
+    check(json.loads(OPERATING_POINTS_FILE.read_text())[ROUTER] == section,
+          "E's section is the one in the operating-points file, which holds it with sorted keys")  # fmt: skip
+    record = a9_item(PLAN.read_text(), 18).splitlines()
+    mismatches = record_mismatches(record, headline, section)
+    check(not mismatches,
+          "every number in Amendment A9 item 18's record is the one figures/pareto.json and the operating-points "
+          "file give, at the precision the record prints, and the hash is the section's"
+          + "".join(f"\n      record: {says!r}\n      JSON:   {gives!r}" for says, gives in mismatches))  # fmt: skip
+    # A guard proves it can fail: a slip in one digit, and a number the check doesn't know.
+    quality = next(i for i, line in enumerate(record) if line.strip().startswith("| E: quality there"))
+    slip = re.sub(r"(\d+\.)(\d)%", lambda m: f"{m[1]}{(int(m[2]) + 1) % 10}%", record[quality], count=1)
+    check(len(record_mismatches([*record[:quality], slip, *record[quality + 1 :]], headline, section)) == 1,
+          f"the record check catches a slip in one number: {slip.strip()!r}")  # fmt: skip
+    check(len(record_mismatches([*record, "    - One number more: 1.0 points."], headline, section)) == 1,
+          "the record check catches a number it doesn't compare")  # fmt: skip
+    check("On this benchmark's templates" in "".join(record), "the record words the diagnostic as holding on this benchmark's templates")  # fmt: skip
+
+
 def main() -> int:
     print("-- E's dev router-score table (Amendment A9, item 3) --")
     rows = [row for row in read_rows() if row["split"] == "dev"]
@@ -324,7 +403,8 @@ def main() -> int:
                   f"{where}: the operating point is the cheapest certified step: "
                   + ("A, it falls back" if point["fell_back"] else f"threshold {point['threshold']:.3f}"))  # fmt: skip
 
-    chart_checks(dev, table, section)
+    headline, _ = chart_checks(dev, table, section)
+    record_checks(headline, section)
 
     print("\nall checks passed" if not problems else f"\n{len(problems)} checks failed")
     return 1 if problems else 0
