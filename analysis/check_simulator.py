@@ -452,10 +452,9 @@ def record_lines(headline: dict) -> list[str]:
 
 
 def a8_item(plan: str, number: int) -> str:
-    """Amendment A8 item `number`'s text, from its number to the next item's, or to the rule that ends the
-    amendment."""
-    amendment = plan[plan.index("## Amendment A8") :]
-    amendment = amendment[: amendment.index("\n---\n")]
+    """Amendment A8 item `number`'s text, from its number to the next item's, or to the end of the amendment: the
+    next amendment's heading, or the rule after the last one."""
+    amendment = re.split(r"\n## |\n---\n", plan[plan.index("## Amendment A8") :], maxsplit=1)[0]
     start = amendment.index(f"\n{number}. **") + 1
     end = amendment.find(f"\n{number + 1}. **", start)
     return amendment[start : None if end == -1 else end]
