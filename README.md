@@ -90,7 +90,7 @@ key in a `.env` file at the project root (`ANTHROPIC_API_KEY=...`; it's gitignor
 uv sync
 git config core.hooksPath .githooks        # once per clone: run the fast checks before every commit
 .githooks/pre-commit                       # the fast checks: ruff, mypy, check_sealed and the analysis checks below
-uv run python -m harness.check_sealed      # no code but harness/collect.py names the sealed test store
+uv run python -m harness.check_sealed      # no code but harness/collect.py names the sealed test store, and only allowlisted files name the benchmark
 uv run python -m harness.smoke_test        # one Haiku call: checks the key and the response store
 uv run python -m harness.sandbox --build   # build the pinned sandbox image
 uv run python -m harness.check_sandbox     # escape checks + every MBPP+ reference solution
@@ -113,8 +113,8 @@ uv run python -m analysis.check_simulator  # the analysis package on hand-worked
 uv run python -m analysis.check_routers    # the router foundation, the benchmark reader and the router-score table
 uv run python -m analysis.check_comparisons  # McNemar's test and the matched-cost difference
 uv run python -m analysis.check_walk       # breakpoints, steps, the walk and the operating-points file, on synthetic tables
-uv run python -m analysis.check_rules_router  # E's cues, fit and freeze hashes
-uv run python -m analysis.check_stage4     # E on dev, tables v0 and v1 and A9's record (item 18) against the JSONs
+uv run python -m analysis.check_rules_router  # E's cues, fit and freeze hashes (A9 item 17), and A10's record against the frozen code
+uv run python -m analysis.check_stage4     # E on dev, tables v0 and v1, A9's record (item 18) and the Stage 3 numbers A9 quotes, against the JSONs
 ```
 
 The matrix-reading commands need the dev results matrix in `results/`, so they need the collection
@@ -147,7 +147,8 @@ system, none of your files, an unprivileged user, and caps on memory, processes,
 
 ```text
 PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A10)
-GLOSSARY.md          the study's vocabulary from Stage 3 on: policy, trace, config ladder, reference, ...
+GLOSSARY.md          the study's vocabulary from Stage 3 on: policy, trace, config ladder, reference, request,
+                     router score, threshold, walk, operating point, ...
 WRITEUP.md           the final write-up (to come) and running notes for it
 CODING_STANDARDS.md  the judgement calls code review applies; ruff and mypy (pyproject.toml) cover the rest
 .githooks/pre-commit the fast checks, run before every commit; CI runs them too (.github/workflows/)
@@ -160,8 +161,8 @@ harness/ifeval/      Google's IFEval instruction checkers, vendored at a pinned 
 harness/ifbench/     AI2's IFBench instruction checkers, vendored at a pinned commit
 analysis/            the offline simulator (traces to outcomes and totals), the results-matrix loader,
                      references C and D, the paired bootstrap, the benchmark reader, the router-score table,
-                     the walk and operating points, McNemar's test, E's table, diagnostic and walk, chart v1
-                     and the check scripts
+                     the walk and operating points, McNemar's test, E's fit on train and its freeze hashes,
+                     E's table, diagnostic and walk on dev, chart v1 and the check scripts
 routers/             the deployable routers (imports nothing from analysis or harness): the config ladder,
                      the request, the decision rule (frozen, A10 item 1), the rules router E (frozen, A9
                      item 17) and its rates file rules_rates.json, and operating_points.json, every
@@ -199,7 +200,7 @@ docs/history/        earlier versions of the plan
       per-task figure and table v0
 - [x] Stage 4: the shared router parts, the rules router E fitted on train and frozen, then on dev
       its router-score table, task-inference diagnostic and walk; chart and table v1 with E's six
-      operating points, and A9's record of them (item 18)
+      operating points, and A9's record of them (item 18); A10 adds the decision rule to the freeze
 - [ ] Stages 5–8: the embedding router, Jev's router, gates and cascades, final evaluation on the
       sealed test split
 
