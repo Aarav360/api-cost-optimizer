@@ -31,17 +31,17 @@ class WalkError(ValueError):
     """A walk that can't be run: a quality target that isn't one of §11's. Nothing is walked."""
 
 
-def item_breakpoints(scores: Mapping[str, float]) -> list[float]:
+def item_breakpoints(router_scores: Mapping[str, float]) -> list[float]:
     """One item's breakpoints: its router scores strictly higher than every cheaper config's, cheapest config first.
 
-    The cheapest config's score is one, as nothing is cheaper. A score that is not higher than a cheaper config's
-    can never change the item's decision (the decision rule takes the cheaper config first), so an equal score isn't
-    one either.
+    The cheapest config's router score is one, as nothing is cheaper. A router score that is not higher than a
+    cheaper config's can never change the item's decision (the decision rule takes the cheaper config first), so an
+    equal one isn't one either.
     """
     found: list[float] = []
     for config in SCORED:
-        if all(scores[config] > scores[cheaper] for cheaper in SCORED[: SCORED.index(config)]):
-            found.append(scores[config])
+        if all(router_scores[config] > router_scores[cheaper] for cheaper in SCORED[: SCORED.index(config)]):
+            found.append(router_scores[config])
     return found
 
 
@@ -53,7 +53,7 @@ def step_thresholds(table: RouterScoreTable) -> tuple[float, ...]:
     duplicate steps removed. The quantile is the lower empirical one (numpy's `inverted_cdf`): the smallest pooled
     breakpoint with at least that share of them at or below it, so every step is a router score the router gave.
     """
-    pooled = sorted(score for entry in table.items for score in item_breakpoints(entry.scores))
+    pooled = sorted(value for entry in table.items for value in item_breakpoints(entry.router_scores))
     distinct = sorted(set(pooled))
     if len(distinct) <= ALL_STEPS_UP_TO:
         return tuple(distinct)

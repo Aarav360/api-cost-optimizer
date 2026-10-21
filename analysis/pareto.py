@@ -59,7 +59,7 @@ from analysis.dev_diagnostic import dev_diagnostic
 from analysis.matrix import LADDER, Matrix, load
 from analysis.operating_points import OPERATING_POINTS_FILE, build_section, read_section, section_hash
 from analysis.references import START, Curve, Oracle, envelope, oracle, quality_targets, task_oracles
-from analysis.router_panels import config_mcnemar, mix_router, step_outcomes, task_router
+from analysis.router_panels import config_mcnemar, router_part_of_mix_panel, router_part_of_task_panel, step_outcomes
 from analysis.rules_table import dev_table
 from analysis.rules_walk import ROUTER, dev_walks
 from analysis.simulator import Outcome, Total, always, item_weights, load_mixes, simulate, task_totals, totals
@@ -292,18 +292,18 @@ def point_labels(points: dict[str, dict]) -> list[tuple[dict, str]]:
     return labelled
 
 
-def draw_router(ax: Axes, router: dict, mix: str | None) -> None:
-    """E's steps as a line with markers, and, on the headline figure (where `mix` names the panel), a cross at each
-    operating point.
-
-    No band: E's uncertainty is the crosses and the table's paired intervals (item 14).
-    """
+def draw_steps(ax: Axes, router: dict) -> None:
+    """E's steps as a line with markers, on every panel. No band: E's uncertainty is the crosses and the table's
+    paired intervals (item 14)."""
     costs, qualities = step_line(router["steps"])
     ax.plot(costs, qualities, color=SERIES_4, linewidth=1.2, zorder=2, label=STEPS_LABEL)
     ax.plot([s["cost_per_1k"] for s in router["steps"]], [s["quality"] for s in router["steps"]], "s", markersize=4,
             color=SERIES_4, markeredgecolor=SURFACE, markeredgewidth=0.8, zorder=3)  # fmt: skip
-    if mix is None:
-        return
+
+
+def draw_operating_points(ax: Axes, router: dict, mix: str) -> None:
+    """A cross at each of E's operating points on a headline panel, `mix` naming it; the per-task panels show them in
+    the table only (Amendment A7, item 2)."""
     shown_points = point_labels(router["operating_points"])
     for point, _ in shown_points:
         spread = as_spread(point)
@@ -323,14 +323,9 @@ def draw_router(ax: Axes, router: dict, mix: str | None) -> None:
                     path_effects=[withStroke(linewidth=3, foreground=SURFACE)])  # fmt: skip
 
 
-def draw_panel(ax: Axes, panel: dict, title: str, note: str | None, note_lines: int, offsets: dict,
-               mix: str | None = None) -> None:  # fmt: skip
-    """A panel's references and config points with their crosses, on the shared axes style, and E's steps if the
-    panel has them (and its operating points' crosses if the panel is a `mix`'s).
-
-    `note_lines` is the most lines any panel's note in the figure takes, so panels side by side keep their titles
-    level.
-    """
+def draw_references(ax: Axes, panel: dict, offsets: dict) -> None:
+    """A panel's references and config points with their crosses. E's layer goes on next, before `frame_panel` fixes
+    the axes to everything drawn."""
     ax.set_facecolor(SURFACE)
     ax.plot(*sampled(as_curve(panel["envelope"])), color=SERIES_2, linewidth=1.8, zorder=2, label=ENVELOPE_LABEL)
     ax.plot(*sampled(as_curve(panel["oracle"])), color=SERIES_3, linewidth=1.8, zorder=2, label=ORACLE_LABEL)
@@ -348,8 +343,14 @@ def draw_panel(ax: Axes, panel: dict, title: str, note: str | None, note_lines: 
         ax.annotate(LABELS[config], (spread.cost_per_1k.value, spread.quality.value), xytext=(dx, dy),
                     textcoords="offset points", ha=ha, va="center", fontsize=9, color=INK, zorder=4,
                     path_effects=[withStroke(linewidth=3, foreground=SURFACE)])  # fmt: skip
-    if router := panel.get("routers", {}).get(ROUTER):
-        draw_router(ax, router, mix)
+
+
+def frame_panel(ax: Axes, title: str, note: str | None, note_lines: int) -> None:
+    """The shared axes style, the title and the note.
+
+    `note_lines` is the most lines any panel's note in the figure takes, so panels side by side keep their titles
+    level.
+    """
     ax.set_xscale("log")
     # Dollars, not powers of ten: the ticks a reader prices requests in.
     ax.xaxis.set_major_locator(FixedLocator([0.1, 0.3, 1, 3, 10, 30]))
@@ -402,7 +403,10 @@ def draw_headline(panels: dict[str, dict], notes: dict[str, str], caption: str, 
                        label=TARGETS_LABEL if i == 0 else None)  # fmt: skip
             ax.annotate(share, (1, target["quality"]), xycoords=("axes fraction", "data"), xytext=(4, 0),
                         textcoords="offset points", ha="left", va="center", fontsize=8, color=INK_SECONDARY)  # fmt: skip
-        draw_panel(ax, panel, f"{mix.capitalize()} mix", notes.get(mix), note_lines, OFFSETS, mix=mix)
+        draw_references(ax, panel, OFFSETS)
+        draw_steps(ax, panel["routers"][ROUTER])
+        draw_operating_points(ax, panel["routers"][ROUTER], mix)
+        frame_panel(ax, f"{mix.capitalize()} mix", notes.get(mix), note_lines)
         ax.set_xlim(0.2, 30)
         ax.set_xlabel("Cost per 1,000 requests, list price (log scale)", fontsize=9, color=INK_SECONDARY)
         ax.set_ylabel("Mix-weighted quality", fontsize=9, color=INK_SECONDARY)
@@ -415,7 +419,9 @@ def draw_tasks(panels: dict[str, dict], caption: str, path: Path) -> None:
     axes = fig.subplots(2, 2, sharex=True)
     note_lines = max(len(textwrap.wrap(panel["warning"], NOTE_WIDTH)) for panel in panels.values() if panel["warning"])
     for ax, (task, panel) in zip(axes.flat, panels.items()):
-        draw_panel(ax, panel, TASKS[task], panel["warning"], note_lines, TASK_OFFSETS[task])
+        draw_references(ax, panel, TASK_OFFSETS[task])
+        draw_steps(ax, panel["routers"][ROUTER])
+        frame_panel(ax, TASKS[task], panel["warning"], note_lines)
     for ax in axes[1]:
         ax.set_xlabel("Cost per 1,000 requests, list price (log scale)", fontsize=9, color=INK_SECONDARY)
     for ax in axes[:, 0]:
@@ -519,14 +525,15 @@ def main() -> int:
 
     # Table v1 adds keys to table v0's panels and changes none of them (Amendment A9, item 15).
     for mix in PANELS:
-        router = mix_router(draws, savings[mix], steps, walks[mix], outcomes, mixes[mix])
+        router = router_part_of_mix_panel(draws, savings[mix], steps, walks[mix], outcomes, mixes[mix])
         panels[mix] = {**panels[mix], "routers": {ROUTER: router}}
     for task in TASKS:
         per_task[task] = {**per_task[task], "mcnemar_vs_A": config_mcnemar(outcomes, task),
-                          "routers": {ROUTER: task_router(draws, steps, walks, task)}}  # fmt: skip
+                          "routers": {ROUTER: router_part_of_task_panel(draws, steps, walks, task)}}  # fmt: skip
     section = read_section(ROUTER)
     where = OPERATING_POINTS_FILE.relative_to(PROJECT_ROOT)
-    print(f"\nTable v1: E, the rules router, on dev. {dev_diagnostic()}. Its operating points are the cheapest "
+    inference = dev_diagnostic()  # one pass over the dev requests, for the printout and the JSON
+    print(f"\nTable v1: E, the rules router, on dev. {inference}. Its operating points are the cheapest "
           f"certified steps of the walk (Amendment A9, items 9 and 10), written to {where}.")  # fmt: skip
     for mix in PANELS:
         print_router_mix(mix, panels[mix]["routers"][ROUTER])
@@ -610,7 +617,7 @@ def main() -> int:
     headline_units |= router_units
     task_units |= router_units | mcnemar_units
     section_name = str(OPERATING_POINTS_FILE.relative_to(PROJECT_ROOT))
-    router_meta = {ROUTER: {"label": "E: rules router", "task_inference_dev": dev_diagnostic(),
+    router_meta = {ROUTER: {"label": "E: rules router", "task_inference_dev": inference,
                             "operating_points_file": section_name,
                             "operating_points_sha256": section_hash(section)}}  # fmt: skip
     FIGURES.mkdir(exist_ok=True)

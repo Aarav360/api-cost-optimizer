@@ -45,7 +45,7 @@ from analysis.operating_points import (
     write_section,
 )
 from analysis.references import TARGETS
-from analysis.router_table import ItemScores, RouterScoreTable
+from analysis.router_table import ItemRouterScores, RouterScoreTable
 from analysis.simulator import TraceError, always, simulate
 from analysis.walk import Walk, WalkError, item_breakpoints, step_thresholds, walk
 
@@ -70,8 +70,10 @@ def close(a: float | None, b: float, tolerance: float = 1e-12) -> bool:
     return a is not None and math.isclose(a, b, rel_tol=0, abs_tol=tolerance)
 
 
-def table_of(scores: dict[str, dict[str, float]], overhead: float = 0.0) -> RouterScoreTable:
-    return RouterScoreTable.build([ItemScores(i, s, overhead) for i, s in scores.items()], list(scores))
+def table_of(router_scores: dict[str, dict[str, float]], overhead: float = 0.0) -> RouterScoreTable:
+    return RouterScoreTable.build(
+        [ItemRouterScores(i, s, overhead) for i, s in router_scores.items()], list(router_scores)
+    )
 
 
 def haiku_only(haiku: dict[str, float]) -> dict[str, dict[str, float]]:
@@ -166,7 +168,7 @@ def main() -> int:
     check(item_breakpoints({"haiku": 0.3, "sonnet": 0.3, "opus_low": 0.3}) == [0.3],
           "a router score equal to a cheaper config's isn't one either: only haiku's is")  # fmt: skip
     check(item_breakpoints({"haiku": 0.1, "sonnet": 0.4, "opus_low": 0.7}) == [0.1, 0.4, 0.7],
-          "scores that rise up the ladder are all breakpoints")  # fmt: skip
+          "router scores that rise up the ladder are all breakpoints")  # fmt: skip
     check(item_breakpoints({"haiku": 0.9, "sonnet": 0.5, "opus_low": 0.95}) == [0.9, 0.95],
           "opus_low must beat the higher of the cheaper two, not only the nearest")  # fmt: skip
     check(item_breakpoints({"haiku": 0.5, "sonnet": 0.6, "opus_low": 0.55}) == [0.5, 0.6],
@@ -345,6 +347,19 @@ def main() -> int:
         check(list(parsed) == sorted(parsed) and list(parsed["E"]["uniform"]) == sorted(parsed["E"]["uniform"]),
               "the file is written with sorted keys")  # fmt: skip
         check(refused(OperatingPointsError, lambda: read_section("Z", path)), "a router with no section is refused")
+        # A file that isn't a JSON object is refused whole, on read and before a write could overwrite it.
+        broken = Path(tmp) / "broken.json"
+        broken.write_text('{"E": ')
+        check(
+            refused(OperatingPointsError, lambda: read_section("E", broken)), "a file that isn't valid JSON is refused"
+        )
+        check(refused(OperatingPointsError, lambda: write_section("E", section, broken)) and broken.read_text() == '{"E": ',
+              "and a write into it is refused, leaving the file as it was")  # fmt: skip
+        listed = Path(tmp) / "listed.json"
+        listed.write_text('[{"E": {}}]')
+        check(refused(OperatingPointsError, lambda: read_section("E", listed)), "a file holding a JSON list is refused")
+        check(refused(OperatingPointsError, lambda: write_section("E", section, listed)) and listed.read_text() == '[{"E": {}}]',
+              "and a write into it is refused, leaving the file as it was")  # fmt: skip
 
     digest = section_hash(section)
     check(digest == section_hash(build_section(walks)) and digest == section_hash(json.loads(json.dumps(section))),

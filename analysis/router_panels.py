@@ -14,19 +14,16 @@ point the quality and cost with intervals and McNemar's test against A (item 11)
 from dataclasses import asdict
 
 from analysis.bootstrap import Bootstrap, Savings, TotalEstimate
-from analysis.matrix import LADDER, Matrix
+from analysis.matrix import Matrix
 from analysis.mcnemar import mcnemar
+from analysis.operating_points import target_key
 from analysis.references import TARGETS
 from analysis.router_table import RouterScoreTable
 from analysis.simulator import Outcome, item_weights, simulate, task_totals, totals
 from analysis.walk import Walk, step_thresholds
-from routers.ladder import FRONTIER
+from routers.ladder import FRONTIER, LADDER
 
-A = "A"  # always-frontier, the walk's first step; its threshold is None
-
-
-def target_key(share: float) -> str:
-    return f"{share:.0%}"
+ALWAYS_FRONTIER = "A"  # the name of the always-frontier policy, the walk's first step; its threshold is None
 
 
 def step_outcomes(dev: Matrix, table: RouterScoreTable, frontier: list[Outcome]) -> dict[float | None, list[Outcome]]:
@@ -47,7 +44,7 @@ def routing_mix(outcomes: list[Outcome], mix: dict[str, float]) -> dict[str, flo
     return shares
 
 
-def mix_router(
+def router_part_of_mix_panel(
     draws: Bootstrap,
     savings: Savings,
     steps: dict[float | None, list[Outcome]],
@@ -88,11 +85,13 @@ def mcnemar_row(policy: list[Outcome], frontier: list[Outcome], task: str) -> di
     """McNemar's b, c and p of a policy against A within one task, or None where the policy is A itself."""
     if policy is frontier:
         return None
-    found = mcnemar([o for o in policy if o.task == task], [o for o in frontier if o.task == task], "policy", A)
+    found = mcnemar(
+        [o for o in policy if o.task == task], [o for o in frontier if o.task == task], "policy", ALWAYS_FRONTIER
+    )
     return {"b": found.b, "c": found.c, "p": found.p}
 
 
-def task_router(
+def router_part_of_task_panel(
     draws: Bootstrap,
     steps: dict[float | None, list[Outcome]],
     walks: dict[str, dict[float, Walk]],

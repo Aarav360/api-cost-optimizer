@@ -33,7 +33,7 @@ WARM_UP = 50  # calls made before the timing starts, so the first call's setup i
 
 def train_inputs() -> tuple[dict[str, Request], dict[str, dict[str, float]], dict[str, str]]:
     """Train requests, their run-0 successes for the scored configs, and each item's task (for the diagnostic only)."""
-    rows = [row for row in read_rows() if row["split"] == "train"]
+    rows = read_rows(split="train")
     train = results_matrix.load().split("train")
     successes = {row["item_id"]: {c: train.cells[(row["item_id"], c)].success for c in SCORED} for row in rows}
     return ({row["item_id"]: from_row(row) for row in rows}, successes, {row["item_id"]: row["source"] for row in rows})
@@ -83,10 +83,12 @@ def main() -> None:
     print(f"wrote {RATES} from {len(requests)} train items")
     print(f"cut points (train medians): {rates['cut_points']}")
     for key, bucket in rates["buckets"].items():
-        said = ", ".join(f"{c} {bucket['rates'][c]:.3f}" for c in SCORED)
-        print(f"  {key:24} n = {bucket['count']:3}{'  folded into its type' if bucket['folded'] else ''}: {said}")
+        shown_rates = ", ".join(f"{c} {bucket['rates'][c]:.3f}" for c in SCORED)
+        print(
+            f"  {key:24} n = {bucket['count']:3}{'  folded into its type' if bucket['folded'] else ''}: {shown_rates}"
+        )
     print(f"\n{diagnostic(requests, tasks)}")
-    dev_requests = [from_row(row) for row in read_rows() if row["split"] == "dev"]
+    dev_requests = [from_row(row) for row in read_rows(split="dev")]
     median, p90 = latency(dev_requests)
     print(
         f"\nlatency of score(request) over {len(dev_requests)} dev requests: median {median:.1f} us, p90 {p90:.1f} us"

@@ -29,6 +29,7 @@ from pathlib import Path
 from analysis.benchmark import read_rows
 from analysis.fit_rules_router import diagnostic, rates_text, train_inputs
 from analysis.freeze import RATES, closure, sha256
+from analysis.plan import PLAN, amendment_item
 from harness.client import PROJECT_ROOT
 from harness.loaders import banking77_labels
 from routers import rules
@@ -37,7 +38,6 @@ from routers.ladder import SCORED
 from routers.request import Request
 from routers.rules import CLASSIFICATION, CODE, MULTIPLE_CHOICE, OPEN_ENDED
 
-PLAN = PROJECT_ROOT / "PLAN_v4.md"
 RECORD = re.compile(r"`(routers/[\w./]+)`: `([0-9a-f]{64})`")  # a path and its sha256, as item 17 writes them
 
 problems: list[str] = []
@@ -86,12 +86,12 @@ TYPE_CASES = [
         MULTIPLE_CHOICE,
     ),
     (
-        "a multiple-choice question that contains code is multiple choice",
+        "a multiple-choice request that contains code is multiple choice",
         Request("```python\nprint(1)\n```\nWhat does this print?\nA. 1\nB. 2"),
         MULTIPLE_CHOICE,
     ),
     (
-        "a multiple-choice question that asks for a function is multiple choice",
+        "a multiple-choice request that asks for a function is multiple choice",
         Request("Write a function that returns 1. Which one runs?\nA. def f(): return 1\nB. def f(): return 2"),
         MULTIPLE_CHOICE,
     ),
@@ -127,15 +127,6 @@ TYPE_CASES = [
     ("anything unrecognised is open-ended", Request("Tell me a joke."), OPEN_ENDED),
     ("an empty prompt is open-ended", Request(""), OPEN_ENDED),
 ]
-
-
-def a9_item(plan: str, number: int) -> str:
-    """Amendment A9 item `number`'s text, from its number to the next item's, or to the end of the amendment (the rule
-    after it)."""
-    amendment = re.split(r"\n## |\n---\n", plan[plan.index("## Amendment A9") :], maxsplit=1)[0]
-    start = amendment.index(f"\n{number}. **") + 1
-    end = amendment.find(f"\n{number + 1}. **", start)
-    return amendment[start : None if end == -1 else end]
 
 
 def write_package(root: Path, modules: dict[str, str]) -> None:
@@ -199,8 +190,8 @@ def main() -> int:
     )
     check(rules.bucket_key(Request("It must be brief."), cuts) == "open_ended/few", "one constraint, cut at 1, is few")
     check(rules.bucket_key(Request("It must be brief. Do not ramble."), cuts) == "open_ended/many", "two are many")
-    check(rules.bucket_key(Request(CALC), cuts) == "multiple_choice/calc", "a calculation question is calc")
-    check(rules.bucket_key(Request(PLAIN), cuts) == "multiple_choice/plain", "a question with no calculation is plain")
+    check(rules.bucket_key(Request(CALC), cuts) == "multiple_choice/calc", "a calculation request is calc")
+    check(rules.bucket_key(Request(PLAIN), cuts) == "multiple_choice/plain", "a request with no calculation is plain")
     check(rules.bucket_key(classify, {**cuts, CLASSIFICATION: 0.0}) == "classification/long", "cut points are read")
 
     print("\n-- fitting on hand-worked buckets --")
@@ -273,16 +264,24 @@ def main() -> int:
 
     print("\n-- the router --")
     router = rules.RulesRouter(rates)
-    calc_scores = router.score(Request(CALC))
+    calc_router_scores = router.score(Request(CALC))
     check(
-        calc_scores == {"haiku": 0.25, "sonnet": 0.5, "opus_low": 0.75}, "a calc question gets the calc bucket's rates"
+        calc_router_scores == {"haiku": 0.25, "sonnet": 0.5, "opus_low": 0.75},
+        "a calc request gets the calc bucket's rates",
     )
-    check(set(calc_scores) == set(SCORED), "the router scores each config below the frontier and never the frontier")
-    calc_scores["haiku"] = 0.0
     check(
-        router.score(Request(CALC))["haiku"] == 0.25, "the scores returned are a copy: changing them leaves the rates"
+        set(calc_router_scores) == set(SCORED),
+        "the router scores each config below the frontier and never the frontier",
     )
-    check(choose(router.score(Request(CALC)), 0.7) == "opus_low", "the decision rule reads them: 0.7 goes to opus_low")
+    calc_router_scores["haiku"] = 0.0
+    check(
+        router.score(Request(CALC))["haiku"] == 0.25,
+        "the router scores returned are a copy: changing them leaves the rates",
+    )
+    check(
+        choose(router.score(Request(CALC)), 0.7) == "opus_low",
+        "the decision rule reads the router scores: 0.7 goes to opus_low",
+    )
     check(router.score(Request(padded("p", 120), LABELS)) == rates["buckets"]["classification/short"]["rates"],
           "a classification prompt of 120 characters, under the 150 cut, gets the short bucket's rates")  # fmt: skip
     check(router.score(Request(padded("Write a function ", 250))) == {"haiku": 20 / 59, "sonnet": 38 / 59, "opus_low": 58 / 59},
@@ -310,10 +309,10 @@ def main() -> int:
     committed_router = rules.RulesRouter(committed)
     check(rules.score(Request(CALC)) == committed_router.score(Request(CALC))
           == committed["buckets"]["multiple_choice/calc"]["rates"],
-          "score(request) reads the committed file: a calc question gets its calc bucket's rates")  # fmt: skip
+          "score(request) reads the committed file: a calc request gets its calc bucket's rates")  # fmt: skip
 
     print("\n-- no Banking77 label in the rules router --")
-    sample = next(row for row in read_rows() if row["split"] == "train" and row["source"] == "banking77")
+    sample = next(row for row in read_rows(split="train") if row["source"] == "banking77")
     labels = banking77_labels(sample["prompt"])
     source = (PROJECT_ROOT / "routers" / "rules.py").read_text().casefold()
 
@@ -330,7 +329,7 @@ def main() -> int:
     check(not found_in(source), "the rules router's source holds no label")
 
     print("\n-- the freeze (Amendment A9 item 17) --")
-    record = a9_item(PLAN.read_text(), 17)
+    record = amendment_item(PLAN.read_text(), "A9", 17)
     recorded = dict(RECORD.findall(record))
     frozen_now = closure()
     check(sorted(p for p in recorded if p.endswith(".py")) == frozen_now,

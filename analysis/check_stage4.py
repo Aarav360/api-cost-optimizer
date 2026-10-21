@@ -19,7 +19,9 @@ check_simulator. It reads train and dev only, through the reader, and never a te
   reading at E's cost and every McNemar count (recounted from the matrix's cells) are right, and every captured
   fraction is at most 1 and 0 for a fallback;
 - Amendment A9 item 18's record: every number in it is the one the JSONs give at the precision it prints, and the
-  hash is E's section's, with guards that a one-digit slip and an uncompared number both fail.
+  hash is E's section's, with guards that a one-digit slip and an uncompared number both fail;
+- the Stage 3 numbers Amendment A9 quotes in items 4, 5, 9, 12 and 17 (not its "about" estimates) are the dev
+  matrix's and figures/pareto.json's, with a guard that each sentence with a digit slipped is not in the plan.
 """
 
 import hashlib
@@ -29,7 +31,7 @@ import sys
 from collections.abc import Callable
 from dataclasses import astuple
 from fractions import Fraction
-from itertools import pairwise, zip_longest
+from itertools import combinations, pairwise, zip_longest
 from math import comb
 from typing import Any
 
@@ -38,23 +40,22 @@ from analysis.benchmark import read_rows
 from analysis.bootstrap import resample
 from analysis.dev_diagnostic import dev_diagnostic, dev_inputs
 from analysis.fit_rules_router import diagnostic
-from analysis.matrix import LADDER, Matrix
+from analysis.matrix import Matrix
 from analysis.operating_points import OPERATING_POINTS_FILE, read_section, section_hash
 from analysis.pareto import FIGURE_DATA, PANELS, TASK_FIGURE_DATA
+from analysis.plan import PLAN, amendment_item
 from analysis.references import ROUNDING, TARGETS
-from analysis.router_panels import config_mcnemar, mix_router, step_outcomes, task_router
-from analysis.router_table import ItemScores, RouterScoreTable, TableError
+from analysis.router_panels import config_mcnemar, router_part_of_mix_panel, router_part_of_task_panel, step_outcomes
+from analysis.router_table import ItemRouterScores, RouterScoreTable, TableError
 from analysis.rules_table import dev_table
 from analysis.rules_walk import ROUTER, dev_walks, rebuilt_section
 from analysis.simulator import always, load_mixes, simulate, totals
 from analysis.walk import step_thresholds
-from harness.client import PROJECT_ROOT
 from routers import rules
 from routers.decision import choose
-from routers.ladder import FRONTIER, SCORED
+from routers.ladder import FRONTIER, LADDER, SCORED
 from routers.request import Request, from_row
 
-PLAN = PROJECT_ROOT / "PLAN_v4.md"
 DEV_TASKS = ("ifeval", "banking77", "mmlu_pro", "mbppplus")  # A5's order, as the per-task figure has them
 
 problems: list[str] = []
@@ -153,13 +154,13 @@ def chart_checks(dev: Matrix, table: RouterScoreTable, section: dict[str, Any]) 
     steps = step_outcomes(dev, table, fixed[FRONTIER])
     for mix in PANELS:
         savings = draws.savings(dev, fixed[FRONTIER], mixes[mix])
-        rebuilt = mix_router(draws, savings, steps, walks[mix], fixed, mixes[mix])
+        rebuilt = router_part_of_mix_panel(draws, savings, steps, walks[mix], fixed, mixes[mix])
         check(json.loads(json.dumps(rebuilt)) == headline["panels"][mix]["routers"][ROUTER],
               f"{mix} mix: E's steps and operating points in figures/pareto.json are what the package gives now")  # fmt: skip
     for task in DEV_TASKS:
         rebuilt = {
             "mcnemar_vs_A": config_mcnemar(fixed, task),
-            "routers": {ROUTER: task_router(draws, steps, walks, task)},
+            "routers": {ROUTER: router_part_of_task_panel(draws, steps, walks, task)},
         }
         committed = {key: per_task["panels"][task][key] for key in rebuilt}
         check(json.loads(json.dumps(rebuilt)) == committed,
@@ -211,7 +212,7 @@ def chart_checks(dev: Matrix, table: RouterScoreTable, section: dict[str, Any]) 
                   f"is E less that ({shown_pts(matched['difference'])} points)")  # fmt: skip
 
     print("\n-- per task: McNemar's test, counted from the matrix's own cells (Amendment A9, items 11 and 15) --")
-    scores = {entry.item_id: entry.scores for entry in table.items}
+    router_scores = {entry.item_id: entry.router_scores for entry in table.items}
 
     def right(item_id: str, config: str) -> bool:
         return dev.cells[(item_id, config)].success == 1
@@ -237,7 +238,7 @@ def chart_checks(dev: Matrix, table: RouterScoreTable, section: dict[str, Any]) 
                     check(threshold is None and point["mcnemar"] is None,
                           f"{task}, {mix} {key}: a fallback has no McNemar row, shown as —")  # fmt: skip
                     continue
-                b, c = counted({i: choose(scores[i], threshold) for i in ids})
+                b, c = counted({i: choose(router_scores[i], threshold) for i in ids})
                 shown_rows.append((b, c))
                 check(point["mcnemar"] == {"b": b, "c": c, "p": mcnemar_p(b, c)},
                       f"{task}, {mix} {key}: E at {threshold:.4f} against A: b = {b}, c = {c}, p = {mcnemar_p(b, c):.3f}")  # fmt: skip
@@ -283,15 +284,6 @@ def record_lines(headline: dict, section: dict[str, Any]) -> list[str]:
     ]
 
 
-def a9_item(plan: str, number: int) -> str:
-    """Amendment A9 item `number`'s text, from its number to the next item's, or to the end of the amendment (the rule
-    after it, the last amendment's end)."""
-    amendment = re.split(r"\n## |\n---\n", plan[plan.index("## Amendment A9") :], maxsplit=1)[0]
-    start = amendment.index(f"\n{number}. **") + 1
-    end = amendment.find(f"\n{number + 1}. **", start)
-    return amendment[start : None if end == -1 else end]
-
-
 def record_mismatches(record: list[str], headline: dict, section: dict[str, Any]) -> list[tuple[str, str]]:
     """Each line of the record holding a number that differs from the line the JSON gives, paired with it; a line
     missing on either side is paired with ''. A digit after a letter is part of a name, as in v1 or A9."""
@@ -307,7 +299,7 @@ def record_checks(headline: dict, section: dict[str, Any]) -> None:
           "the figure JSON's hash of E's section is the sha256 of the section read from the file, sorted keys")  # fmt: skip
     check(json.loads(OPERATING_POINTS_FILE.read_text())[ROUTER] == section,
           "E's section is the one in the operating-points file, which holds it with sorted keys")  # fmt: skip
-    record = a9_item(PLAN.read_text(), 18).splitlines()
+    record = amendment_item(PLAN.read_text(), "A9", 18).splitlines()
     mismatches = record_mismatches(record, headline, section)
     check(not mismatches,
           "every number in Amendment A9 item 18's record is the one figures/pareto.json and the operating-points "
@@ -323,9 +315,95 @@ def record_checks(headline: dict, section: dict[str, Any]) -> None:
     check("On this benchmark's templates" in "".join(record), "the record words the diagnostic as holding on this benchmark's templates")  # fmt: skip
 
 
+NUMBER_WORDS = {4: "four", 12: "twelve"}  # how Amendment A9 writes the two counts it spells out
+
+
+def slipped(claim: str) -> str:
+    """The claim with its first digit one higher (9 to 0), or a spelled-out count one word along, the slip the guard
+    below must not find in the plan."""
+    if re.search(r"\d", claim):
+        return re.sub(r"\d", lambda m: str((int(m[0]) + 1) % 10), claim, count=1)
+    return re.sub(
+        "|".join(NUMBER_WORDS.values()), lambda m: {"four": "five", "twelve": "thirteen"}[m[0]], claim, count=1
+    )
+
+
+def plan_number_checks(dev: Matrix, headline: dict, dev_rows: int) -> None:
+    """The exact numbers Amendment A9 quotes from Stage 3 (items 4, 5, 9, 12 and 17), each read back from the dev matrix
+    or from figures/pareto.json at the precision the plan prints. The estimates it writes as "about" are left alone."""
+    print("\n-- the Stage 3 numbers Amendment A9 quotes (CODING_STANDARDS.md, Numbers in documents) --")
+    plan = PLAN.read_text()
+    items = {number: amendment_item(plan, "A9", number) for number in (4, 5, 9, 12, 17)}
+    claims: list[tuple[int, str, str]] = []  # (item, the sentence the plan should hold, what it says)
+
+    def per_task(task: str, config: str) -> Fraction:
+        ids = [i for i, item in dev.items.items() if item.task == task]
+        return Fraction(sum(int(dev.cells[(i, config)].success) for i in ids), len(ids))
+
+    rates = {(task, config): per_task(task, config) for task in DEV_TASKS for config in SCORED}
+
+    # Item 9: sonnet against opus_low per item, from the cells' own costs.
+    dearer = sum(dev.cells[(i, "sonnet")].cost > dev.cells[(i, "opus_low")].cost for i in dev.items)
+    claims.append((9, f"`sonnet` costs more than `opus_low` on {100 * dearer / len(dev.items):.1f}% of dev items",
+                   "sonnet costlier than opus_low"))  # fmt: skip
+    # Item 9: dev's per-task success rates as router scores, and the 0.05 grid's policies against the steps.
+    low, high = float(min(rates.values())), float(max(rates.values()))
+    claims.append((9, f"all {NUMBER_WORDS[len(rates)]} between {low:.2f} and {high:.2f}", "the twelve per-task rates"))
+    grid = [Fraction(k, 20) for k in range(1, 20)]
+    policies = {tuple(next((c for c in SCORED if rates[(task, c)] >= t), FRONTIER) for task in DEV_TASKS) for t in grid}
+
+    def config_at(task: str, threshold: Fraction) -> str:
+        return next((c for c in SCORED if rates[(task, c)] >= threshold), FRONTIER)
+
+    # The walk runs from the highest threshold down, so "at t = 0.85" is the step down from the grid's 0.90.
+    moved = sum(config_at(task, Fraction(9, 10)) != config_at(task, Fraction(17, 20)) for task in DEV_TASKS)
+    claims.append((9, f"at t = 0.85 {NUMBER_WORDS[moved]} tasks change config at once", "tasks changing at t = 0.85"))
+    steps = len(set(rates.values()))
+    claims.append((9, f"it gives {NUMBER_WORDS[len(policies)]} policies against {NUMBER_WORDS[steps]} steps on "
+                      f"distinct values", "grid policies against steps"))  # fmt: skip
+    # Item 4: most of the gaps between two configs within a task, on dev, are 1 to 5 points (rounded).
+    said = re.search(r"\((\d)–(\d) points\)", items[4])
+    gaps = [abs(rates[(task, a)] - rates[(task, b)]) * 100 for task in DEV_TASKS for a, b in combinations(SCORED, 2)]
+    inside = sum(int(said[1]) <= round(gap) <= int(said[2]) for gap in gaps) if said else 0
+    check(said is not None and 2 * inside > len(gaps),
+          f"item 4: {inside} of the {len(gaps)} gaps between the scored configs within a task round to "
+          f"{said[1] if said else '?'}–{said[2] if said else '?'} points, which is most of them")  # fmt: skip
+    # Item 5: haiku on IFEval, against the share of its items some config gets right (its own oracle's peak).
+    ifeval = [i for i, item in dev.items.items() if item.task == "ifeval"]
+    solvable = sum(any(dev.cells[(i, c)].success for c in LADDER) for i in ifeval)
+    claims.append((5, f"`haiku` {100 * float(rates[('ifeval', 'haiku')]):.1f}% on dev, against its own oracle's "
+                      f"{100 * solvable / len(ifeval):.1f}%", "haiku and the oracle on IFEval"))  # fmt: skip
+    # Item 12: the envelope ends at opus_low's cost; A's and opus_low's realistic quality; haiku the cheapest everywhere.
+    by_mix = {mix: headline["panels"][mix]["configs"] for mix in PANELS}
+    ends = {mix: by_mix[mix]["opus_low"]["cost_per_1k"]["value"] for mix in PANELS}
+    claims.append((12, f"(${ends['realistic']:.2f} per 1k realistic, ${ends['uniform']:.2f} uniform)",
+                   "where the envelope ends"))  # fmt: skip
+    claims.append((12, f"dev quality of about {100 * by_mix['realistic']['opus']['quality']['value']:.1f}% plus",
+                   "A's realistic quality"))  # fmt: skip
+    claims.append((12, f"`opus_low`'s {100 * by_mix['realistic']['opus_low']['quality']['value']:.1f}%",
+                   "opus_low's realistic quality"))  # fmt: skip
+    cheapest = all(min(LADDER, key=lambda c: dev.cells[(i, c)].cost) == "haiku" for i in dev.items)
+    check(cheapest and "`haiku` is the cheapest config on every dev item" in items[12],
+          "item 12: haiku is the cheapest config on every dev item, as it says")  # fmt: skip
+    # Item 17: the latency's requests are the dev items.
+    claims.append((17, f"over the {dev_rows} dev requests", "the latency's requests"))
+
+    for number, sentence, what in claims:
+        check(sentence in items[number], f"item {number}: {what}: “{sentence}”")
+    check(said is not None, "known positive: item 4's range is found in its text")
+    check(not any(f"at t = 0.85 {word} tasks change" in items[9] for word in ("two", "three", "five")),
+          "and no other count of tasks is said to change at t = 0.85")  # fmt: skip
+    check(not any(slipped(sentence) in items[number] for number, sentence, _ in claims),
+          "the check can fail: each sentence with one digit slipped is not in the plan")  # fmt: skip
+    check(slipped("on 4.8% of") == "on 5.8% of" and slipped("$9.61") == "$0.61"
+          and slipped("it gives four policies") == "it gives five policies"
+          and all(slipped(sentence) != sentence for _, sentence, _ in claims),
+          "and the slip changes every sentence: its first digit, or a spelled-out count")  # fmt: skip
+
+
 def main() -> int:
     print("-- E's dev router-score table (Amendment A9, item 3) --")
-    rows = [row for row in read_rows() if row["split"] == "dev"]
+    rows = read_rows(split="dev")
     dev = results_matrix.load().split("dev")
     dev_ids = list(dev.items)
     table = dev_table()
@@ -334,9 +412,9 @@ def main() -> int:
           "its entries are in the reader's dev order")  # fmt: skip
     check(set(entry.item_id for entry in table.items) == set(dev_ids),
           "they are the dev results matrix's items")  # fmt: skip
-    check(all(entry.scores == rules.score(from_row(row)) for entry, row in zip(table.items, rows)),
+    check(all(entry.router_scores == rules.score(from_row(row)) for entry, row in zip(table.items, rows)),
           "every entry's router scores are score(request) for that dev request, from the reader")  # fmt: skip
-    check(all(set(entry.scores) == set(SCORED) for entry in table.items),
+    check(all(set(entry.router_scores) == set(SCORED) for entry in table.items),
           f"every entry scores {', '.join(SCORED)} and never {FRONTIER}")  # fmt: skip
     check(all(entry.overhead == 0.0 for entry in table.items), "every overhead is exactly $0: E runs locally")
     check(RouterScoreTable.build(list(table.items), dev_ids).items == table.items,
@@ -344,7 +422,7 @@ def main() -> int:
     check(refused(lambda: RouterScoreTable.build(list(table.items)[1:], dev_ids)),
           "the refusal fires on a table that leaves out a dev item")  # fmt: skip
     first = table.items[0]
-    scored_frontier = ItemScores(first.item_id, {**first.scores, FRONTIER: 0.5}, 0.0)
+    scored_frontier = ItemRouterScores(first.item_id, {**first.router_scores, FRONTIER: 0.5}, 0.0)
     check(refused(lambda: RouterScoreTable.build([scored_frontier, *table.items[1:]], dev_ids)),
           "the refusal fires on a table that scores the frontier")  # fmt: skip
 
@@ -405,6 +483,7 @@ def main() -> int:
 
     headline, _ = chart_checks(dev, table, section)
     record_checks(headline, section)
+    plan_number_checks(dev, headline, len(rows))
 
     print("\nall checks passed" if not problems else f"\n{len(problems)} checks failed")
     return 1 if problems else 0

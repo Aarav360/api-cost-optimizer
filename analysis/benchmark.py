@@ -12,7 +12,6 @@ from collections.abc import Collection
 from pathlib import Path
 
 from harness.build_benchmark import BENCHMARK_FILE
-from routers.request import Request, from_row
 
 SPLITS = ("train", "dev")  # test stays sealed until Stage 8 (Amendment A6)
 
@@ -25,18 +24,26 @@ class SealedItemError(BenchmarkError):
     """A request for a test item, which stays sealed until Stage 8."""
 
 
-def read_rows(path: Path = BENCHMARK_FILE, item_ids: Collection[str] | None = None) -> list[dict]:
-    """The train and dev rows of the benchmark in file order, or just the named items' rows.
+def read_rows(
+    path: Path = BENCHMARK_FILE, item_ids: Collection[str] | None = None, split: str | None = None
+) -> list[dict]:
+    """The train and dev rows of the benchmark in file order, or just the named items' rows, or just one split's.
 
-    Refuses the whole request (SealedItemError) if any named item is a test item, and (BenchmarkError) if any is
-    not in the file or the file holds a row of a split other than train, dev or test.
+    Refuses the whole request (SealedItemError) if any named item is a test item or the split asked for is test,
+    and (BenchmarkError) if any named item is not in the file, the split is not train or dev, or the file holds a
+    row of a split other than train, dev or test.
     """
+    if split == "test":
+        raise SealedItemError("the test split stays sealed until Stage 8")
+    if split is not None and split not in SPLITS:
+        raise BenchmarkError(f"split {split!r} is not train or dev")
     allowed, sealed = {}, set()
     with path.open() as file:
         for line in file:
             row = json.loads(line)
             if row["split"] in SPLITS:
-                allowed[row["item_id"]] = row
+                if split in (None, row["split"]):
+                    allowed[row["item_id"]] = row
             elif row["split"] == "test":
                 sealed.add(row["item_id"])
             else:
@@ -47,10 +54,6 @@ def read_rows(path: Path = BENCHMARK_FILE, item_ids: Collection[str] | None = No
         raise SealedItemError(f"{len(asked)} of the items asked for are test items, e.g. {asked[0]}; they stay "
                               f"sealed until Stage 8")  # fmt: skip
     if absent := sorted(set(item_ids) - set(allowed)):
-        raise BenchmarkError(f"{len(absent)} of the items asked for are not in the benchmark, e.g. {absent[0]}")
+        raise BenchmarkError(f"{len(absent)} of the items asked for are not among its {split or 'train and dev'} "
+                             f"rows, e.g. {absent[0]}")  # fmt: skip
     return [allowed[item_id] for item_id in dict.fromkeys(item_ids)]
-
-
-def read_requests(path: Path = BENCHMARK_FILE) -> dict[str, Request]:
-    """Every train and dev item's request (Amendment A9, item 1), keyed by item ID."""
-    return {row["item_id"]: from_row(row) for row in read_rows(path)}
