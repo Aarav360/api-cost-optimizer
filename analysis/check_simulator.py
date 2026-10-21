@@ -1106,12 +1106,15 @@ def main() -> int:
         check(plotted == {config: astuple(fixed_by_task[config][task]) for config in LADDER},
               f"{task}: the per-task figure's config points are the package's per-task totals, to the last bit")  # fmt: skip
     # Rebuilt with the same resamples, both JSONs must match to the last bit: a figure left stale after the code or
-    # the matrix changed fails here, whichever of its plotted or tabled numbers moved.
+    # the matrix changed fails here, whichever of its plotted or tabled numbers moved. Chart v1 only adds keys to each
+    # panel (Amendment A9, item 15), so each panel is compared on the keys the package builds, which are v0's;
+    # check_stage4 holds that v0's keys are all there and that E's new keys are checked too.
     for name, rebuilt, committed in (
         (FIGURE_DATA.name, {mix: mix_panel(dev, draws, fixed, mixes[mix]) for mix in PANELS}, headline["panels"]),
         (TASK_FIGURE_DATA.name, task_panels(dev, draws, fixed), per_task["panels"]),
     ):  # fmt: skip
-        check(json.loads(json.dumps(rebuilt)) == committed,
+        check(json.loads(json.dumps(rebuilt)) == {key: {k: panel[k] for k in rebuilt[key]}
+                                                  for key, panel in committed.items()},
               f"the committed figures/{name} is current: rebuilt from the package, every number it holds matches")  # fmt: skip
     warned = {task: panel["warning"] for task, panel in per_task["panels"].items() if panel["warning"]}
     check(list(per_task["panels"]) == list(DEV_TASKS) and set(warned) == A7_WARNED

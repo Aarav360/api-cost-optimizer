@@ -398,6 +398,22 @@ Stage 4's decisions, from a design review made after chart v0 and before any Sta
     - **Latency** (item 6), as A7 item 1 recorded the pilot's: `score(request)` over the 744 dev requests, patterns compiled at import, 50 warm-up calls excluded, the router scores thrown away: median 4.1 us, p90 14.0 us, on an Apple M5 Pro, Darwin 27.0.0 arm64, Python 3.13.13. It depends on the machine, so it is quoted as measured and isn't re-checked.
     - The decision rule and the Router protocol (`routers/decision.py`) are outside the closure and not frozen by this item.
 
+18. **Record.** E's operating points on dev (run 0, n = 744, list prices of 2026-10-12), from `figures/pareto.json`, and the hash of its section of `routers/operating_points.json`. Intervals are percentile 95% from 2,000 paired resamples, and `analysis/check_stage4.py` compares every number here with those two files.
+
+    | | Realistic | Uniform |
+    |---|---|---|
+    | E: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.9172, 0.8537 | falls back to A, 0.9174, 0.9143 |
+    | E: quality there | 86.7%, 86.4%, 85.7% | 89.5%, 89.5%, 88.8% |
+    | E: $ per 1k there | $8.04, $6.37, $2.16 | $12.01, $9.20, $6.77 |
+    | E: savings against A there | 0.0%, 20.8%, 73.1% | 0.0%, 23.4%, 43.7% |
+    | E: captured fraction there | 0.00, 0.22, 0.76 | 0.00, 0.25, 0.46 |
+    | E: share of resamples meeting the target there | 100.0%, 98.6%, 84.0% | 100.0%, 95.7%, 99.2% |
+
+    - Where a target reads "falls back to A", the walk certified nothing cheaper than A (item 10): the operating point is A itself, with no router call and no overhead, and its captured fraction is 0.00.
+    - On this benchmark's templates the inferred type is the item's task for 744 of 744 dev items (100.0%), and for 744 of 744 (100.0%) with the output schema withheld. It says nothing about traffic outside these templates.
+    - E's section of `routers/operating_points.json`, written with sorted keys, has the 64-digit sha256 `66cf01b0c0e9b071df8e003c598c2603617dafb57f98916300286a1fb04ebd50`.
+    - The rest of table v1, E's steps, margins, intervals, paired differences, matched-cost comparisons and McNemar rows among them, is in `figures/pareto.json`, `figures/pareto_tasks.json` and `routers/operating_points.json`.
+
 ---
 
 # 1. Goal

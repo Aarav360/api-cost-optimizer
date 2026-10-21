@@ -1,0 +1,349 @@
+{
+  "rules": {
+    "realistic": {
+      "100%": {
+        "fell_back": true,
+        "margin": 0.0,
+        "selection_method": "Fixed-sequence walk from always-frontier (A) down the steps, from the highest threshold to the lowest (Amendment A9, item 9). Steps, from the router-score table alone: every distinct breakpoint if there are 24 or fewer; otherwise the 0%, 5%, ..., 95% quantiles (20 of them) of the pooled breakpoints, each item's counted once per breakpoint, by the lower empirical quantile (numpy's inverted_cdf: the smallest pooled breakpoint with at least that share of them at or below it), with duplicate steps removed. Margin: one paired standard error of the step's quality difference from A under the mix, from 2000 paired bootstrap resamples with seed 2026 (Amendment A8, items 8 and 9). A step clears if its dev quality less the quality target is at least its margin; the walk stops at the first step that does not clear, and every step before it is certified. Operating point: the cheapest certified step by cost per 1k under the mix, ties to the earlier step, or A itself (threshold null, falls back to A) where no certified step costs less.",
+        "steps": [
+          {
+            "clears": true,
+            "cost_per_1k": 8.04290568441574,
+            "margin": 0.0,
+            "quality": 0.8674428785443579,
+            "threshold": null
+          },
+          {
+            "clears": false,
+            "cost_per_1k": 7.917619788582407,
+            "margin": 0.0005399284354886491,
+            "quality": 0.8672345452110245,
+            "threshold": 0.9743589743589743
+          }
+        ],
+        "target": 0.8674428785443579,
+        "threshold": null
+      },
+      "97%": {
+        "fell_back": false,
+        "margin": 0.015365234162033054,
+        "selection_method": "Fixed-sequence walk from always-frontier (A) down the steps, from the highest threshold to the lowest (Amendment A9, item 9). Steps, from the router-score table alone: every distinct breakpoint if there are 24 or fewer; otherwise the 0%, 5%, ..., 95% quantiles (20 of them) of the pooled breakpoints, each item's counted once per breakpoint, by the lower empirical quantile (numpy's inverted_cdf: the smallest pooled breakpoint with at least that share of them at or below it), with duplicate steps removed. Margin: one paired standard error of the step's quality difference from A under the mix, from 2000 paired bootstrap resamples with seed 2026 (Amendment A8, items 8 and 9). A step clears if its dev quality less the quality target is at least its margin; the walk stops at the first step that does not clear, and every step before it is certified. Operating point: the cheapest certified step by cost per 1k under the mix, ties to the earlier step, or A itself (threshold null, falls back to A) where no certified step costs less.",
+        "steps": [
+          {
+            "clears": true,
+            "cost_per_1k": 8.04290568441574,
+            "margin": 0.0,
+            "quality": 0.8674428785443579,
+            "threshold": null
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 7.917619788582407,
+            "margin": 0.0005399284354886491,
+            "quality": 0.8672345452110245,
+            "threshold": 0.9743589743589743
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 7.781582845907247,
+            "margin": 0.0005399284354886491,
+            "quality": 0.8672345452110245,
+            "threshold": 0.9487179487179487
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 7.14615609431489,
+            "margin": 0.0016550059315345671,
+            "quality": 0.8672345452110245,
+            "threshold": 0.9408284023668639
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 7.106422760981557,
+            "margin": 0.0016550059315345671,
+            "quality": 0.8672345452110245,
+            "threshold": 0.926829268292683
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 7.064726927648223,
+            "margin": 0.0017120266183168692,
+            "quality": 0.8674428785443579,
+            "threshold": 0.9173553719008265
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 6.372563870323383,
+            "margin": 0.0021087546877365635,
+            "quality": 0.8636212224934025,
+            "threshold": 0.9171597633136095
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 4.5447085899495505,
+            "margin": 0.013640676322380686,
+            "quality": 0.8696959888485426,
+            "threshold": 0.9142857142857143
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 3.4835533670196144,
+            "margin": 0.013939877725700264,
+            "quality": 0.8646004474472687,
+            "threshold": 0.893491124260355
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 2.8607197221598013,
+            "margin": 0.015239316348187721,
+            "quality": 0.8585256810921286,
+            "threshold": 0.8904109589041096
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 2.5011697221598013,
+            "margin": 0.01534070488246676,
+            "quality": 0.8568590144254619,
+            "threshold": 0.8719512195121951
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 2.162846388826468,
+            "margin": 0.015365234162033054,
+            "quality": 0.8568590144254619,
+            "threshold": 0.8536585365853658
+          },
+          {
+            "clears": false,
+            "cost_per_1k": 2.083826388826468,
+            "margin": 0.015380835495825085,
+            "quality": 0.8551923477587952,
+            "threshold": 0.8512396694214877
+          }
+        ],
+        "target": 0.8414195921880271,
+        "threshold": 0.8536585365853658
+      },
+      "99%": {
+        "fell_back": false,
+        "margin": 0.0021087546877365635,
+        "selection_method": "Fixed-sequence walk from always-frontier (A) down the steps, from the highest threshold to the lowest (Amendment A9, item 9). Steps, from the router-score table alone: every distinct breakpoint if there are 24 or fewer; otherwise the 0%, 5%, ..., 95% quantiles (20 of them) of the pooled breakpoints, each item's counted once per breakpoint, by the lower empirical quantile (numpy's inverted_cdf: the smallest pooled breakpoint with at least that share of them at or below it), with duplicate steps removed. Margin: one paired standard error of the step's quality difference from A under the mix, from 2000 paired bootstrap resamples with seed 2026 (Amendment A8, items 8 and 9). A step clears if its dev quality less the quality target is at least its margin; the walk stops at the first step that does not clear, and every step before it is certified. Operating point: the cheapest certified step by cost per 1k under the mix, ties to the earlier step, or A itself (threshold null, falls back to A) where no certified step costs less.",
+        "steps": [
+          {
+            "clears": true,
+            "cost_per_1k": 8.04290568441574,
+            "margin": 0.0,
+            "quality": 0.8674428785443579,
+            "threshold": null
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 7.917619788582407,
+            "margin": 0.0005399284354886491,
+            "quality": 0.8672345452110245,
+            "threshold": 0.9743589743589743
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 7.781582845907247,
+            "margin": 0.0005399284354886491,
+            "quality": 0.8672345452110245,
+            "threshold": 0.9487179487179487
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 7.14615609431489,
+            "margin": 0.0016550059315345671,
+            "quality": 0.8672345452110245,
+            "threshold": 0.9408284023668639
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 7.106422760981557,
+            "margin": 0.0016550059315345671,
+            "quality": 0.8672345452110245,
+            "threshold": 0.926829268292683
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 7.064726927648223,
+            "margin": 0.0017120266183168692,
+            "quality": 0.8674428785443579,
+            "threshold": 0.9173553719008265
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 6.372563870323383,
+            "margin": 0.0021087546877365635,
+            "quality": 0.8636212224934025,
+            "threshold": 0.9171597633136095
+          },
+          {
+            "clears": false,
+            "cost_per_1k": 4.5447085899495505,
+            "margin": 0.013640676322380686,
+            "quality": 0.8696959888485426,
+            "threshold": 0.9142857142857143
+          }
+        ],
+        "target": 0.8587684497589143,
+        "threshold": 0.9171597633136095
+      }
+    },
+    "uniform": {
+      "100%": {
+        "fell_back": true,
+        "margin": 0.0,
+        "selection_method": "Fixed-sequence walk from always-frontier (A) down the steps, from the highest threshold to the lowest (Amendment A9, item 9). Steps, from the router-score table alone: every distinct breakpoint if there are 24 or fewer; otherwise the 0%, 5%, ..., 95% quantiles (20 of them) of the pooled breakpoints, each item's counted once per breakpoint, by the lower empirical quantile (numpy's inverted_cdf: the smallest pooled breakpoint with at least that share of them at or below it), with duplicate steps removed. Margin: one paired standard error of the step's quality difference from A under the mix, from 2000 paired bootstrap resamples with seed 2026 (Amendment A8, items 8 and 9). A step clears if its dev quality less the quality target is at least its margin; the walk stops at the first step that does not clear, and every step before it is certified. Operating point: the cheapest certified step by cost per 1k under the mix, ties to the earlier step, or A itself (threshold null, falls back to A) where no certified step costs less.",
+        "steps": [
+          {
+            "clears": true,
+            "cost_per_1k": 12.013344059170189,
+            "margin": 0.0,
+            "quality": 0.8953984736194615,
+            "threshold": null
+          },
+          {
+            "clears": false,
+            "cost_per_1k": 11.386914580003522,
+            "margin": 0.002699642177443245,
+            "quality": 0.8943568069527948,
+            "threshold": 0.9743589743589743
+          }
+        ],
+        "target": 0.8953984736194615,
+        "threshold": null
+      },
+      "97%": {
+        "fell_back": false,
+        "margin": 0.008101725965755343,
+        "selection_method": "Fixed-sequence walk from always-frontier (A) down the steps, from the highest threshold to the lowest (Amendment A9, item 9). Steps, from the router-score table alone: every distinct breakpoint if there are 24 or fewer; otherwise the 0%, 5%, ..., 95% quantiles (20 of them) of the pooled breakpoints, each item's counted once per breakpoint, by the lower empirical quantile (numpy's inverted_cdf: the smallest pooled breakpoint with at least that share of them at or below it), with duplicate steps removed. Margin: one paired standard error of the step's quality difference from A under the mix, from 2000 paired bootstrap resamples with seed 2026 (Amendment A8, items 8 and 9). A step clears if its dev quality less the quality target is at least its margin; the walk stops at the first step that does not clear, and every step before it is certified. Operating point: the cheapest certified step by cost per 1k under the mix, ties to the earlier step, or A itself (threshold null, falls back to A) where no certified step costs less.",
+        "steps": [
+          {
+            "clears": true,
+            "cost_per_1k": 12.013344059170189,
+            "margin": 0.0,
+            "quality": 0.8953984736194615,
+            "threshold": null
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 11.386914580003522,
+            "margin": 0.002699642177443245,
+            "quality": 0.8943568069527948,
+            "threshold": 0.9743589743589743
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 11.046822223315624,
+            "margin": 0.002699642177443245,
+            "quality": 0.8943568069527948,
+            "threshold": 0.9487179487179487
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 9.458255344334733,
+            "margin": 0.0047612722213150206,
+            "quality": 0.8943568069527948,
+            "threshold": 0.9408284023668639
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 9.408588677668066,
+            "margin": 0.0047612722213150206,
+            "quality": 0.8943568069527948,
+            "threshold": 0.926829268292683
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 9.200109511001399,
+            "margin": 0.0052641411566333495,
+            "quality": 0.8953984736194615,
+            "threshold": 0.9173553719008265
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 7.469701867689297,
+            "margin": 0.006112401462158742,
+            "quality": 0.8858443334920729,
+            "threshold": 0.9171597633136095
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 6.766680606007054,
+            "margin": 0.008101725965755343,
+            "quality": 0.8881807820902038,
+            "threshold": 0.9142857142857143
+          },
+          {
+            "clears": false,
+            "cost_per_1k": 4.113792548682214,
+            "margin": 0.010655665007023429,
+            "quality": 0.8754419285870191,
+            "threshold": 0.893491124260355
+          }
+        ],
+        "target": 0.8685365194108776,
+        "threshold": 0.9142857142857143
+      },
+      "99%": {
+        "fell_back": false,
+        "margin": 0.0052641411566333495,
+        "selection_method": "Fixed-sequence walk from always-frontier (A) down the steps, from the highest threshold to the lowest (Amendment A9, item 9). Steps, from the router-score table alone: every distinct breakpoint if there are 24 or fewer; otherwise the 0%, 5%, ..., 95% quantiles (20 of them) of the pooled breakpoints, each item's counted once per breakpoint, by the lower empirical quantile (numpy's inverted_cdf: the smallest pooled breakpoint with at least that share of them at or below it), with duplicate steps removed. Margin: one paired standard error of the step's quality difference from A under the mix, from 2000 paired bootstrap resamples with seed 2026 (Amendment A8, items 8 and 9). A step clears if its dev quality less the quality target is at least its margin; the walk stops at the first step that does not clear, and every step before it is certified. Operating point: the cheapest certified step by cost per 1k under the mix, ties to the earlier step, or A itself (threshold null, falls back to A) where no certified step costs less.",
+        "steps": [
+          {
+            "clears": true,
+            "cost_per_1k": 12.013344059170189,
+            "margin": 0.0,
+            "quality": 0.8953984736194615,
+            "threshold": null
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 11.386914580003522,
+            "margin": 0.002699642177443245,
+            "quality": 0.8943568069527948,
+            "threshold": 0.9743589743589743
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 11.046822223315624,
+            "margin": 0.002699642177443245,
+            "quality": 0.8943568069527948,
+            "threshold": 0.9487179487179487
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 9.458255344334733,
+            "margin": 0.0047612722213150206,
+            "quality": 0.8943568069527948,
+            "threshold": 0.9408284023668639
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 9.408588677668066,
+            "margin": 0.0047612722213150206,
+            "quality": 0.8943568069527948,
+            "threshold": 0.926829268292683
+          },
+          {
+            "clears": true,
+            "cost_per_1k": 9.200109511001399,
+            "margin": 0.0052641411566333495,
+            "quality": 0.8953984736194615,
+            "threshold": 0.9173553719008265
+          },
+          {
+            "clears": false,
+            "cost_per_1k": 7.469701867689297,
+            "margin": 0.006112401462158742,
+            "quality": 0.8858443334920729,
+            "threshold": 0.9171597633136095
+          }
+        ],
+        "target": 0.8864444888832669,
+        "threshold": 0.9173553719008265
+      }
+    }
+  }
+}
