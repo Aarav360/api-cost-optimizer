@@ -1,0 +1,116 @@
+{
+  "buckets": {
+    "classification/long": {
+      "count": 156,
+      "folded": false,
+      "rates": {
+        "haiku": 0.8076923076923077,
+        "opus_low": 0.8269230769230769,
+        "sonnet": 0.8012820512820513
+      }
+    },
+    "classification/short": {
+      "count": 164,
+      "folded": false,
+      "rates": {
+        "haiku": 0.8536585365853658,
+        "opus_low": 0.926829268292683,
+        "sonnet": 0.8719512195121951
+      }
+    },
+    "code/long": {
+      "count": 70,
+      "folded": false,
+      "rates": {
+        "haiku": 0.9142857142857143,
+        "opus_low": 0.9142857142857143,
+        "sonnet": 0.9142857142857143
+      }
+    },
+    "code/short": {
+      "count": 73,
+      "folded": false,
+      "rates": {
+        "haiku": 0.8493150684931506,
+        "opus_low": 0.8904109589041096,
+        "sonnet": 0.8904109589041096
+      }
+    },
+    "multiple_choice/calc": {
+      "count": 78,
+      "folded": false,
+      "rates": {
+        "haiku": 0.9743589743589743,
+        "opus_low": 0.9615384615384616,
+        "sonnet": 0.8974358974358975
+      }
+    },
+    "multiple_choice/plain": {
+      "count": 242,
+      "folded": false,
+      "rates": {
+        "haiku": 0.8305785123966942,
+        "opus_low": 0.9173553719008265,
+        "sonnet": 0.8512396694214877
+      }
+    },
+    "open_ended/few": {
+      "count": 169,
+      "folded": false,
+      "rates": {
+        "haiku": 0.893491124260355,
+        "opus_low": 0.9408284023668639,
+        "sonnet": 0.9171597633136095
+      }
+    },
+    "open_ended/many": {
+      "count": 39,
+      "folded": false,
+      "rates": {
+        "haiku": 0.8205128205128205,
+        "opus_low": 0.9487179487179487,
+        "sonnet": 0.9487179487179487
+      }
+    }
+  },
+  "cut_points": {
+    "classification": 1812.0,
+    "code": 314.0,
+    "open_ended": 1.0
+  },
+  "min_bucket_size": 30,
+  "types": {
+    "classification": {
+      "count": 320,
+      "rates": {
+        "haiku": 0.83125,
+        "opus_low": 0.878125,
+        "sonnet": 0.8375
+      }
+    },
+    "code": {
+      "count": 143,
+      "rates": {
+        "haiku": 0.8811188811188811,
+        "opus_low": 0.9020979020979021,
+        "sonnet": 0.9020979020979021
+      }
+    },
+    "multiple_choice": {
+      "count": 320,
+      "rates": {
+        "haiku": 0.865625,
+        "opus_low": 0.928125,
+        "sonnet": 0.8625
+      }
+    },
+    "open_ended": {
+      "count": 208,
+      "rates": {
+        "haiku": 0.8798076923076923,
+        "opus_low": 0.9423076923076923,
+        "sonnet": 0.9230769230769231
+      }
+    }
+  }
+}

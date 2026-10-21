@@ -12,6 +12,8 @@ uv run mypy
 uv run python -m harness.check_sealed
 uv run python -m analysis.check_routers | grep -E "^FAIL|checks"
 uv run python -m analysis.check_comparisons | grep -E "^FAIL|checks"
+# Its refit against the train matrix runs only where results/ is present, like check_simulator below.
+uv run python -m analysis.check_rules_router | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
   uv run python -m analysis.check_simulator | grep -E "^FAIL|checks"
 fi
