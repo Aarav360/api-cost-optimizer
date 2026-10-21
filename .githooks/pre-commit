@@ -17,4 +17,5 @@ uv run python -m analysis.check_walk | grep -E "^FAIL|checks"
 uv run python -m analysis.check_rules_router | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
   uv run python -m analysis.check_simulator | grep -E "^FAIL|checks"
+  uv run python -m analysis.check_stage4 | grep -E "^FAIL|checks"
 fi
