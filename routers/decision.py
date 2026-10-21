@@ -16,13 +16,13 @@ class Router(Protocol):
         ...
 
 
-def choose(router_scores: Mapping[str, float], threshold: float) -> str:
+def choose(scores: Mapping[str, float], threshold: float) -> str:
     """The cheapest config on the ladder whose router score is at least the threshold, else the frontier.
 
     A router score equal to the threshold counts. A dearer config scored below a cheaper one is never chosen
     over it: the ladder is walked from the bottom and the first config to reach the threshold wins.
     """
     for config in SCORED:
-        if router_scores[config] >= threshold:
+        if scores[config] >= threshold:
             return config
     return FRONTIER

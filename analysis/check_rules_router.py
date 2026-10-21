@@ -15,6 +15,8 @@ Never a test item, and no E number on dev.
 - the freeze (Amendment A9 item 17): the recorded module list is the import closure worked out from the router's
   imports, each recorded hash is the file's, and the guards can fail: a module imported later and a changed byte
   both show;
+- Amendment A10: the decision rule's recorded hash is the file's (item 1), and item 2's record of the cues matches the
+  frozen code: the constraint markers and their counts, the flag's cut, the fold, the label list, the code request;
 - the hook only (it needs the results stores, which CI lacks): the committed rates equal a refit from the train
   matrix, and the train task-inference diagnostic equals item 17's.
 """
@@ -39,6 +41,7 @@ from routers.request import Request
 from routers.rules import CLASSIFICATION, CODE, MULTIPLE_CHOICE, OPEN_ENDED
 
 RECORD = re.compile(r"`(routers/[\w./]+)`: `([0-9a-f]{64})`")  # a path and its sha256, as item 17 writes them
+DECISION = "routers/decision.py"  # frozen by A10 item 1, outside the rules router's closure
 
 problems: list[str] = []
 
@@ -373,6 +376,47 @@ def main() -> int:
               "a module imported later joins the closure, so a record made before it differs")  # fmt: skip
     short_record = [p for p in recorded if p.endswith(".py") and p != "routers/request.py"]
     check(short_record != frozen_now, "a record that leaves a module out differs from the closure")
+
+    print("\n-- the decision rule's freeze and the cues' record (Amendment A10) --")
+    plan = PLAN.read_text()
+    decision_record = dict(RECORD.findall(amendment_item(plan, "A10", 1)))
+    check(list(decision_record) == [DECISION], "A10 item 1 records one hash, the decision rule's")
+    check(DECISION not in frozen_now, "the decision rule is outside the rules router's closure, so A9 left it out")
+    check(sha256(PROJECT_ROOT / DECISION) == decision_record.get(DECISION), f"{DECISION} hashes as recorded")
+    with tempfile.TemporaryDirectory() as tmp:
+        copy = Path(tmp) / "decision.py"
+        copy.write_bytes((PROJECT_ROOT / DECISION).read_bytes() + b" ")
+        check(sha256(copy) != decision_record.get(DECISION), f"a byte added to a copy of {DECISION} changes its hash")
+
+    cues = amendment_item(plan, "A10", 2)
+    marker_line = next(line for line in cues.splitlines() if "**Constraint markers.**" in line)
+    quoted = re.findall(r'"([^"]+)"', marker_line)
+    a9_line = next(line for line in amendment_item(plan, "A9", 5).splitlines() if "**Open-ended:**" in line)
+    a9_markers = re.findall(r'"([^"]+)"', a9_line)
+    # The marker alternatives as the frozen pattern spells them, so the record can't drift from the code.
+    in_code = re.fullmatch(r"\\b\(\?:(.*)\)\\b", rules.CONSTRAINT_MARKER.pattern, re.DOTALL)
+    markers = in_code[1].split("|") if in_code else []
+    check(sorted(quoted) == sorted(markers) and len(markers) > 0,
+          "A10 item 2 quotes exactly the rules router's constraint markers")  # fmt: skip
+    check(sorted(quoted[:-1]) != sorted(markers), "known positive: a record missing one marker differs from the code")
+    check(quoted[: len(a9_markers)] == a9_markers and len(set(quoted)) == len(quoted),
+          "item 5's markers come first, and no marker is quoted twice")  # fmt: skip
+    counts = {5: "five", 6: "six", 11: "Eleven"}
+    check(f"{counts.get(len(markers))}: item 5's {counts.get(len(a9_markers))}" in marker_line
+          and f"and {counts.get(len(markers) - len(a9_markers))} more" in marker_line,
+          "the record's counts of markers (eleven: five and six more) are the code's")  # fmt: skip
+    check(rules.FLAG_CUT == 0.5 and "flag at 0.5" in cues, "multiple choice's flag splits at 0.5, as recorded")
+    check(rules.MIN_BUCKET_SIZE == 30 and "A bucket under 30 train items" in cues, "the fold below 30, as recorded")
+    two_labels, three_labels = "Classify the request.\nalpha\nbeta", "Classify the request.\nalpha\nbeta\ngamma"
+    check(not rules.has_label_list(two_labels) and rules.has_label_list(three_labels)
+          and "three or more labels" in cues, "a list of labels takes three or more, as recorded")  # fmt: skip
+    check(rules.CODE_REQUEST.search("write a fast recursive function") is not None
+          and rules.CODE_REQUEST.search("write a very fast recursive function") is None
+          and "at most two words" in cues, "a code request has at most two words before its noun, as recorded")  # fmt: skip
+    check(rules.infer_type(Request("Write a review of a chess program.")) != CODE
+          and '"write a review of a chess program"' in cues, "the record's example isn't a code request")  # fmt: skip
+    check(all(t["count"] > 0 for t in committed["types"].values()) and "every type has train items" in cues,
+          "every type has train items in the committed rates, as recorded")  # fmt: skip
 
     if (PROJECT_ROOT / "results" / "dev_matrix.sqlite").exists():
         print("\n-- the train matrix against the committed rates and item 17 (the hook only) --")

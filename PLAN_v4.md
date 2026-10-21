@@ -5,7 +5,7 @@
 | Version | v4 |
 | Status | Final — frozen before Stage 0, then changed only by the amendments below |
 | Date | 2026-10-12 |
-| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed, and A8, Stage 3 decisions; 2026-10-20: Amendment A9, Stage 4 decisions |
+| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed, and A8, Stage 3 decisions; 2026-10-20: Amendment A9, Stage 4 decisions, and A10, the Stage 4 review's records |
 | Supersedes | [PLAN_v3.md](docs/history/PLAN_v3.md) — earlier versions in [docs/history/](docs/history/) |
 
 ## What changed from v3
@@ -36,6 +36,7 @@
 | v4-A7 | 2026-10-19 | Amendment A7: pilot latency and cost per item recorded; claims on the mixes, per-task warnings for IFEval and MBPP+; freeze hashes; MBPP+ reference check under the grader's limits |
 | v4-A8 | 2026-10-19 | Amendment A8: Stage 3 decisions: frontier stays `opus`; list-price costs; the simulator's trace interface; config ladder; oracle edge cases; paired bootstrap and paired safety margin; chart v0 |
 | v4-A9 | 2026-10-20 | Amendment A9: Stage 4 decisions: routers see the request; router-score tables; a train-fitted rules router; the walk over breakpoints; McNemar's test; the freeze; chart v1 |
+| v4-A10 | 2026-10-20 | Amendment A10: Stage 4 review: the decision rule frozen; how the rules router's frozen cues read A9's |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -414,6 +415,20 @@ Stage 4's decisions, from a design review made after chart v0 and before any Sta
     - E's section of `routers/operating_points.json`, written with sorted keys, has the 64-digit sha256 `66cf01b0c0e9b071df8e003c598c2603617dafb57f98916300286a1fb04ebd50`.
     - The rest of table v1, E's steps, margins, intervals, paired differences, matched-cost comparisons and McNemar rows among them, is in `figures/pareto.json`, `figures/pareto_tasks.json` and `routers/operating_points.json`.
 
+## Amendment A10 — Stage 4 review: the decision rule frozen, the rules router's cues recorded (2026-10-20)
+
+Two records from Stage 4's branch review, made after E's operating points (A9 item 18). Neither changes a frozen file, a rate, a cut point, a threshold or an operating point, so A9 items 17 and 18 stand. Applied in §8.
+
+1. **The decision rule joins the freeze** (A9 items 3 and 13). A9 item 13 froze the rules router's import closure, which doesn't hold `routers/decision.py`, so A9 item 17 left it out. But Stage 8 turns E's router scores into configs through it: a router-score table's traces at a threshold come from its `choose`. It is frozen now, under item 13's rule: an edit means re-selecting, under a new amendment, the operating points of every router selected with it. `analysis/check_rules_router.py` compares the hash with the file. sha256, as in A7 item 3:
+    - `routers/decision.py`: `48ae591021293820be7d871c4c40a523fc4468fb9181d0ae046201c1dfe4aaeb`
+    - These are its bytes as first committed with the router foundation, before the freeze commit, and the bytes every commit that computed an E number on dev ran with. The review had renamed `choose`'s parameter, which changes no decision; the rename was undone, so the hash is the one E's dev numbers were computed with.
+2. **How the frozen cues read A9 item 5.** The rules were tuned on train prompts and outcomes, as item 13 allows, and they are frozen as they stand (item 17). This records what the hashed code does, so the write-up can describe E without reading it. In places it goes beyond item 5's wording, never against it.
+    - **Type checks.** An output schema's first property that lists its allowed answers gives the answer's set: single letters mark multiple choice, anything else classification. A lettered option list is an `A` line followed by a `B` line (`A.`, `B)`, `(C)` and so on), so a roman-numeral list ahead of the options doesn't hide them. A classification request says "classify", "classification" or "categorize" and lists three or more labels, as short lines in a row or inline after a colon or "one of". A code request asks to write, implement, create, complete, define or develop something, with at most two words between the article and "function", "program", "script", "method" or "class", or asks for the answer in a code block. So "write a review of a chess program" isn't a code request.
+    - **The calculation flag** reads only the text before the options: LaTeX, digits beside an operator (or a letter set equal to a number), or digits beside a unit that ends the word.
+    - **Constraint markers.** Eleven: item 5's five ("must", "at least", "do not", "exactly", "end your response with") and six more found in train prompts ("at most", "don't", "should not", "no more than", "never", "make sure"). A sentence ends at a full stop, question mark or exclamation mark followed by a space, or at a line break, so each line of a list counts on its own.
+    - **Cut points.** A request goes to its type's lower bucket at or below the cut point and to the other above it. Classification and code split on prompt length at their train medians, open-ended requests on the constraint count at its train median, and multiple choice's flag at 0.5.
+    - **The rates file** holds, beside each bucket's router scores and train count and the cut points, each type's own rates and count and whether each bucket folded. A bucket under 30 train items takes its type's rates (item 4). A type with no train items would take the rates of all train items; on this benchmark every type has train items.
+
 ---
 
 # 1. Goal
@@ -730,7 +745,7 @@ For each headline quality target (§11), choose `t` where estimated quality **cl
 
 - Select on dev; for the trained router, on its out-of-fold dev predictions (cross-fitting, Amendment A5). v4 also allowed cross-validation over train+dev; Amendment A1 drops it because the frontier config doesn't run on train, and every threshold replay needs frontier outcomes for the items it escalates. The larger 30% dev split offsets most of the lost precision.
 - Record the margin, selection method, and chosen thresholds before Stage 8.
-- The walk down from always-frontier over a router's breakpoints, the six operating points and the fallback to A: Amendment A9 items 9 and 10. What is recorded and frozen: item 13.
+- The walk down from always-frontier over a router's breakpoints, the six operating points and the fallback to A: Amendment A9 items 9 and 10. What is recorded and frozen: item 13, and the decision rule too (Amendment A10 item 1).
 
 ## 3a — Rules router
 
@@ -751,7 +766,7 @@ elif contains_code(prompt):
 
 Rules give only a few operating points, not a smooth curve. That's fine for a dumb baseline.
 
-The sketch's numbers are illustrative: each bucket's router scores are its train success rates, and the buckets and cues are fixed in Amendment A9 items 4 and 5.
+The sketch's numbers are illustrative: each bucket's router scores are its train success rates, and the buckets and cues are fixed in Amendment A9 items 4 and 5, and Amendment A10 item 2 records how the frozen rules read them.
 
 ## 3b — Trained router
 

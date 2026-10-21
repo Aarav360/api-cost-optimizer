@@ -18,8 +18,9 @@ router sees, router-score tables, the walk that picks thresholds, McNemar's test
 router, E, a set of hand-written rules whose router scores are train success rates. E was frozen
 before any dev number was computed, then walked on dev: chart and table v1 show its steps and its
 six operating points, and [Amendment A9](PLAN_v4.md) item 18 records them with the hash of E's
-section of the operating-points file. Stage 5, the embedding router, is next. Every result so far
-is on dev, with the test split still sealed.
+section of the operating-points file. Amendment A10, from the branch review, adds the decision rule
+to the freeze and records how E's frozen cues read A9. Stage 5, the embedding router, is next. Every
+result so far is on dev, with the test split still sealed.
 
 ![Pareto chart v1 on dev: the four fixed configs with their intervals, the random-mixture envelope, the hindsight oracle and the rules router E, with E's steps as a line and a cross at each of its operating points, under the realistic and uniform task mixes](figures/pareto.png)
 
@@ -145,7 +146,7 @@ system, none of your files, an unprivileged user, and caps on memory, processes,
 ## Layout
 
 ```text
-PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A9)
+PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A10)
 GLOSSARY.md          the study's vocabulary from Stage 3 on: policy, trace, config ladder, reference, ...
 WRITEUP.md           the final write-up (to come) and running notes for it
 CODING_STANDARDS.md  the judgement calls code review applies; ruff and mypy (pyproject.toml) cover the rest
@@ -162,8 +163,9 @@ analysis/            the offline simulator (traces to outcomes and totals), the 
                      the walk and operating points, McNemar's test, E's table, diagnostic and walk, chart v1
                      and the check scripts
 routers/             the deployable routers (imports nothing from analysis or harness): the config ladder,
-                     the request, the decision rule, the rules router E (frozen, A9 item 17) and its rates
-                     file rules_rates.json, and operating_points.json, every router's thresholds from the walk
+                     the request, the decision rule (frozen, A10 item 1), the rules router E (frozen, A9
+                     item 17) and its rates file rules_rates.json, and operating_points.json, every
+                     router's thresholds from the walk
 figures/             chart v1 on dev: the headline and per-task figures, each a PNG with a JSON of every
                      number it plots, tables v0 and v1 included
 sandbox/             Dockerfile for the code sandbox image
@@ -178,7 +180,7 @@ docs/history/        earlier versions of the plan
 
 ## Progress
 
-- [x] Study plan frozen (v4, amendments A1–A9)
+- [x] Study plan frozen (v4, amendments A1–A10)
 - [x] Harness: API client, on-disk response store, pinned model configs
 - [x] Dataset loaders at pinned revisions, and 120 pilot items
 - [x] Docker code sandbox (18/18 escape checks; 377/377 MBPP+ reference solutions pass under the
