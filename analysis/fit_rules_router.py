@@ -43,12 +43,12 @@ def rates_text(rates: dict) -> str:
     return json.dumps(rates, indent=2, sort_keys=True) + "\n"
 
 
-def diagnostic(requests: dict[str, Request], tasks: dict[str, str]) -> str:
+def diagnostic(requests: dict[str, Request], tasks: dict[str, str], split: str = "train") -> str:
     """How often the inferred type is the item's task, with the output schema and with it withheld."""
     n = len(requests)
     full = sum(rules.infer_type(request) == TASK_TYPE[tasks[i]] for i, request in requests.items())
     bare = sum(rules.infer_type(Request(request.prompt)) == TASK_TYPE[tasks[i]] for i, request in requests.items())
-    return (f"On this benchmark's templates the inferred type is the item's task for {full} of {n} train items "
+    return (f"On this benchmark's templates the inferred type is the item's task for {full} of {n} {split} items "
             f"({100 * full / n:.1f}%), and for {bare} of {n} ({100 * bare / n:.1f}%) with the output schema withheld")  # fmt: skip
 
 
