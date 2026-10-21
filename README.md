@@ -8,15 +8,20 @@ model per request) and cascades (which try a cheap model first and escalate when
 fails) against two references: a hindsight oracle that shows the most any strategy could save,
 and random mixtures that show what you get with no routing intelligence at all.
 
-**Status:** Stages 0–3 are done. The pilot chose four tasks ([Amendment A3](PLAN_v4.md)), the
+**Status:** Stages 0–4 are done. The pilot chose four tasks ([Amendment A3](PLAN_v4.md)), the
 benchmark of 2,478 items is split and frozen ([Amendment A5](PLAN_v4.md)), and the collection run
 has answered every item through every config for $29.37: train and dev are scored, and test is
 sealed until Stage 8 ([Amendment A6](PLAN_v4.md)). Stage 3 built the offline simulator, the four
 references and a paired bootstrap, and drew Pareto chart v0 on dev ([Amendment A8](PLAN_v4.md),
-whose item 12 records its headline numbers). Stage 4, the rules router, is next, so there are no
-routing results yet.
+whose item 12 records its headline numbers). Stage 4 built the routers' shared parts (the request a
+router sees, router-score tables, the walk that picks thresholds, McNemar's test) and the first
+router, E, a set of hand-written rules whose router scores are train success rates. E was frozen
+before any dev number was computed, then walked on dev: chart and table v1 show its steps and its
+six operating points, and [Amendment A9](PLAN_v4.md) item 18 records them with the hash of E's
+section of the operating-points file. Stage 5, the embedding router, is next. Every result so far
+is on dev, with the test split still sealed.
 
-![Pareto chart v0 on dev: the four fixed configs with their intervals, the random-mixture envelope and the hindsight oracle, under the realistic and uniform task mixes](figures/pareto.png)
+![Pareto chart v1 on dev: the four fixed configs with their intervals, the random-mixture envelope, the hindsight oracle and the rules router E, with E's steps as a line and a cross at each of its operating points, under the realistic and uniform task mixes](figures/pareto.png)
 
 ## Approach
 
@@ -83,7 +88,7 @@ key in a `.env` file at the project root (`ANTHROPIC_API_KEY=...`; it's gitignor
 ```bash
 uv sync
 git config core.hooksPath .githooks        # once per clone: run the fast checks before every commit
-.githooks/pre-commit                       # the fast checks: ruff, mypy, check_sealed, check_simulator
+.githooks/pre-commit                       # the fast checks: ruff, mypy, check_sealed and the analysis checks below
 uv run python -m harness.check_sealed      # no code but harness/collect.py names the sealed test store
 uv run python -m harness.smoke_test        # one Haiku call: checks the key and the response store
 uv run python -m harness.sandbox --build   # build the pinned sandbox image
@@ -98,13 +103,24 @@ uv run python -m harness.build_benchmark   # rebuild the frozen benchmark (seede
 uv run python -m harness.check_benchmark   # verify it against its manifest hashes
 uv run python -m harness.check_collect     # the collection runner end to end against a fake Batches API (no calls)
 uv run python -m harness.collect plan      # Stage 2 request counts and projected cost; then submit, wait, score, seal
-uv run python -m analysis.pareto           # chart v0 on dev: prints table v0, writes the figures and their JSONs
+uv run python -m analysis.fit_rules_router # fit E on train and write routers/rules_rates.json (then frozen, A9 item 17)
+uv run python -m analysis.rules_table      # E's dev router-score table: score(request) on every dev request
+uv run python -m analysis.dev_diagnostic   # the dev task-inference diagnostic, on this benchmark's templates
+uv run python -m analysis.rules_walk       # the walk on dev: writes E's section of routers/operating_points.json
+uv run python -m analysis.pareto           # chart v1 on dev: prints tables v0 and v1, writes the figures and their JSONs
 uv run python -m analysis.check_simulator  # the analysis package on hand-worked cases, then on dev against the figures and A8's record
+uv run python -m analysis.check_routers    # the router foundation, the benchmark reader and the router-score table
+uv run python -m analysis.check_comparisons  # McNemar's test and the matched-cost difference
+uv run python -m analysis.check_walk       # breakpoints, steps, the walk and the operating-points file, on synthetic tables
+uv run python -m analysis.check_rules_router  # E's cues, fit and freeze hashes
+uv run python -m analysis.check_stage4     # E on dev, tables v0 and v1 and A9's record (item 18) against the JSONs
 ```
 
-Both analysis commands read the dev results matrix in `results/`, so they need the collection run's
-stores. Chart v0 takes a few seconds: the paired bootstrap re-solves the hindsight oracle on every
-resample.
+The matrix-reading commands need the dev results matrix in `results/`, so they need the collection
+run's stores; so do `check_simulator` and `check_stage4`, which the hook runs where the matrix is
+present, and the refit half of `check_rules_router`. Chart v1 takes a few seconds: the paired
+bootstrap re-solves the hindsight oracle on every resample. Run the three E steps in the order
+`rules_table`, `dev_diagnostic`, `rules_walk` (A9 item 13), which is also the order of their commits.
 
 The first LiveCodeBench load downloads about 690 MB and writes its decoded tests (about 500 MB)
 to `.cache/`.
@@ -129,7 +145,7 @@ system, none of your files, an unprivileged user, and caps on memory, processes,
 ## Layout
 
 ```text
-PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A8)
+PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A9)
 GLOSSARY.md          the study's vocabulary from Stage 3 on: policy, trace, config ladder, reference, ...
 WRITEUP.md           the final write-up (to come) and running notes for it
 CODING_STANDARDS.md  the judgement calls code review applies; ruff and mypy (pyproject.toml) cover the rest
@@ -142,9 +158,14 @@ harness/             API client, response store, dataset loaders, evaluators, co
 harness/ifeval/      Google's IFEval instruction checkers, vendored at a pinned commit
 harness/ifbench/     AI2's IFBench instruction checkers, vendored at a pinned commit
 analysis/            the offline simulator (traces to outcomes and totals), the results-matrix loader,
-                     references C and D, the paired bootstrap, chart v0 and its check script
-figures/             chart v0 on dev: the headline and per-task figures, each a PNG with a JSON of every
-                     number it plots, table v0 included
+                     references C and D, the paired bootstrap, the benchmark reader, the router-score table,
+                     the walk and operating points, McNemar's test, E's table, diagnostic and walk, chart v1
+                     and the check scripts
+routers/             the deployable routers (imports nothing from analysis or harness): the config ladder,
+                     the request, the decision rule, the rules router E (frozen, A9 item 17) and its rates
+                     file rules_rates.json, and operating_points.json, every router's thresholds from the walk
+figures/             chart v1 on dev: the headline and per-task figures, each a PNG with a JSON of every
+                     number it plots, tables v0 and v1 included
 sandbox/             Dockerfile for the code sandbox image
 data/benchmark.jsonl the frozen benchmark: 2,478 items split 40/30/30, plus its hash manifest
 data/pilot*.jsonl    Stage 0 pilot items: 20 per candidate dataset, 20 MATH Level 5 items, and
@@ -157,7 +178,7 @@ docs/history/        earlier versions of the plan
 
 ## Progress
 
-- [x] Study plan frozen (v4, amendments A1–A8)
+- [x] Study plan frozen (v4, amendments A1–A9)
 - [x] Harness: API client, on-disk response store, pinned model configs
 - [x] Dataset loaders at pinned revisions, and 120 pilot items
 - [x] Docker code sandbox (18/18 escape checks; 377/377 MBPP+ reference solutions pass under the
@@ -174,7 +195,11 @@ docs/history/        earlier versions of the plan
 - [x] Stage 3: offline simulator, references A–D (the random-mixture envelope and the hindsight
       oracle as an LP), the paired bootstrap and safety margin, and Pareto chart v0 on dev with the
       per-task figure and table v0
-- [ ] Stages 4–8: routers, gates and cascades, final evaluation on the sealed test split
+- [x] Stage 4: the shared router parts, the rules router E fitted on train and frozen, then on dev
+      its router-score table, task-inference diagnostic and walk; chart and table v1 with E's six
+      operating points, and A9's record of them (item 18)
+- [ ] Stages 5–8: the embedding router, Jev's router, gates and cascades, final evaluation on the
+      sealed test split
 
 ## License
 
