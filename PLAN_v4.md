@@ -388,6 +388,16 @@ Stage 4's decisions, from a design review made after chart v0 and before any Sta
     - **Wave 3:** the dev router-score table, the dev diagnostic, the first walk on dev, chart and table v1, E's operating points and its section's hash (item 18) with a check on them, and the README.
     - Each parallel ticket owns its new check script and wires it into the pre-commit hook and CI. A check that needs `results/`, such as "the committed rates match a refit from the train matrix", runs in the hook only, like `check_simulator`. The cues on synthetic requests and the rates file's shape run in CI too.
 
+17. **The rules router's freeze** (item 13), recorded in the freeze commit, before any E number on dev. The rules router was written and fitted on train only (items 4 and 5); it and its rates file are frozen as they stand. `analysis/check_rules_router.py` compares this list with the import closure worked out from `routers/rules.py`'s imports, and each hash with its file. sha256, as in A7 item 3:
+    - `routers/__init__.py`: `1c93dfb7989a0b24c0989368c751cc0b6fdab3d17a280ff68a1c31cb84136bf3`
+    - `routers/ladder.py`: `35448ba6ccf6b6d9a504d56127d40ad5e2f3b18c3ee0a562ad3b5bdbd299818d`
+    - `routers/request.py`: `15c809b5d422074f2c6a526d5ce2b542d0e8155930269a9b5763eb62463472e2`
+    - `routers/rules.py`: `231db1b7e9fc3f52ec1233f335242efc3ab41c85c8695d65972cab515d021216`
+    - The rates file, `routers/rules_rates.json`: `4210dfa7b543d6702b5664650210ae57f92aee5e14764ec6b44f008138d065fd`
+    - **Train task-inference diagnostic** (item 5): On this benchmark's templates the inferred type is the item's task for 991 of 991 train items (100.0%), and for 991 of 991 (100.0%) with the output schema withheld. It says nothing about traffic outside these templates. The check recomputes it where the train matrix is present.
+    - **Latency** (item 6), as A7 item 1 recorded the pilot's: `score(request)` over the 744 dev requests, patterns compiled at import, 50 warm-up calls excluded, the router scores thrown away: median 4.1 us, p90 14.0 us, on an Apple M5 Pro, Darwin 27.0.0 arm64, Python 3.13.13. It depends on the machine, so it is quoted as measured and isn't re-checked.
+    - The decision rule and the Router protocol (`routers/decision.py`) are outside the closure and not frozen by this item.
+
 ---
 
 # 1. Goal

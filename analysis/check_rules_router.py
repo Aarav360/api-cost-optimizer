@@ -12,16 +12,23 @@ Never a test item, and no E number on dev.
 - the router: its router scores are its bucket's rates, and the decision rule reads them;
 - the committed rates file's shape, and that `score` reads it;
 - no Banking77 label in the rules router's source, with the benchmark's own labels as the known positive;
+- the freeze (Amendment A9 item 17): the recorded module list is the import closure worked out from the router's
+  imports, each recorded hash is the file's, and the guards can fail: a module imported later and a changed byte
+  both show;
 - the hook only (it needs the results stores, which CI lacks): the committed rates equal a refit from the train
-  matrix.
+  matrix, and the train task-inference diagnostic equals item 17's.
 """
 
 import json
+import re
 import sys
+import tempfile
 from collections.abc import Callable
+from pathlib import Path
 
 from analysis.benchmark import read_rows
-from analysis.fit_rules_router import rates_text, train_inputs
+from analysis.fit_rules_router import diagnostic, rates_text, train_inputs
+from analysis.freeze import RATES, closure, sha256
 from harness.client import PROJECT_ROOT
 from harness.loaders import banking77_labels
 from routers import rules
@@ -29,6 +36,9 @@ from routers.decision import choose
 from routers.ladder import SCORED
 from routers.request import Request
 from routers.rules import CLASSIFICATION, CODE, MULTIPLE_CHOICE, OPEN_ENDED
+
+PLAN = PROJECT_ROOT / "PLAN_v4.md"
+RECORD = re.compile(r"`(routers/[\w./]+)`: `([0-9a-f]{64})`")  # a path and its sha256, as item 17 writes them
 
 problems: list[str] = []
 
@@ -117,6 +127,22 @@ TYPE_CASES = [
     ("anything unrecognised is open-ended", Request("Tell me a joke."), OPEN_ENDED),
     ("an empty prompt is open-ended", Request(""), OPEN_ENDED),
 ]
+
+
+def a9_item(plan: str, number: int) -> str:
+    """Amendment A9 item `number`'s text, from its number to the next item's, or to the end of the amendment (the rule
+    after it)."""
+    amendment = re.split(r"\n## |\n---\n", plan[plan.index("## Amendment A9") :], maxsplit=1)[0]
+    start = amendment.index(f"\n{number}. **") + 1
+    end = amendment.find(f"\n{number + 1}. **", start)
+    return amendment[start : None if end == -1 else end]
+
+
+def write_package(root: Path, modules: dict[str, str]) -> None:
+    """A small `routers` package under root, from module names to their source."""
+    (root / "routers").mkdir()
+    for name, source in modules.items():
+        (root / "routers" / f"{name}.py").write_text(source)
 
 
 def padded(start: str, length: int) -> str:
@@ -303,10 +329,57 @@ def main() -> int:
     check(found_in(source + "\n# Refund_not_showing_up") == ["Refund_not_showing_up"], "labels match whatever the case")
     check(not found_in(source), "the rules router's source holds no label")
 
+    print("\n-- the freeze (Amendment A9 item 17) --")
+    record = a9_item(PLAN.read_text(), 17)
+    recorded = dict(RECORD.findall(record))
+    frozen_now = closure()
+    check(sorted(p for p in recorded if p.endswith(".py")) == frozen_now,
+          f"the recorded modules are the import closure worked out from the rules router's imports {frozen_now}")  # fmt: skip
+    check(RATES in recorded and len(recorded) == len(frozen_now) + 1, "the rates file is recorded too, once")
+    check(
+        "routers/__init__.py" in recorded and "routers/rules.py" in recorded, "__init__ and the rules router are in it"
+    )
+    for relative, digest in recorded.items():
+        check(sha256(PROJECT_ROOT / relative) == digest, f"{relative} hashes as recorded")
+    check(re.search(r"median [\d.]+ us, p90 [\d.]+ us, on .*Python", record) is not None,
+          "item 17 records the latency's median and p90 and the machine")  # fmt: skip
+    check(
+        "On this benchmark's templates" in record,
+        "item 17 words the diagnostic as holding on this benchmark's templates",
+    )
+
+    # A guard proves it can fail: a changed byte, a module imported later, and a record that leaves one out.
+    with tempfile.TemporaryDirectory() as tmp:
+        for relative, digest in recorded.items():
+            copy = Path(tmp) / Path(relative).name
+            copy.write_bytes((PROJECT_ROOT / relative).read_bytes() + b" ")
+            check(sha256(copy) != digest, f"a byte added to a copy of {relative} changes its hash")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        write_package(root, {"__init__": "", "rules": "import json\nfrom routers.a import x\n", "a": "from .b import y\n",
+                             "b": "from . import d\n", "c": "", "d": "from routers import e\n", "e": ""})  # fmt: skip
+        listed = [
+            "routers/__init__.py",
+            "routers/a.py",
+            "routers/b.py",
+            "routers/d.py",
+            "routers/e.py",
+            "routers/rules.py",
+        ]
+        check(closure("routers/rules.py", root) == listed,
+              "on a synthetic package the closure follows absolute, relative and from-package imports, and leaves c out")  # fmt: skip
+        (root / "routers" / "rules.py").write_text("import json\nfrom routers.a import x\nimport routers.c\n")
+        late = closure("routers/rules.py", root)
+        check(late == sorted([*listed, "routers/c.py"]) and late != listed,
+              "a module imported later joins the closure, so a record made before it differs")  # fmt: skip
+    short_record = [p for p in recorded if p.endswith(".py") and p != "routers/request.py"]
+    check(short_record != frozen_now, "a record that leaves a module out differs from the closure")
+
     if (PROJECT_ROOT / "results" / "dev_matrix.sqlite").exists():
-        print("\n-- the committed rates against a refit from the train matrix (the hook only) --")
-        requests_, successes_, _ = train_inputs()
+        print("\n-- the train matrix against the committed rates and item 17 (the hook only) --")
+        requests_, successes_, tasks_ = train_inputs()
         check(rules.fit(requests_, successes_) == committed, "a refit from the train matrix equals the committed rates")
+        check(f"{diagnostic(requests_, tasks_)}." in record, "the train task-inference diagnostic is item 17's")
 
     print("\nall checks passed" if not problems else f"\n{len(problems)} checks failed")
     return 1 if problems else 0
