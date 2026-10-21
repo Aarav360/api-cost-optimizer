@@ -33,7 +33,7 @@ extend-exclude = ["harness/ifeval", "harness/ifbench"] # vendored at pinned comm
 select = ["E4", "E7", "E9", "F", "I"]
 
 [tool.mypy]
-files = ["analysis", "harness"]
+files = ["analysis", "harness", "routers"]
 exclude = ["harness/ifeval/", "harness/ifbench/"]
 ignore_missing_imports = true
 disable_error_code = ["annotation-unchecked"] # a note about untyped functions, not an error
