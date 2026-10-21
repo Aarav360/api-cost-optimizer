@@ -45,7 +45,7 @@ from analysis.operating_points import (
     write_section,
 )
 from analysis.references import TARGETS
-from analysis.router_table import ItemScores, RouterScoreTable
+from analysis.router_table import ItemRouterScores, RouterScoreTable
 from analysis.simulator import TraceError, always, simulate
 from analysis.walk import Walk, WalkError, item_breakpoints, step_thresholds, walk
 
@@ -70,8 +70,10 @@ def close(a: float | None, b: float, tolerance: float = 1e-12) -> bool:
     return a is not None and math.isclose(a, b, rel_tol=0, abs_tol=tolerance)
 
 
-def table_of(scores: dict[str, dict[str, float]], overhead: float = 0.0) -> RouterScoreTable:
-    return RouterScoreTable.build([ItemScores(i, s, overhead) for i, s in scores.items()], list(scores))
+def table_of(router_scores: dict[str, dict[str, float]], overhead: float = 0.0) -> RouterScoreTable:
+    return RouterScoreTable.build(
+        [ItemRouterScores(i, s, overhead) for i, s in router_scores.items()], list(router_scores)
+    )
 
 
 def haiku_only(haiku: dict[str, float]) -> dict[str, dict[str, float]]:
@@ -166,7 +168,7 @@ def main() -> int:
     check(item_breakpoints({"haiku": 0.3, "sonnet": 0.3, "opus_low": 0.3}) == [0.3],
           "a router score equal to a cheaper config's isn't one either: only haiku's is")  # fmt: skip
     check(item_breakpoints({"haiku": 0.1, "sonnet": 0.4, "opus_low": 0.7}) == [0.1, 0.4, 0.7],
-          "scores that rise up the ladder are all breakpoints")  # fmt: skip
+          "router scores that rise up the ladder are all breakpoints")  # fmt: skip
     check(item_breakpoints({"haiku": 0.9, "sonnet": 0.5, "opus_low": 0.95}) == [0.9, 0.95],
           "opus_low must beat the higher of the cheaper two, not only the nearest")  # fmt: skip
     check(item_breakpoints({"haiku": 0.5, "sonnet": 0.6, "opus_low": 0.55}) == [0.5, 0.6],

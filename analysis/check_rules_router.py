@@ -86,12 +86,12 @@ TYPE_CASES = [
         MULTIPLE_CHOICE,
     ),
     (
-        "a multiple-choice question that contains code is multiple choice",
+        "a multiple-choice request that contains code is multiple choice",
         Request("```python\nprint(1)\n```\nWhat does this print?\nA. 1\nB. 2"),
         MULTIPLE_CHOICE,
     ),
     (
-        "a multiple-choice question that asks for a function is multiple choice",
+        "a multiple-choice request that asks for a function is multiple choice",
         Request("Write a function that returns 1. Which one runs?\nA. def f(): return 1\nB. def f(): return 2"),
         MULTIPLE_CHOICE,
     ),
@@ -190,8 +190,8 @@ def main() -> int:
     )
     check(rules.bucket_key(Request("It must be brief."), cuts) == "open_ended/few", "one constraint, cut at 1, is few")
     check(rules.bucket_key(Request("It must be brief. Do not ramble."), cuts) == "open_ended/many", "two are many")
-    check(rules.bucket_key(Request(CALC), cuts) == "multiple_choice/calc", "a calculation question is calc")
-    check(rules.bucket_key(Request(PLAIN), cuts) == "multiple_choice/plain", "a question with no calculation is plain")
+    check(rules.bucket_key(Request(CALC), cuts) == "multiple_choice/calc", "a calculation request is calc")
+    check(rules.bucket_key(Request(PLAIN), cuts) == "multiple_choice/plain", "a request with no calculation is plain")
     check(rules.bucket_key(classify, {**cuts, CLASSIFICATION: 0.0}) == "classification/long", "cut points are read")
 
     print("\n-- fitting on hand-worked buckets --")
@@ -264,16 +264,24 @@ def main() -> int:
 
     print("\n-- the router --")
     router = rules.RulesRouter(rates)
-    calc_scores = router.score(Request(CALC))
+    calc_router_scores = router.score(Request(CALC))
     check(
-        calc_scores == {"haiku": 0.25, "sonnet": 0.5, "opus_low": 0.75}, "a calc question gets the calc bucket's rates"
+        calc_router_scores == {"haiku": 0.25, "sonnet": 0.5, "opus_low": 0.75},
+        "a calc request gets the calc bucket's rates",
     )
-    check(set(calc_scores) == set(SCORED), "the router scores each config below the frontier and never the frontier")
-    calc_scores["haiku"] = 0.0
     check(
-        router.score(Request(CALC))["haiku"] == 0.25, "the scores returned are a copy: changing them leaves the rates"
+        set(calc_router_scores) == set(SCORED),
+        "the router scores each config below the frontier and never the frontier",
     )
-    check(choose(router.score(Request(CALC)), 0.7) == "opus_low", "the decision rule reads them: 0.7 goes to opus_low")
+    calc_router_scores["haiku"] = 0.0
+    check(
+        router.score(Request(CALC))["haiku"] == 0.25,
+        "the router scores returned are a copy: changing them leaves the rates",
+    )
+    check(
+        choose(router.score(Request(CALC)), 0.7) == "opus_low",
+        "the decision rule reads the router scores: 0.7 goes to opus_low",
+    )
     check(router.score(Request(padded("p", 120), LABELS)) == rates["buckets"]["classification/short"]["rates"],
           "a classification prompt of 120 characters, under the 150 cut, gets the short bucket's rates")  # fmt: skip
     check(router.score(Request(padded("Write a function ", 250))) == {"haiku": 20 / 59, "sonnet": 38 / 59, "opus_low": 58 / 59},
@@ -301,7 +309,7 @@ def main() -> int:
     committed_router = rules.RulesRouter(committed)
     check(rules.score(Request(CALC)) == committed_router.score(Request(CALC))
           == committed["buckets"]["multiple_choice/calc"]["rates"],
-          "score(request) reads the committed file: a calc question gets its calc bucket's rates")  # fmt: skip
+          "score(request) reads the committed file: a calc request gets its calc bucket's rates")  # fmt: skip
 
     print("\n-- no Banking77 label in the rules router --")
     sample = next(row for row in read_rows(split="train") if row["source"] == "banking77")

@@ -9,7 +9,7 @@ after the freeze, in this order: this table, the dev task-inference diagnostic, 
 """
 
 from analysis.benchmark import read_rows
-from analysis.router_table import ItemScores, RouterScoreTable
+from analysis.router_table import ItemRouterScores, RouterScoreTable
 from routers import rules
 from routers.ladder import SCORED
 from routers.request import from_row
@@ -20,13 +20,13 @@ OVERHEAD = 0.0  # E runs locally: no API call, no dollars (item 6)
 def dev_table() -> RouterScoreTable:
     """The table over every dev item, in the reader's order, or the table's refusal (TableError)."""
     rows = read_rows(split="dev")
-    items = [ItemScores(row["item_id"], rules.score(from_row(row)), OVERHEAD) for row in rows]
+    items = [ItemRouterScores(row["item_id"], rules.score(from_row(row)), OVERHEAD) for row in rows]
     return RouterScoreTable.build(items, [row["item_id"] for row in rows])
 
 
 def main() -> None:
     table = dev_table()
-    distinct = {tuple(entry.scores[config] for config in SCORED) for entry in table.items}
+    distinct = {tuple(entry.router_scores[config] for config in SCORED) for entry in table.items}
     print(f"E's dev router-score table: {len(table.items)} dev requests, each scored by score(request), overhead $0, "
           f"{len(distinct)} distinct triples of router scores; it passes the table's refusal")  # fmt: skip
 

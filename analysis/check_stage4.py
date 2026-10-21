@@ -43,8 +43,8 @@ from analysis.operating_points import OPERATING_POINTS_FILE, read_section, secti
 from analysis.pareto import FIGURE_DATA, PANELS, TASK_FIGURE_DATA
 from analysis.plan import PLAN, amendment_item
 from analysis.references import ROUNDING, TARGETS
-from analysis.router_panels import config_mcnemar, mix_router, step_outcomes, task_router
-from analysis.router_table import ItemScores, RouterScoreTable, TableError
+from analysis.router_panels import config_mcnemar, router_part_of_mix_panel, router_part_of_task_panel, step_outcomes
+from analysis.router_table import ItemRouterScores, RouterScoreTable, TableError
 from analysis.rules_table import dev_table
 from analysis.rules_walk import ROUTER, dev_walks, rebuilt_section
 from analysis.simulator import always, load_mixes, simulate, totals
@@ -152,13 +152,13 @@ def chart_checks(dev: Matrix, table: RouterScoreTable, section: dict[str, Any]) 
     steps = step_outcomes(dev, table, fixed[FRONTIER])
     for mix in PANELS:
         savings = draws.savings(dev, fixed[FRONTIER], mixes[mix])
-        rebuilt = mix_router(draws, savings, steps, walks[mix], fixed, mixes[mix])
+        rebuilt = router_part_of_mix_panel(draws, savings, steps, walks[mix], fixed, mixes[mix])
         check(json.loads(json.dumps(rebuilt)) == headline["panels"][mix]["routers"][ROUTER],
               f"{mix} mix: E's steps and operating points in figures/pareto.json are what the package gives now")  # fmt: skip
     for task in DEV_TASKS:
         rebuilt = {
             "mcnemar_vs_A": config_mcnemar(fixed, task),
-            "routers": {ROUTER: task_router(draws, steps, walks, task)},
+            "routers": {ROUTER: router_part_of_task_panel(draws, steps, walks, task)},
         }
         committed = {key: per_task["panels"][task][key] for key in rebuilt}
         check(json.loads(json.dumps(rebuilt)) == committed,
@@ -210,7 +210,7 @@ def chart_checks(dev: Matrix, table: RouterScoreTable, section: dict[str, Any]) 
                   f"is E less that ({shown_pts(matched['difference'])} points)")  # fmt: skip
 
     print("\n-- per task: McNemar's test, counted from the matrix's own cells (Amendment A9, items 11 and 15) --")
-    scores = {entry.item_id: entry.scores for entry in table.items}
+    router_scores = {entry.item_id: entry.router_scores for entry in table.items}
 
     def right(item_id: str, config: str) -> bool:
         return dev.cells[(item_id, config)].success == 1
@@ -236,7 +236,7 @@ def chart_checks(dev: Matrix, table: RouterScoreTable, section: dict[str, Any]) 
                     check(threshold is None and point["mcnemar"] is None,
                           f"{task}, {mix} {key}: a fallback has no McNemar row, shown as —")  # fmt: skip
                     continue
-                b, c = counted({i: choose(scores[i], threshold) for i in ids})
+                b, c = counted({i: choose(router_scores[i], threshold) for i in ids})
                 shown_rows.append((b, c))
                 check(point["mcnemar"] == {"b": b, "c": c, "p": mcnemar_p(b, c)},
                       f"{task}, {mix} {key}: E at {threshold:.4f} against A: b = {b}, c = {c}, p = {mcnemar_p(b, c):.3f}")  # fmt: skip
@@ -324,9 +324,9 @@ def main() -> int:
           "its entries are in the reader's dev order")  # fmt: skip
     check(set(entry.item_id for entry in table.items) == set(dev_ids),
           "they are the dev results matrix's items")  # fmt: skip
-    check(all(entry.scores == rules.score(from_row(row)) for entry, row in zip(table.items, rows)),
+    check(all(entry.router_scores == rules.score(from_row(row)) for entry, row in zip(table.items, rows)),
           "every entry's router scores are score(request) for that dev request, from the reader")  # fmt: skip
-    check(all(set(entry.scores) == set(SCORED) for entry in table.items),
+    check(all(set(entry.router_scores) == set(SCORED) for entry in table.items),
           f"every entry scores {', '.join(SCORED)} and never {FRONTIER}")  # fmt: skip
     check(all(entry.overhead == 0.0 for entry in table.items), "every overhead is exactly $0: E runs locally")
     check(RouterScoreTable.build(list(table.items), dev_ids).items == table.items,
@@ -334,7 +334,7 @@ def main() -> int:
     check(refused(lambda: RouterScoreTable.build(list(table.items)[1:], dev_ids)),
           "the refusal fires on a table that leaves out a dev item")  # fmt: skip
     first = table.items[0]
-    scored_frontier = ItemScores(first.item_id, {**first.scores, FRONTIER: 0.5}, 0.0)
+    scored_frontier = ItemRouterScores(first.item_id, {**first.router_scores, FRONTIER: 0.5}, 0.0)
     check(refused(lambda: RouterScoreTable.build([scored_frontier, *table.items[1:]], dev_ids)),
           "the refusal fires on a table that scores the frontier")  # fmt: skip
 

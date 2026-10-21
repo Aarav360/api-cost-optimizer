@@ -30,7 +30,7 @@ from typing import Any
 from analysis import matrix as matrix_module
 from analysis.benchmark import BenchmarkError, SealedItemError, read_rows
 from analysis.matrix import Matrix
-from analysis.router_table import ItemScores, RouterScoreTable, TableError
+from analysis.router_table import ItemRouterScores, RouterScoreTable, TableError
 from analysis.simulator import simulate
 from harness.client import PROJECT_ROOT
 from harness.collect import FRONTIER
@@ -76,30 +76,30 @@ REQUEST = Request("Classify this.", {"type": "object"})
 # Four dev items. Hand-worked configs at threshold 0.9: a haiku (0.9 equals it), b sonnet (haiku 0.5 is below),
 # c the frontier (nothing reaches it), d haiku. At 0.96: a opus_low (0.99), and the frontier for b, c and d
 # (d's haiku 0.95 and opus_low 0.9 are below it, and so is its sonnet 0.3).
-SCORES = {
+ROUTER_SCORES = {
     "a": {"haiku": 0.9, "sonnet": 0.95, "opus_low": 0.99},
     "b": {"haiku": 0.5, "sonnet": 0.92, "opus_low": 0.6},
     "c": {"haiku": 0.1, "sonnet": 0.2, "opus_low": 0.3},
     "d": {"haiku": 0.95, "sonnet": 0.3, "opus_low": 0.9},
 }
 OVERHEAD = {"a": 0.0, "b": 0.00001, "c": 0.00002, "d": 0.00003}
-ITEMS = list(SCORES)
+ITEMS = list(ROUTER_SCORES)
 
 
-def entries(**changes: dict[str, float]) -> list[ItemScores]:
-    return [ItemScores(i, changes.get(i, SCORES[i]), OVERHEAD[i]) for i in ITEMS]
+def entries(**changes: dict[str, float]) -> list[ItemRouterScores]:
+    return [ItemRouterScores(i, changes.get(i, ROUTER_SCORES[i]), OVERHEAD[i]) for i in ITEMS]
 
 
-def build(items: list[ItemScores]) -> RouterScoreTable:
+def build(items: list[ItemRouterScores]) -> RouterScoreTable:
     return RouterScoreTable.build(items, ITEMS)
 
 
-def with_haiku_score(score: Any) -> RouterScoreTable:
-    return build(entries(a={**SCORES["a"], "haiku": score}))
+def with_haiku_router_score(router_score: Any) -> RouterScoreTable:
+    return build(entries(a={**ROUTER_SCORES["a"], "haiku": router_score}))
 
 
 def with_overhead(overhead: float) -> RouterScoreTable:
-    return build([ItemScores("a", SCORES["a"], overhead), *entries()[1:]])
+    return build([ItemRouterScores("a", ROUTER_SCORES["a"], overhead), *entries()[1:]])
 
 
 def synthetic_file(directory: Path) -> Path:
@@ -120,15 +120,15 @@ def main() -> int:
     check(refused(AttributeError, lambda: setattr(request, "prompt", "other")), "the request is frozen")
 
     print("\n-- the decision rule --")
-    check(choose(SCORES["a"], 0.9) == "haiku", "a router score equal to the threshold counts")
-    check(choose(SCORES["b"], 0.9) == "sonnet", "the cheapest config that reaches the threshold is chosen")
-    check(choose(SCORES["c"], 0.9) == FRONTIER, "nothing reaches the threshold: the frontier")
+    check(choose(ROUTER_SCORES["a"], 0.9) == "haiku", "a router score equal to the threshold counts")
+    check(choose(ROUTER_SCORES["b"], 0.9) == "sonnet", "the cheapest config that reaches the threshold is chosen")
+    check(choose(ROUTER_SCORES["c"], 0.9) == FRONTIER, "nothing reaches the threshold: the frontier")
     check(choose({"haiku": 0.6, "sonnet": 0.4, "opus_low": 0.7}, 0.65) == "opus_low",
           "a dearer config scored below a cheaper one is passed over")  # fmt: skip
     check(
         choose({"haiku": 0.6, "sonnet": 0.9, "opus_low": 0.9}, 0.5) == "haiku", "a lower threshold keeps the cheapest"
     )
-    check(choose(SCORES["c"], 0.0) == "haiku", "a threshold of 0 takes haiku")
+    check(choose(ROUTER_SCORES["c"], 0.0) == "haiku", "a threshold of 0 takes haiku")
 
     print("\n-- the ladder --")
     check(matrix_module.LADDER is ladder.LADDER, "the matrix module's LADDER is the router package's own object")
@@ -162,14 +162,14 @@ def main() -> int:
     table = build(entries())
     check(refused(TableError, lambda: build(entries()[:3])), "a missing item is refused")
     check(refused(TableError, lambda: build([*entries(), entries()[0]])), "a repeated item is refused")
-    check(refused(TableError, lambda: build([*entries(), ItemScores("z", SCORES["a"], 0.0)])),
+    check(refused(TableError, lambda: build([*entries(), ItemRouterScores("z", ROUTER_SCORES["a"], 0.0)])),
           "an item outside the split is refused")  # fmt: skip
-    check(refused(TableError, lambda: build(entries(a={**SCORES["a"], "opus": 1.0}))),
+    check(refused(TableError, lambda: build(entries(a={**ROUTER_SCORES["a"], "opus": 1.0}))),
           "a router score for the frontier is refused")  # fmt: skip
     check(refused(TableError, lambda: build(entries(a={"haiku": 0.9, "sonnet": 0.95}))),
           "a config below the frontier left out is refused")  # fmt: skip
     for bad in (1.5, -0.1, float("nan"), float("inf"), "0.5", True):
-        check(refused(TableError, partial(with_haiku_score, bad)),
+        check(refused(TableError, partial(with_haiku_router_score, bad)),
               f"a router score of {bad!r} is refused")  # fmt: skip
     for bad in (-0.001, float("nan"), float("inf")):
         check(refused(TableError, partial(with_overhead, bad)),

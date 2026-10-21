@@ -83,8 +83,10 @@ def main() -> None:
     print(f"wrote {RATES} from {len(requests)} train items")
     print(f"cut points (train medians): {rates['cut_points']}")
     for key, bucket in rates["buckets"].items():
-        said = ", ".join(f"{c} {bucket['rates'][c]:.3f}" for c in SCORED)
-        print(f"  {key:24} n = {bucket['count']:3}{'  folded into its type' if bucket['folded'] else ''}: {said}")
+        shown_rates = ", ".join(f"{c} {bucket['rates'][c]:.3f}" for c in SCORED)
+        print(
+            f"  {key:24} n = {bucket['count']:3}{'  folded into its type' if bucket['folded'] else ''}: {shown_rates}"
+        )
     print(f"\n{diagnostic(requests, tasks)}")
     dev_requests = [from_row(row) for row in read_rows(split="dev")]
     median, p90 = latency(dev_requests)
