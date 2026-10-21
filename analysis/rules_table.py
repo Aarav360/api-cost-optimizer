@@ -19,7 +19,7 @@ OVERHEAD = 0.0  # E runs locally: no API call, no dollars (item 6)
 
 def dev_table() -> RouterScoreTable:
     """The table over every dev item, in the reader's order, or the table's refusal (TableError)."""
-    rows = [row for row in read_rows() if row["split"] == "dev"]
+    rows = read_rows(split="dev")
     items = [ItemScores(row["item_id"], rules.score(from_row(row)), OVERHEAD) for row in rows]
     return RouterScoreTable.build(items, [row["item_id"] for row in rows])
 

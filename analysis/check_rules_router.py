@@ -29,6 +29,7 @@ from pathlib import Path
 from analysis.benchmark import read_rows
 from analysis.fit_rules_router import diagnostic, rates_text, train_inputs
 from analysis.freeze import RATES, closure, sha256
+from analysis.plan import PLAN, amendment_item
 from harness.client import PROJECT_ROOT
 from harness.loaders import banking77_labels
 from routers import rules
@@ -37,7 +38,6 @@ from routers.ladder import SCORED
 from routers.request import Request
 from routers.rules import CLASSIFICATION, CODE, MULTIPLE_CHOICE, OPEN_ENDED
 
-PLAN = PROJECT_ROOT / "PLAN_v4.md"
 RECORD = re.compile(r"`(routers/[\w./]+)`: `([0-9a-f]{64})`")  # a path and its sha256, as item 17 writes them
 
 problems: list[str] = []
@@ -127,15 +127,6 @@ TYPE_CASES = [
     ("anything unrecognised is open-ended", Request("Tell me a joke."), OPEN_ENDED),
     ("an empty prompt is open-ended", Request(""), OPEN_ENDED),
 ]
-
-
-def a9_item(plan: str, number: int) -> str:
-    """Amendment A9 item `number`'s text, from its number to the next item's, or to the end of the amendment (the rule
-    after it)."""
-    amendment = re.split(r"\n## |\n---\n", plan[plan.index("## Amendment A9") :], maxsplit=1)[0]
-    start = amendment.index(f"\n{number}. **") + 1
-    end = amendment.find(f"\n{number + 1}. **", start)
-    return amendment[start : None if end == -1 else end]
 
 
 def write_package(root: Path, modules: dict[str, str]) -> None:
@@ -313,7 +304,7 @@ def main() -> int:
           "score(request) reads the committed file: a calc question gets its calc bucket's rates")  # fmt: skip
 
     print("\n-- no Banking77 label in the rules router --")
-    sample = next(row for row in read_rows() if row["split"] == "train" and row["source"] == "banking77")
+    sample = next(row for row in read_rows(split="train") if row["source"] == "banking77")
     labels = banking77_labels(sample["prompt"])
     source = (PROJECT_ROOT / "routers" / "rules.py").read_text().casefold()
 
@@ -330,7 +321,7 @@ def main() -> int:
     check(not found_in(source), "the rules router's source holds no label")
 
     print("\n-- the freeze (Amendment A9 item 17) --")
-    record = a9_item(PLAN.read_text(), 17)
+    record = amendment_item(PLAN.read_text(), "A9", 17)
     recorded = dict(RECORD.findall(record))
     frozen_now = closure()
     check(sorted(p for p in recorded if p.endswith(".py")) == frozen_now,

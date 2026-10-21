@@ -16,7 +16,7 @@ from routers.request import Request, from_row
 
 def dev_inputs() -> tuple[dict[str, Request], dict[str, str]]:
     """The dev requests and, for the diagnostic only, each item's task."""
-    rows = [row for row in read_rows() if row["split"] == "dev"]
+    rows = read_rows(split="dev")
     return {row["item_id"]: from_row(row) for row in rows}, {row["item_id"]: row["source"] for row in rows}
 
 

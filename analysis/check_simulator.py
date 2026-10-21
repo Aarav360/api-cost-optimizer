@@ -127,6 +127,7 @@ import numpy as np
 from analysis.bootstrap import Bootstrap, BootstrapError, Captured, Estimate, resample
 from analysis.matrix import LADDER, Item, Matrix, MatrixError, from_store, list_price, read_store
 from analysis.pareto import FIGURE_DATA, PANELS, TASK_FIGURE_DATA, mix_panel, task_panels
+from analysis.plan import PLAN, amendment_item
 from analysis.references import (
     BoundError,
     Curve,
@@ -151,13 +152,12 @@ from analysis.simulator import (
     totals,
 )
 from harness import check_sealed
-from harness.client import PROJECT_ROOT, load_models
+from harness.client import load_models
 
 DEV_TASKS = {"ifeval": 157, "banking77": 240, "mmlu_pro": 240, "mbppplus": 107}  # Amendment A5, item 3
 # Amendment A7, item 2: the tasks whose per-task results carry a warning, which names the task's dev count.
 A7_WARNED = {"ifeval", "mbppplus"}
 # Amendment A8's numbers on dev are read from the plan itself, never copied here, so an edit there can't drift.
-PLAN = PROJECT_ROOT / "PLAN_v4.md"
 
 
 def synthetic(items: dict[str, tuple[str, dict[str, tuple[float, float]]]], split: str = "dev",
@@ -449,15 +449,6 @@ def record_lines(headline: dict) -> list[str]:
         f"- The paired interval of the `opus_low` \u2212 `opus` gap {holds}, so item 1's reading stands: the gap is "
         f"likely noise, and the frontier stays `opus`.",
     ]  # fmt: skip
-
-
-def a8_item(plan: str, number: int) -> str:
-    """Amendment A8 item `number`'s text, from its number to the next item's, or to the end of the amendment: the
-    next amendment's heading, or the rule after the last one."""
-    amendment = re.split(r"\n## |\n---\n", plan[plan.index("## Amendment A8") :], maxsplit=1)[0]
-    start = amendment.index(f"\n{number}. **") + 1
-    end = amendment.find(f"\n{number + 1}. **", start)
-    return amendment[start : None if end == -1 else end]
 
 
 def record_mismatches(record: list[str], headline: dict) -> list[tuple[str, str]]:
@@ -921,7 +912,7 @@ def main() -> int:
     plan = PLAN.read_text()
     mixes = load_mixes()
     fixed = {config: simulate(dev, always(dev, config)) for config in LADDER}
-    table = a8_item(plan, 1)
+    table = amendment_item(plan, "A8", 1)
     a8_rows = {config: table_row(config, totals(fixed[config], mixes["uniform"]), totals(fixed[config], mixes["realistic"]))
                for config in LADDER}  # fmt: skip
     for config, row in a8_rows.items():
@@ -939,7 +930,7 @@ def main() -> int:
     for where, costs in ladder_costs.items():
         check(all(lower < higher for lower, higher in pairwise(costs)),
               f"{where}: {' < '.join(f'${cost:.2f}' for cost in costs)} per 1k, the ladder's order (A8 item 5)")  # fmt: skip
-    ladder = a8_item(plan, 5)
+    ladder = amendment_item(plan, "A8", 5)
     item_cost = {key: cell.cost for key, cell in dev.cells.items()}
     above = {(lower, higher): f"{100 * sum(item_cost[(i, lower)] > item_cost[(i, higher)] for i in dev.items) / len(dev.items):.1f}"
              for lower, higher in (("sonnet", "opus_low"), ("opus_low", "opus"))}  # fmt: skip
@@ -974,7 +965,7 @@ def main() -> int:
     beat_opus = [item_id for item_id, configs in right.items() if configs and "opus" not in configs]
     said = (f"{len(fail_everywhere)} dev items fail on every config and stay on `haiku` with score 0. On "
             f"{len(beat_opus)}, `opus` fails and a cheaper config succeeds.")  # fmt: skip
-    check(said in a8_item(plan, 6), f"{said} As Amendment A8 item 6 says")
+    check(said in amendment_item(plan, "A8", 6), f"{said} As Amendment A8 item 6 says")
     climbers = sum(bool(configs) and "haiku" not in configs for configs in right.values())
     for mix in ("realistic", "uniform"):
         weights = item_weights(dev.items.values(), mixes[mix])
@@ -1020,7 +1011,7 @@ def main() -> int:
     dev_spread = {config: draws.totals(fixed[config], realistic) for config in LADDER}
     dev_se = {config: 100 * dev_spread[config].quality.standard_error for config in LADDER}
     margin = sum(dev_se.values()) / len(dev_se)
-    margin_9 = a8_item(plan, 9)
+    margin_9 = amendment_item(plan, "A8", 9)
     said = f"a fixed config's own standard error is about {margin:.1f} points"
     check(said in margin_9,
           f"realistic mix: {said} (on average; {', '.join(f'{config} {se:.2f}' for config, se in dev_se.items())}), "
@@ -1123,7 +1114,7 @@ def main() -> int:
           f"with their dev counts {warned}")  # fmt: skip
 
     print("\n-- chart v0's record (Amendment A8, item 12) --")
-    record = a8_item(plan, 12).splitlines()
+    record = amendment_item(plan, "A8", 12).splitlines()
     mismatches = record_mismatches(record, headline)
     check(not mismatches,
           "every number in Amendment A8 item 12's record is the one figures/pareto.json gives, at the precision the "

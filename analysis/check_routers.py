@@ -9,8 +9,9 @@ On synthetic data only, with answers worked out by hand. Never a real test item.
   frontier, and a dearer config scored below a cheaper one is never chosen;
 - the ladder the results-matrix module re-exports is the router package's own object and ends at
   the frontier;
-- the benchmark reader yields train and dev rows from a synthetic file with test rows too, and a
-  request for a test item is refused whole;
+- the benchmark reader yields train and dev rows from a synthetic file with test rows too, one split's
+  rows on request, a request for a test item or for the test split is refused whole, and so is a file with a
+  row of a split the benchmark doesn't have;
 - the router-score table is refused whole for each bad case, and at a threshold becomes traces by
   the decision rule that carry its overhead, which the simulator accepts;
 - no router-package module imports from analysis or harness, and the guard finds the import it
@@ -27,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from analysis import matrix as matrix_module
-from analysis.benchmark import BenchmarkError, SealedItemError, read_requests, read_rows
+from analysis.benchmark import BenchmarkError, SealedItemError, read_rows
 from analysis.matrix import Matrix
 from analysis.router_table import ItemScores, RouterScoreTable, TableError
 from analysis.simulator import simulate
@@ -144,9 +145,18 @@ def main() -> int:
         check(refused(SealedItemError, lambda: read_rows(path, ["x:dev-0", "x:test-1"])),
               "asking for a test item is refused whole, even beside a dev item")  # fmt: skip
         check(refused(BenchmarkError, lambda: read_rows(path, ["x:nowhere"])), "an item not in the file is refused")
-        requests = read_requests(path)
-        check(sorted(requests) == kept and requests["x:dev-0"] == REQUEST,
-              "requests come only for train and dev items, from the prompt and schema")  # fmt: skip
+        check([r["item_id"] for r in read_rows(path, split="dev")] == ["x:dev-0", "x:dev-1"],
+              "asking for one split yields just its rows")  # fmt: skip
+        check(refused(SealedItemError, lambda: read_rows(path, split="test")), "asking for the test split is refused")
+        check(refused(BenchmarkError, lambda: read_rows(path, split="holdout")), "asking for another split is refused")
+        check(refused(BenchmarkError, lambda: read_rows(path, ["x:train-0"], split="dev")),
+              "a named item outside the split asked for is refused")  # fmt: skip
+        # A synthetic file only, never a real test item: a row in a split the benchmark doesn't have.
+        stray = Path(tmp) / "stray.jsonl"
+        stray.write_text(path.read_text() + json.dumps({**ROW, "item_id": "x:stray-0", "split": "holdout"}) + "\n")
+        check(refused(BenchmarkError, lambda: read_rows(stray)),
+              "a file with a row of a split other than train, dev or test is refused whole")  # fmt: skip
+        check(not refused(BenchmarkError, lambda: read_rows(path)), "known positive: the same file without it is read")
 
     print("\n-- the router-score table: refusals --")
     table = build(entries())

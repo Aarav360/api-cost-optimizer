@@ -14,19 +14,16 @@ point the quality and cost with intervals and McNemar's test against A (item 11)
 from dataclasses import asdict
 
 from analysis.bootstrap import Bootstrap, Savings, TotalEstimate
-from analysis.matrix import LADDER, Matrix
+from analysis.matrix import Matrix
 from analysis.mcnemar import mcnemar
+from analysis.operating_points import target_key
 from analysis.references import TARGETS
 from analysis.router_table import RouterScoreTable
 from analysis.simulator import Outcome, item_weights, simulate, task_totals, totals
 from analysis.walk import Walk, step_thresholds
-from routers.ladder import FRONTIER
+from routers.ladder import FRONTIER, LADDER
 
 A = "A"  # always-frontier, the walk's first step; its threshold is None
-
-
-def target_key(share: float) -> str:
-    return f"{share:.0%}"
 
 
 def step_outcomes(dev: Matrix, table: RouterScoreTable, frontier: list[Outcome]) -> dict[float | None, list[Outcome]]:

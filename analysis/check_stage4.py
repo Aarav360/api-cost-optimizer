@@ -38,9 +38,10 @@ from analysis.benchmark import read_rows
 from analysis.bootstrap import resample
 from analysis.dev_diagnostic import dev_diagnostic, dev_inputs
 from analysis.fit_rules_router import diagnostic
-from analysis.matrix import LADDER, Matrix
+from analysis.matrix import Matrix
 from analysis.operating_points import OPERATING_POINTS_FILE, read_section, section_hash
 from analysis.pareto import FIGURE_DATA, PANELS, TASK_FIGURE_DATA
+from analysis.plan import PLAN, amendment_item
 from analysis.references import ROUNDING, TARGETS
 from analysis.router_panels import config_mcnemar, mix_router, step_outcomes, task_router
 from analysis.router_table import ItemScores, RouterScoreTable, TableError
@@ -48,13 +49,11 @@ from analysis.rules_table import dev_table
 from analysis.rules_walk import ROUTER, dev_walks, rebuilt_section
 from analysis.simulator import always, load_mixes, simulate, totals
 from analysis.walk import step_thresholds
-from harness.client import PROJECT_ROOT
 from routers import rules
 from routers.decision import choose
-from routers.ladder import FRONTIER, SCORED
+from routers.ladder import FRONTIER, LADDER, SCORED
 from routers.request import Request, from_row
 
-PLAN = PROJECT_ROOT / "PLAN_v4.md"
 DEV_TASKS = ("ifeval", "banking77", "mmlu_pro", "mbppplus")  # A5's order, as the per-task figure has them
 
 problems: list[str] = []
@@ -283,15 +282,6 @@ def record_lines(headline: dict, section: dict[str, Any]) -> list[str]:
     ]
 
 
-def a9_item(plan: str, number: int) -> str:
-    """Amendment A9 item `number`'s text, from its number to the next item's, or to the end of the amendment (the rule
-    after it, the last amendment's end)."""
-    amendment = re.split(r"\n## |\n---\n", plan[plan.index("## Amendment A9") :], maxsplit=1)[0]
-    start = amendment.index(f"\n{number}. **") + 1
-    end = amendment.find(f"\n{number + 1}. **", start)
-    return amendment[start : None if end == -1 else end]
-
-
 def record_mismatches(record: list[str], headline: dict, section: dict[str, Any]) -> list[tuple[str, str]]:
     """Each line of the record holding a number that differs from the line the JSON gives, paired with it; a line
     missing on either side is paired with ''. A digit after a letter is part of a name, as in v1 or A9."""
@@ -307,7 +297,7 @@ def record_checks(headline: dict, section: dict[str, Any]) -> None:
           "the figure JSON's hash of E's section is the sha256 of the section read from the file, sorted keys")  # fmt: skip
     check(json.loads(OPERATING_POINTS_FILE.read_text())[ROUTER] == section,
           "E's section is the one in the operating-points file, which holds it with sorted keys")  # fmt: skip
-    record = a9_item(PLAN.read_text(), 18).splitlines()
+    record = amendment_item(PLAN.read_text(), "A9", 18).splitlines()
     mismatches = record_mismatches(record, headline, section)
     check(not mismatches,
           "every number in Amendment A9 item 18's record is the one figures/pareto.json and the operating-points "
@@ -325,7 +315,7 @@ def record_checks(headline: dict, section: dict[str, Any]) -> None:
 
 def main() -> int:
     print("-- E's dev router-score table (Amendment A9, item 3) --")
-    rows = [row for row in read_rows() if row["split"] == "dev"]
+    rows = read_rows(split="dev")
     dev = results_matrix.load().split("dev")
     dev_ids = list(dev.items)
     table = dev_table()

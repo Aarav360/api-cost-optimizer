@@ -345,6 +345,19 @@ def main() -> int:
         check(list(parsed) == sorted(parsed) and list(parsed["E"]["uniform"]) == sorted(parsed["E"]["uniform"]),
               "the file is written with sorted keys")  # fmt: skip
         check(refused(OperatingPointsError, lambda: read_section("Z", path)), "a router with no section is refused")
+        # A file that isn't a JSON object is refused whole, on read and before a write could overwrite it.
+        broken = Path(tmp) / "broken.json"
+        broken.write_text('{"E": ')
+        check(
+            refused(OperatingPointsError, lambda: read_section("E", broken)), "a file that isn't valid JSON is refused"
+        )
+        check(refused(OperatingPointsError, lambda: write_section("E", section, broken)) and broken.read_text() == '{"E": ',
+              "and a write into it is refused, leaving the file as it was")  # fmt: skip
+        listed = Path(tmp) / "listed.json"
+        listed.write_text('[{"E": {}}]')
+        check(refused(OperatingPointsError, lambda: read_section("E", listed)), "a file holding a JSON list is refused")
+        check(refused(OperatingPointsError, lambda: write_section("E", section, listed)) and listed.read_text() == '[{"E": {}}]',
+              "and a write into it is refused, leaving the file as it was")  # fmt: skip
 
     digest = section_hash(section)
     check(digest == section_hash(build_section(walks)) and digest == section_hash(json.loads(json.dumps(section))),
