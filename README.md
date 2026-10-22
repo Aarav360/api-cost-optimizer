@@ -114,6 +114,7 @@ uv run python -m analysis.check_routers    # the router foundation, the benchmar
 uv run python -m analysis.check_comparisons  # McNemar's test and the matched-cost difference
 uv run python -m analysis.check_walk       # breakpoints, steps, the walk and the operating-points file, on synthetic tables
 uv run python -m analysis.check_rules_router  # E's cues, fit and freeze hashes (A9 item 17), and A10's record against the frozen code
+uv run python -m analysis.check_chart_routers  # the chart script's router list: E's entry and style, F's reserved, two routers drawn
 uv run python -m analysis.check_stage4     # E on dev, tables v0 and v1, A9's record (item 18) and the Stage 3 numbers A9 quotes, against the JSONs
 ```
 
