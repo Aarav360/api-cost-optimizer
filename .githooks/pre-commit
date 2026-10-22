@@ -16,6 +16,7 @@ uv run python -m analysis.check_walk | grep -E "^FAIL|checks"
 uv run python -m analysis.check_folds | grep -E "^FAIL|checks"
 # Its refit against the train matrix runs only where results/ is present, like check_simulator below.
 uv run python -m analysis.check_rules_router | grep -E "^FAIL|checks"
+uv run python -m analysis.check_chart_routers | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
   uv run python -m analysis.check_simulator | grep -E "^FAIL|checks"
   uv run python -m analysis.check_stage4 | grep -E "^FAIL|checks"
