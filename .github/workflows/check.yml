@@ -21,4 +21,5 @@ jobs:
       - run: uv run python -m analysis.check_comparisons
       - run: uv run python -m analysis.check_walk
       - run: uv run python -m analysis.check_folds
+      - run: uv run python -m analysis.check_metrics
       - run: uv run python -m analysis.check_rules_router
