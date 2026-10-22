@@ -105,3 +105,21 @@ Topics to come back to for the write-up, newest last. Details are in PLAN_v4.md'
 - Traces: a policy must climb the config ladder (skipping is fine). Stepping down would pay for a dearer config and return a cheaper one's answer. A negative or non-finite overhead is refused too, since it would make a policy look cheaper.
 - The checks on A8's numbers now read the plan itself, not copies typed into the check script, and they catch the old $6.56 → $6.57 slip.
 - Talking point: rules the plan only described became refusals before any router existed, so no Stage 4–7 result can lean on a malformed trace.
+
+### 2026-10-20 · Picking a router's threshold without fooling ourselves (Amendment A9, items 9 and 10)
+- Every threshold is its own policy. Taking the cheapest one that clears its target on dev picks the luckiest of many, so on test it would miss more often than the one in six the safety margin allows.
+- Decision: walk down from always-`opus` in a fixed order and stop at the first threshold that doesn't clear by the margin (fixed-sequence testing, as in Learn-then-Test). The steps are the points where some item's config changes, fixed from router scores before any outcome is looked up. Where nothing cheaper clears, the router falls back to always-`opus` and is reported as saving nothing.
+- Rejected a fixed 0.05 grid. Dev's per-task success rates bunch between 0.82 and 0.94, so the rules router would get four policies, and four tasks would change config at once at t = 0.85.
+- Talking point: trying many thresholds costs nothing only if their order is fixed in advance. The walk keeps the safety margin's promise however many steps it takes.
+
+### 2026-10-20 · The rules router learns from train, not dev (Amendment A9, items 4, 5 and 13)
+- The plan's sketch had hand-set numbers. Instead, each bucket scores each config by its success rate on train. Hand-set numbers come from looking somewhere, and if that's dev, dev sets both the numbers and the thresholds, and test misses more often.
+- The rules router and the trained router now learn from the same train labels, so comparing them tests hand-written cues against embeddings.
+- The rules freeze by hash, in a commit made before any rules-router number on dev exists, so anyone can check the order in the git log.
+- Talking point: on this benchmark the rules will spot the task almost every time, because the prompts are templated. That says nothing about real traffic, and the write-up says so.
+
+### 2026-10-20 · The rules router on dev: real savings, but no better than mixing configs at the same spend (Amendment A9, item 18)
+- At the 100% target the walk certifies nothing cheaper than always-`opus`, so E falls back to A under both mixes. At 99% it saves 21% (realistic) and 23% (uniform). At 97% it saves 73% realistic, at 85.7% quality for $2.16 per 1k against A's $8.04.
+- At matched cost, E's paired difference from the random-mixture envelope has an interval that includes 0 in every cell. The best is +1.0 points at 97% realistic (−1.4 to +3.0). Reading the prompt hasn't yet beaten ignoring it at the same spend.
+- The one-standard-error margin behaves as designed. At 97% realistic only 84% of resamples meet the target, which is roughly the one-in-six miss rate A8 item 9 accepts.
+- Talking point: a router that saves money can still fail to beat a coin-flip mix of configs at the same cost. The envelope comparison is what tells them apart, and it sets the bar for the trained and Jev routers.
