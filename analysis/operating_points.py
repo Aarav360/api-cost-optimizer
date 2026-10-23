@@ -8,16 +8,20 @@ A router's section is built from its walks (`build_section`), written with `writ
 router's section as it was, and read back with `read_section`. `section_hash` is the sha256 of a section's JSON text
 with sorted keys, which is what the record hashes when Stage 4 finishes (E's section, item 18) so that any change,
 a threshold moved in the fourth decimal included, is caught.
+
+`check_sections` is the allowlist (Amendment A11, item 13): the file holds sections only for the routers an amendment
+names, never F-train or a diagnostic, so Stage 8 can't pick up a threshold that was never a policy's.
 """
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from pathlib import Path
 from typing import Any
 
 from analysis.bootstrap import RESAMPLES, SEED
 from analysis.references import TARGETS
+from analysis.router_names import NAMED_ROUTERS
 from analysis.walk import ALL_STEPS_UP_TO, QUANTILE_STEPS, Step, Walk
 from harness.client import PROJECT_ROOT
 
@@ -112,3 +116,26 @@ def section_hash(section: dict[str, Any]) -> str:
     """The sha256 of a section's JSON text with sorted keys and a two-space indent, as the file writes it, so the
     hash of a section read back equals the hash of the one written, whatever order its keys were built in."""
     return hashlib.sha256(_text(section).encode()).hexdigest()
+
+
+def check_sections(path: Path = OPERATING_POINTS_FILE, required: Collection[str] = ()) -> None:
+    """Refuses (OperatingPointsError) a file with a section for anything but the routers an amendment names
+    (`NAMED_ROUTERS`), with F-train and every diagnostic among them, or a file that isn't there or isn't an object.
+
+    `required` names sections that must also be present, each itself a named router: Stage 5 asks for F's once F is
+    walked (`required=(NAMED_ROUTERS[E], NAMED_ROUTERS[F])`). By default no section is required, so a file with
+    E's alone passes.
+    """
+    if not path.exists():
+        raise OperatingPointsError(f"there is no file at {path}")
+    allowed = set(NAMED_ROUTERS.values())
+    if unnamed := sorted(set(required) - allowed):
+        raise OperatingPointsError(
+            f"required sections {unnamed} are not routers an amendment names ({sorted(allowed)})"
+        )
+    sections = _read_file(path)
+    if extra := sorted(set(sections) - allowed):
+        raise OperatingPointsError(f"{path} has sections {extra}, which are not routers an amendment names "
+                                   f"({sorted(allowed)}); F-train and the diagnostics never get one")  # fmt: skip
+    if missing := sorted(set(required) - set(sections)):
+        raise OperatingPointsError(f"{path} has no section for {missing}; it holds {sorted(sections)}")

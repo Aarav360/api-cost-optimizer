@@ -162,7 +162,9 @@ def chart_checks(dev: Matrix, table: RouterScoreTable, section: dict[str, Any]) 
             "mcnemar_vs_A": config_mcnemar(fixed, task),
             "routers": {ROUTER: router_part_of_task_panel(draws, steps, walks, task)},
         }
-        committed = {key: per_task["panels"][task][key] for key in rebuilt}
+        # E's part only: chart v2 adds F's beside it under `routers` (A11 item 16), which `check_stage5` checks.
+        committed = {"mcnemar_vs_A": per_task["panels"][task]["mcnemar_vs_A"],
+                     "routers": {ROUTER: per_task["panels"][task]["routers"][ROUTER]}}  # fmt: skip
         check(json.loads(json.dumps(rebuilt)) == committed,
               f"{task}: E's steps, operating points and McNemar rows in figures/pareto_tasks.json are current")  # fmt: skip
 

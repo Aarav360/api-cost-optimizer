@@ -20,4 +20,12 @@ jobs:
       - run: uv run python -m analysis.check_routers
       - run: uv run python -m analysis.check_comparisons
       - run: uv run python -m analysis.check_walk
+      - run: uv run python -m analysis.check_folds
+      - run: uv run python -m analysis.check_metrics
       - run: uv run python -m analysis.check_rules_router
+      - run: uv run python -m analysis.check_chart_routers
+      - run: uv run python -m analysis.check_stage5
+      - run: uv run python -m analysis.check_trained_router
+      - run: uv run python -m analysis.check_trained_freeze
+      - run: uv run python -m analysis.check_trained_fit
+      - run: uv run python -m analysis.check_learning_curve
