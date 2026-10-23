@@ -332,6 +332,8 @@ def main() -> int:
         listed = Path(folder) / "listed.json"
         listed.write_text(json.dumps([rules]))
         refuses(OperatingPointsError, lambda: check_sections(listed), "a file holding a list is refused", "object")
+    passes(lambda: check_sections(OPERATING_POINTS_FILE, required=(rules, trained)),
+           "F's section is present in the committed file, beside E's")  # fmt: skip
     passes(lambda: check_sections(OPERATING_POINTS_FILE),
            f"the committed file passes: sections {sorted(json.loads(OPERATING_POINTS_FILE.read_text()))}")  # fmt: skip
 

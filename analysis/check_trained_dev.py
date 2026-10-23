@@ -17,21 +17,40 @@ never a test item.
   own numbers, in order and inside 0 to 1, and over the fold file's held-out items.
 """
 
+import copy
 import json
+import re
 import sys
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
 from analysis import fit_trained_router as fit
-from analysis import trained_table
+from analysis import matrix as results_matrix
+from analysis import trained_table, trained_walk
 from analysis.benchmark import read_rows
+from analysis.bootstrap import resample
 from analysis.folds import N_FOLDS, read_folds
 from analysis.measure_trained_router import drift_limit
+from analysis.operating_points import (
+    NAMED_ROUTERS,
+    OPERATING_POINTS_FILE,
+    OperatingPointsError,
+    check_sections,
+    read_section,
+    section_hash,
+)
+from analysis.plan import PLAN, amendment_item
+from analysis.references import ROUNDING, TARGETS
+from analysis.router_panels import router_part_of_mix_panel, step_outcomes
 from analysis.router_table import RouterScoreTable, TableError
+from analysis.rules_walk import MIXES, dev_walks
+from analysis.simulator import always, load_mixes, simulate
+from analysis.walk import ALL_STEPS_UP_TO, QUANTILE_STEPS, item_breakpoints, step_thresholds
 from harness.client import PROJECT_ROOT
 from routers import trained
-from routers.ladder import FRONTIER, SCORED
+from routers.ladder import FRONTIER, LADDER, SCORED
 from routers.request import from_row
 from routers.trained import TrainedRouter
 
@@ -163,12 +182,109 @@ def table_checks() -> None:
         print("\n(the model snapshot is missing: the score_with comparison is skipped)")
 
 
+def certified_steps_clear(section: dict[str, Any]) -> bool:
+    """Every certified step (A included) clears its point's target by its own margin, in a section's six walks."""
+    for by_target in section.values():
+        for point in by_target.values():
+            steps = point["steps"]
+            stop = next((i for i, s in enumerate(steps) if not s["clears"]), len(steps))
+            if not all(s["quality"] - point["target"] >= s["margin"] - ROUNDING for s in steps[:stop]):
+                return False
+    return True
+
+
+def walk_checks() -> None:
+    print("\n-- the walk on dev and F's section of the operating-points file (Amendment A11, items 9, 13 and 15) --")
+    name = trained_walk.ROUTER
+    check(name == NAMED_ROUTERS["F"] == "trained", f"F's section is {name!r}, the name the allowlist gives F")
+    section = read_section(name)
+    check(list(section) == list(MIXES) and all(set(b) == {"100%", "99%", "97%"} for b in section.values()),
+          "F's section holds both mixes and all three targets: six operating points")  # fmt: skip
+    rebuilt = trained_walk.rebuilt_section()
+    check(rebuilt == section and section_hash(rebuilt) == section_hash(section),
+          "the walk on dev reproduces F's section of the operating-points file, so its hash too")  # fmt: skip
+    nudged = copy.deepcopy(section)
+    nudged["realistic"]["99%"]["margin"] += 1e-12
+    check(section_hash(nudged) != section_hash(section) and nudged != rebuilt,
+          "known positive: a margin changed in the twelfth decimal changes the section's hash and fails the comparison")  # fmt: skip
+    try:
+        check_sections(OPERATING_POINTS_FILE, required=(NAMED_ROUTERS["E"], name))
+        allowed = True
+    except OperatingPointsError:
+        allowed = False
+    check(allowed, "the allowlist passes with F's section present, and nothing else but E's")
+    check(NAMED_ROUTERS["E"] in json.loads(OPERATING_POINTS_FILE.read_text()),
+          "E's section is still in the file")  # fmt: skip
+    item18 = amendment_item(PLAN.read_text(), "A9", 18)
+    recorded = re.search(r"E's section of `routers/operating_points.json`, written with sorted keys, has the 64-digit "
+                         r"sha256 `([0-9a-f]{64})`", item18)  # fmt: skip
+    check(recorded is not None and section_hash(read_section(NAMED_ROUTERS["E"])) == recorded[1],
+          "E's section is unchanged: its sha256 is still A9 item 18's")  # fmt: skip
+
+    table = trained_table.dev_table()
+    pooled = sorted(b for e in table.items for b in item_breakpoints(e.router_scores))
+    steps = step_thresholds(table)
+    check(len(set(pooled)) > ALL_STEPS_UP_TO and len(steps) <= QUANTILE_STEPS,
+          f"A9 item 9's quantile steps apply: {len(set(pooled))} distinct breakpoints, more than {ALL_STEPS_UP_TO}, "
+          f"give {len(steps)} steps")  # fmt: skip
+    for mix, by_target in section.items():
+        for key, point in by_target.items():
+            filed = point["steps"]
+            where = f"{mix} mix, {key} of A"
+            stop = next((i for i, s in enumerate(filed) if not s["clears"]), len(filed))
+            certified, missed = filed[:stop], filed[stop:]
+            check(filed[0]["threshold"] is None and filed[0]["margin"] == 0 and float(key.rstrip("%")) / 100 in TARGETS,
+                  f"{where}: the walk starts at A, threshold null, margin 0")  # fmt: skip
+            check([s["threshold"] for s in filed[1:]] == list(reversed(steps))[: len(filed) - 1],
+                  f"{where}: its {len(filed) - 1} steps tried are the table's quantile steps, highest threshold first")  # fmt: skip
+            check(all(s["quality"] - point["target"] >= s["margin"] - ROUNDING for s in certified),
+                  f"{where}: all {len(certified)} certified steps (A included) clear the target by their margin")  # fmt: skip
+            check(not missed or (len(missed) == 1 and missed[0]["quality"] - point["target"] < missed[0]["margin"] - ROUNDING),
+                  f"{where}: the walk ends at the first step that misses its target, or tried them all")  # fmt: skip
+            cheapest = certified[0]
+            for step in certified[1:]:
+                if step["cost_per_1k"] < cheapest["cost_per_1k"] - ROUNDING:
+                    cheapest = step
+            check(point["threshold"] == cheapest["threshold"] and point["margin"] == cheapest["margin"]
+                  and point["fell_back"] == (point["threshold"] is None),
+                  f"{where}: the operating point is the cheapest certified step: "
+                  + ("A, it falls back" if point["fell_back"] else f"threshold {point['threshold']:.4f}"))  # fmt: skip
+    check(certified_steps_clear(section), "every certified step in F's section clears its target by its margin")
+    broken = copy.deepcopy(section)
+    broken["uniform"]["97%"]["steps"][1]["quality"] = broken["uniform"]["97%"]["target"] - 0.01
+    check(not certified_steps_clear(broken),
+          "known positive: a certified step with quality below the target is found")  # fmt: skip
+
+    print("\n-- the captured fraction (Amendment A9 item 15, for F) --")
+    dev = results_matrix.load().split("dev")
+    mixes = load_mixes()
+    fixed = {config: simulate(dev, always(dev, config)) for config in LADDER}
+    draws = resample(dev)
+    walks = dev_walks(dev, table, draws)
+    outcomes = step_outcomes(dev, table, fixed[FRONTIER])
+    for mix in MIXES:
+        savings = draws.savings(dev, fixed[FRONTIER], mixes[mix])
+        part = router_part_of_mix_panel(draws, savings, outcomes, walks[mix], fixed, mixes[mix])
+        for key, point in part["operating_points"].items():
+            captured = point["captured"]
+            bounds = [captured[b] for b in ("value", "low", "high") if captured[b] is not None]
+            fell_back = section[mix][key]["fell_back"]
+            check(all(0 <= b <= 1 for b in bounds) and 0 <= captured["met"] <= 1
+                  and (captured["value"] == 0 if fell_back else captured["value"] is not None and captured["value"] > 0),
+                  f"{mix} mix, {key} of A: the captured fraction, interval included, is at most 1"
+                  + (" and 0 for a fallback" if fell_back else f" ({captured['value']:.2f})"))  # fmt: skip
+            check(point["threshold"] == section[mix][key]["threshold"],
+                  f"{mix} mix, {key} of A: the point the chart would draw is the file's")  # fmt: skip
+
+
 def main() -> int:
     needed = [fit.cache_paths("dev")[0], trained.FOLD_WEIGHTS_FILE, PROJECT_ROOT / "results" / "dev_matrix.sqlite"]
     if not all(p.exists() for p in needed):
         print("(the dev cache, the fold weights or the dev matrix is missing: nothing to check here)")
         return 0
     table_checks()
+    if trained.FOLD_WEIGHTS_FILE.exists() and trained_walk.ROUTER in json.loads(OPERATING_POINTS_FILE.read_text()):
+        walk_checks()
     print("\nall checks passed" if not problems else f"\n{len(problems)} checks failed")
     return 1 if problems else 0
 
