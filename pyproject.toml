@@ -12,11 +12,25 @@ dependencies = [
     "math-verify[antlr4-13-2]>=0.9.0",
     "matplotlib>=3.11.2",
     "nltk>=3.10.3",
-    "numpy>=2.5.4",
+    "numpy==2.5.4",
     "python-dotenv>=1.2.4",
     "pyyaml>=6.0.3",
+    "scikit-learn==1.9.1", # the fit script only; routers/ never imports it (Amendment A11 item 10)
     "syllapy>=0.8.0",
+    "tokenizers==0.23.3",
+    "torch==2.14.1",
+    "transformers==5.20.2",
 ]
+
+# Exact pins, so a re-lock for an unrelated reason can't move the trained router's numerics (Amendment A11 item 4).
+# On Linux, PyTorch comes from its CPU-only index, so CI doesn't download CUDA builds.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [dependency-groups]
 dev = [
