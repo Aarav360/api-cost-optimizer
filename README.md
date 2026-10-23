@@ -8,7 +8,7 @@ model per request) and cascades (which try a cheap model first and escalate when
 fails) against two references: a hindsight oracle that shows the most any strategy could save,
 and random mixtures that show what you get with no routing intelligence at all.
 
-**Status:** Stages 0–4 are done. The pilot chose four tasks ([Amendment A3](PLAN_v4.md)), the
+**Status:** Stages 0–5 are done. The pilot chose four tasks ([Amendment A3](PLAN_v4.md)), the
 benchmark of 2,478 items is split and frozen ([Amendment A5](PLAN_v4.md)), and the collection run
 has answered every item through every config for $29.37: train and dev are scored, and test is
 sealed until Stage 8 ([Amendment A6](PLAN_v4.md)). Stage 3 built the offline simulator, the four
@@ -19,10 +19,20 @@ router, E, a set of hand-written rules whose router scores are train success rat
 before any dev number was computed, then walked on dev: chart and table v1 show its steps and its
 six operating points, and [Amendment A9](PLAN_v4.md) item 18 records them with the hash of E's
 section of the operating-points file. Amendment A10, from the branch review, adds the decision rule
-to the freeze and records how E's frozen cues read A9. Stage 5, the embedding router, is next. Every
-result so far is on dev, with the test split still sealed.
+to the freeze and records how E's frozen cues read A9. Stage 5 built F, the trained router: a local,
+pinned embedding model (`gte-modernbert-base`) reads each request with its template lines removed, and
+one logistic regression per config below the frontier turns the embedding into router scores. F is
+cross-fitted: five fold models, each learning from train and four of dev's five folds, give every dev
+item an out-of-fold router score, and test will be scored by the fold model a hash of the request
+picks ([Amendment A11](PLAN_v4.md)). It was frozen in two commits, the settings before any dev label
+was read and then the fold weights (items 19 and 20), and walked on dev like E. F-train, the task-rates
+diagnostic, within-task concordance and a learning curve explain F's result and are diagnostics, not
+policies. Chart and table v2 put F beside E, and item 21 records F's operating points, the
+comparisons and the diagnostics' headline numbers. At matched cost F's paired difference from the
+random-mixture envelope includes 0 at each of its six operating points, as E's does. Stage 6, Jev's
+router, is next. Every result so far is on dev, with the test split still sealed.
 
-![Pareto chart v1 on dev: the four fixed configs with their intervals, the random-mixture envelope, the hindsight oracle and the rules router E, with E's steps as a line and a cross at each of its operating points, under the realistic and uniform task mixes](figures/pareto.png)
+![Pareto chart v2 on dev: the four fixed configs with their intervals, the random-mixture envelope, the hindsight oracle, the rules router E and the trained router F, each with its steps as a line and a cross at each of its operating points, under the realistic and uniform task mixes](figures/pareto.png)
 
 ## Approach
 
@@ -108,14 +118,14 @@ uv run python -m analysis.fit_rules_router # fit E on train and write routers/ru
 uv run python -m analysis.rules_table      # E's dev router-score table: score(request) on every dev request
 uv run python -m analysis.dev_diagnostic   # the dev task-inference diagnostic, on this benchmark's templates
 uv run python -m analysis.rules_walk       # the walk on dev: writes E's section of routers/operating_points.json
-uv run python -m analysis.pareto           # chart v1 on dev: prints tables v0 and v1, writes the figures and their JSONs
+uv run python -m analysis.pareto           # chart v2 on dev: E's and F's steps and operating points, tables v0 and v1, the figures and their JSONs
 uv run python -m analysis.check_simulator  # the analysis package on hand-worked cases, then on dev against the figures and A8's record
 uv run python -m analysis.check_routers    # the router foundation, the benchmark reader and the router-score table
 uv run python -m analysis.check_comparisons  # McNemar's test and the matched-cost difference
 uv run python -m analysis.check_walk       # breakpoints, steps, the walk and the operating-points file, on synthetic tables
 uv run python -m analysis.check_metrics    # within-task concordance, log loss, the same-target comparison and the operating-points allowlist
 uv run python -m analysis.check_rules_router  # E's cues, fit and freeze hashes (A9 item 17), and A10's record against the frozen code
-uv run python -m analysis.check_chart_routers  # the chart script's router list: E's entry and style, F's reserved, two routers drawn
+uv run python -m analysis.check_chart_routers  # the chart script's router list: E's and F's entries and styles, two routers drawn
 uv run python -m analysis.fetch_model      # once: the five embedding-model files at A11's pinned commit, into .cache/ (the router never fetches)
 uv run python -m analysis.check_trained_router  # the trained router's foundation, on a fake backend; with the snapshot, also the real tokenizer's window
 uv run python -m analysis.fit_trained_router caches    # F's embedding caches of train and dev requests, into results/trained_embeddings/ (no outcome read)
@@ -132,13 +142,19 @@ uv run python -m analysis.check_learning_curve  # the learning curve's subsample
 uv run python -m analysis.trained_diagnostics  # F-train and the task rates walked, within-task concordance, log loss, same-target comparisons (nothing written)
 uv run python -m analysis.check_trained_diagnostics  # the diagnostics against hand-worked and independent counts; the hook only
 uv run python -m analysis.check_stage4     # E on dev, tables v0 and v1, A9's record (item 18) and the Stage 3 numbers A9 quotes, against the JSONs
+uv run python -m analysis.table_v2         # table v2's additions (same-target comparisons, diagnostics, per-fold quantiles) and the learning-curve figure: writes figures/table_v2.json, learning_curve.json and .png
+uv run python -m analysis.check_stage5     # chart and table v2, the learning-curve figure and A11's record of F (item 21) against the committed files; the hook adds the rebuild from the dev matrix
 ```
 
 The matrix-reading commands need the dev results matrix in `results/`, so they need the collection
-run's stores; so do `check_simulator` and `check_stage4`, which the hook runs where the matrix is
-present, and the refit half of `check_rules_router`. Chart v1 takes a few seconds: the paired
-bootstrap re-solves the hindsight oracle on every resample. Run the three E steps in the order
-`rules_table`, `dev_diagnostic`, `rules_walk` (A9 item 13), which is also the order of their commits.
+run's stores; so do `check_simulator`, `check_stage4` and the F checks marked above as hook-only, which the
+hook runs where the matrix is present, and the refit half of `check_rules_router`. Chart v2 takes about
+15 seconds, and `table_v2` about 30 more for the learning curve's 60 refits: the paired bootstrap
+re-solves the hindsight oracle on every resample. Run the three E steps in the order `rules_table`,
+`dev_diagnostic`, `rules_walk` (A9 item 13), which is also the order of their commits. F's steps follow
+A11 item 15: `fetch_model`, `fit_trained_router caches` and `settings`, the freeze commit, `fit_trained_router
+folds` (the fit commit), then `trained_table`, `trained_walk`, the diagnostics, `pareto` and `table_v2`.
+The diagnostics' walks stay in memory and never enter the operating-points file.
 
 The first LiveCodeBench load downloads about 690 MB and writes its decoded tests (about 500 MB)
 to `.cache/`.
@@ -163,7 +179,7 @@ system, none of your files, an unprivileged user, and caps on memory, processes,
 ## Layout
 
 ```text
-PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A10)
+PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A11)
 GLOSSARY.md          the study's vocabulary from Stage 3 on: policy, trace, config ladder, reference, request,
                      router score, threshold, walk, operating point, ...
 WRITEUP.md           the final write-up (to come) and running notes for it
@@ -179,15 +195,23 @@ harness/ifbench/     AI2's IFBench instruction checkers, vendored at a pinned co
 analysis/            the offline simulator (traces to outcomes and totals), the results-matrix loader,
                      references C and D, the paired bootstrap, the benchmark reader, the router-score table,
                      the walk and operating points, McNemar's test, E's fit on train and its freeze hashes,
-                     E's table, diagnostic and walk on dev, chart v1 and the check scripts
+                     E's table, diagnostic and walk on dev, the trained router's fold builder, fit script and
+                     freeze measurements, F's and F-train's tables and F's walk, the diagnostics and the
+                     learning curve, chart v2, table v2 and the check scripts
 routers/             the deployable routers (imports nothing from analysis or harness): the config ladder,
                      the request, the decision rule (frozen, A10 item 1), the rules router E (frozen, A9
-                     item 17) and its rates file rules_rates.json, and operating_points.json, every
-                     router's thresholds from the walk
-figures/             chart v1 on dev: the headline and per-task figures, each a PNG with a JSON of every
-                     number it plots, tables v0 and v1 included
+                     item 17) and its rates file rules_rates.json, the trained router F in trained.py
+                     (frozen, A11 item 19) with its settings trained_settings.json, F-train's weights
+                     trained_f_train_weights.json and the five fold models' weights
+                     trained_fold_weights.json (the fit, A11 item 20), and operating_points.json, E's and
+                     F's thresholds from the walk (never F-train's or a diagnostic's)
+figures/             chart v2 on dev: the headline and per-task figures, each a PNG with a JSON of every
+                     number it plots, tables v0 and v1 included, E's and F's rows alike; table_v2.json, the
+                     same-target comparisons and the diagnostics; learning_curve.png and .json
 sandbox/             Dockerfile for the code sandbox image
 data/benchmark.jsonl the frozen benchmark: 2,478 items split 40/30/30, plus its hash manifest
+data/dev_folds.json  dev's five folds for cross-fitting F, and train_folds.json, train's five folds for choosing C
+                     (item IDs only, built without any outcome; hashes in A11 item 19)
 data/pilot*.jsonl    Stage 0 pilot items: 20 per candidate dataset, 20 MATH Level 5 items, and
                      20 each from IFBench and LiveCodeBench
 data/collection_manifest.json  batch IDs, counts and the sealed test store's hash (Amendment A6)
@@ -198,7 +222,7 @@ docs/history/        earlier versions of the plan
 
 ## Progress
 
-- [x] Study plan frozen (v4, amendments A1–A10)
+- [x] Study plan frozen (v4, amendments A1–A11)
 - [x] Harness: API client, on-disk response store, pinned model configs
 - [x] Dataset loaders at pinned revisions, and 120 pilot items
 - [x] Docker code sandbox (18/18 escape checks; 377/377 MBPP+ reference solutions pass under the
@@ -218,8 +242,12 @@ docs/history/        earlier versions of the plan
 - [x] Stage 4: the shared router parts, the rules router E fitted on train and frozen, then on dev
       its router-score table, task-inference diagnostic and walk; chart and table v1 with E's six
       operating points, and A9's record of them (item 18); A10 adds the decision rule to the freeze
-- [ ] Stages 5–8: the embedding router, Jev's router, gates and cascades, final evaluation on the
-      sealed test split
+- [x] Stage 5: the trained router F (a pinned local embedding model and logistic regressions),
+      cross-fitted on dev in five folds and frozen in two commits (A11 items 19 and 20); its walk and
+      operating points on dev; the diagnostics (F-train, the task-rates diagnostic, within-task
+      concordance, a learning curve); chart and table v2 and the learning-curve figure; A11's record
+      of F (item 21)
+- [ ] Stages 6–8: Jev's router, gates and cascades, final evaluation on the sealed test split
 
 ## License
 
