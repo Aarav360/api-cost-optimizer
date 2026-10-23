@@ -587,7 +587,48 @@ Stage 5's decisions, from a design review made after chart v1 and before any Sta
     - **The freeze commit**: `484a3d01f73e534c4dc297b244cda829f60a8c3c`, an ancestor of the fit commit. Every file item 19 hashes is as that commit left it.
     - **The fold weights**, five sets of three heads in plain JSON floats, fitted from the frozen inputs (the train caches and dev's four folds outside the held-out one, each config's C and the solver's settings from the settings file): `routers/trained_fold_weights.json`: `6ae030ba37c2194f615ab76b171d2c303d5c9136a389a5ebe04a1fea2336953c`
     - **Training rows** per fold model, the 991 train rows plus the dev rows outside its fold: fold model 0, 1586; fold model 1, 1586; fold model 2, 1586; fold model 3, 1586; fold model 4, 1587.
-21. **Record.** F's operating points on dev and the hash of its section of `routers/operating_points.json`, as A9 item 18 records E's, compared with the committed files by a check. To be filled in when Stage 5 finishes: at each mix and target, the threshold (or "falls back to A"), quality, cost per 1k, savings against A, captured fraction and share of resamples meeting the target; F's section's sha256; and the headline diagnostics: within-task concordance per config, item 13's comparisons, and the learning curve's paired difference from 75% to 100%.
+21. **Record.** F's operating points on dev (run 0, n = 744, list prices of 2026-10-12), from `figures/pareto.json`, and the hash of its section of `routers/operating_points.json`, as A9 item 18 records E's; the diagnostics' and comparisons' numbers are from `figures/table_v2.json`. Intervals are percentile 95% from 2,000 paired resamples, and `analysis/check_stage5.py` compares every number here with those files.
+
+    | | Realistic | Uniform |
+    |---|---|---|
+    | F: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.9194, 0.8973 | falls back to A, falls back to A, 0.9022 |
+    | F: quality there | 86.7%, 87.1%, 85.5% | 89.5%, 89.5%, 87.8% |
+    | F: $ per 1k there | $8.04, $6.65, $4.83 | $12.01, $12.01, $7.61 |
+    | F: savings against A there | 0.0%, 17.3%, 39.9% | 0.0%, 0.0%, 36.7% |
+    | F: captured fraction there | 0.00, 0.18, 0.42 | 0.00, 0.00, 0.38 |
+    | F: share of resamples meeting the target there | 100.0%, 100.0%, 84.5% | 100.0%, 100.0%, 88.0% |
+    | F: paired quality difference from the envelope at F's cost there, in points | -1.0 (-3.6 to +0.0), -0.7 (-3.5 to +1.4), -1.0 (-3.1 to +0.9) | -0.2 (-1.6 to +0.0), -0.2 (-1.6 to +0.0), -0.7 (-1.9 to +0.5) |
+
+- Where a target reads "falls back to A", the walk certified nothing cheaper than A (item 10): the operating point is A itself, with no router call and no overhead, and its captured fraction is 0.00.
+- F's section of `routers/operating_points.json`, written with sorted keys, has the 64-digit sha256 `bcf4eec14585c955380b1887629e754070ce8764a7e2ef323a9a4af1ac699c31`.
+- The comparisons below are descriptive, with no multiplicity correction: at 95%, about one interval in twenty excludes 0 by chance.
+
+    | | Realistic | Uniform |
+    |---|---|---|
+    | F less E at the same target: $ per 1k | both fall back to A, +0.28 (-0.06 to +0.61), +2.67 (+2.20 to +3.18) | both fall back to A, +2.81 (+2.40 to +3.24), +0.84 (+0.25 to +1.39) |
+    | F less E at the same target: quality in points | both fall back to A, +0.7 (-0.2 to +2.2), -0.1 (-2.8 to +2.6) | both fall back to A, +0.0 (-1.0 to +1.1), -1.0 (-2.6 to +0.6) |
+    | F-train less E at the same target: $ per 1k | both fall back to A, -0.88 (-1.31 to -0.49), +1.40 (+1.06 to +1.76) | both fall back to A, +2.81 (+2.40 to +3.24), -1.09 (-1.63 to -0.64) |
+    | F-train less E at the same target: quality in points | both fall back to A, +1.9 (-0.5 to +4.9), +1.0 (-2.2 to +4.4) | both fall back to A, +0.0 (-1.0 to +1.1), -0.7 (-2.4 to +0.9) |
+    | F less F-train at the same target: $ per 1k | both fall back to A, +1.16 (+0.81 to +1.56), +1.26 (+0.88 to +1.72) | both fall back to A, both fall back to A, +1.94 (+1.53 to +2.35) |
+    | F less F-train at the same target: quality in points | both fall back to A, -1.3 (-3.9 to +1.1), -1.1 (-4.1 to +1.7) | both fall back to A, both fall back to A, -0.3 (-1.7 to +1.2) |
+
+- Within-task concordance, pooled over pairs within a task and fold (diagnostic, dev only), with its 95% paired interval:
+
+    | | haiku | sonnet | opus_low |
+    |---|---|---|---|
+    | F, concordance | 0.571 (0.503 to 0.636) | 0.565 (0.497 to 0.632) | 0.498 (0.421 to 0.586) |
+    | F-train, concordance | 0.571 (0.507 to 0.630) | 0.583 (0.524 to 0.642) | 0.520 (0.445 to 0.597) |
+    | The task-rates diagnostic, concordance | 0.500 (0.500 to 0.500) | 0.500 (0.500 to 0.500) | 0.500 (0.500 to 0.500) |
+    | F less the task-rates diagnostic, concordance | +0.071 (+0.003 to +0.136) | +0.065 (-0.003 to +0.132) | -0.002 (-0.079 to +0.086) |
+    | F less F-train, concordance | -0.001 (-0.038 to +0.034) | -0.018 (-0.062 to +0.028) | -0.022 (-0.079 to +0.036) |
+
+- The learning curve's paired difference from 75% to 100% of the fold models' training rows (diagnostic, dev only), log loss then concordance:
+
+    | | log loss | concordance |
+    |---|---|---|
+    | haiku, 100% less 75% | -0.0036 (-0.0087 to +0.0014) | +0.0207 (-0.0101 to +0.0519) |
+    | sonnet, 100% less 75% | -0.0028 (-0.0054 to -0.0003) | +0.0186 (-0.0113 to +0.0486) |
+    | opus_low, 100% less 75% | -0.0028 (-0.0059 to +0.0001) | +0.0079 (-0.0390 to +0.0573) |
 
 ---
 

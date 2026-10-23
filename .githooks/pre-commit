@@ -25,6 +25,9 @@ uv run python -m analysis.check_trained_fit | grep -E "^FAIL|checks"
 # Its refit against the train matrix runs only where results/ is present, like check_simulator below.
 uv run python -m analysis.check_rules_router | grep -E "^FAIL|checks"
 uv run python -m analysis.check_chart_routers | grep -E "^FAIL|checks"
+# Stage 5's chart and table v2, the learning-curve figure and A11 item 21, against the committed files; the hook adds
+# the rebuild from the dev matrix (about 60 s).
+uv run python -m analysis.check_stage5 | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
   uv run python -m analysis.check_simulator | grep -E "^FAIL|checks"
   uv run python -m analysis.check_stage4 | grep -E "^FAIL|checks"
