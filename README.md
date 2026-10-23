@@ -123,6 +123,10 @@ uv run python -m analysis.fit_trained_router settings  # F's settings and F-trai
 uv run python -m analysis.measure_trained_router drift | latency | environment | tokens | record [--write]  # the drift limit, latency and item 19 (run latency alone)
 uv run python -m analysis.fit_trained_router folds     # the fit commit only: the five fold models (reads dev outcomes, prints nothing about them)
 uv run python -m analysis.check_trained_freeze  # F's train-side fit on synthetic data, and A11 item 19 against its sources; the hook adds the snapshot and train matrix
+uv run python -m analysis.check_trained_fit  # A11 item 20 against the fold weights; the hook adds the history and the refit to 1e-9
+uv run python -m analysis.trained_table   # F's and F-train's dev router-score tables, and each fold model's quantiles (no outcome read)
+uv run python -m analysis.trained_walk    # F's walks on dev, and F's section of routers/operating_points.json (E's untouched)
+uv run python -m analysis.check_trained_dev  # F and F-train on dev, against score_with; the hook only, it needs the dev cache and matrix
 uv run python -m analysis.check_stage4     # E on dev, tables v0 and v1, A9's record (item 18) and the Stage 3 numbers A9 quotes, against the JSONs
 ```
 

@@ -20,10 +20,14 @@ uv run python -m analysis.check_metrics | grep -E "^FAIL|checks"
 uv run python -m analysis.check_trained_router | grep -E "^FAIL|checks"
 # Its snapshot, cache and train-matrix section runs only where those are present (about 30 s with them).
 uv run python -m analysis.check_trained_freeze | grep -E "^FAIL|checks"
+# Item 20 against the fold weights; the git-history section needs the freeze commit and the refit needs results/.
+uv run python -m analysis.check_trained_fit | grep -E "^FAIL|checks"
 # Its refit against the train matrix runs only where results/ is present, like check_simulator below.
 uv run python -m analysis.check_rules_router | grep -E "^FAIL|checks"
 uv run python -m analysis.check_chart_routers | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
   uv run python -m analysis.check_simulator | grep -E "^FAIL|checks"
   uv run python -m analysis.check_stage4 | grep -E "^FAIL|checks"
+  # F and F-train on dev: the tables against score_with (about 30 s: it embeds the 744 dev requests again).
+  uv run python -m analysis.check_trained_dev | grep -E "^FAIL|checks"
 fi
