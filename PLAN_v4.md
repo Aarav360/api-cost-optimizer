@@ -5,7 +5,7 @@
 | Version | v4 |
 | Status | Final — frozen before Stage 0, then changed only by the amendments below |
 | Date | 2026-10-12 |
-| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed, and A8, Stage 3 decisions; 2026-10-20: Amendment A9, Stage 4 decisions, and A10, the Stage 4 review's records; 2026-10-21: Amendment A11, Stage 5 decisions |
+| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed, and A8, Stage 3 decisions; 2026-10-20: Amendment A9, Stage 4 decisions, and A10, the Stage 4 review's records; 2026-10-21: Amendment A11, Stage 5 decisions; 2026-10-23: Amendment A12, the Stage 5 review's records |
 | Supersedes | [PLAN_v3.md](docs/history/PLAN_v3.md) — earlier versions in [docs/history/](docs/history/) |
 
 ## What changed from v3
@@ -38,6 +38,7 @@
 | v4-A9 | 2026-10-20 | Amendment A9: Stage 4 decisions: routers see the request; router-score tables; a train-fitted rules router; the walk over breakpoints; McNemar's test; the freeze; chart v1 |
 | v4-A10 | 2026-10-20 | Amendment A10: Stage 4 review: the decision rule frozen; how the rules router's frozen cues read A9's |
 | v4-A11 | 2026-10-21 | Amendment A11: Stage 5 decisions: cross-fitting kept and A9 item 4 corrected; a pinned local embedding model; template lines removed before embedding; test scored by the fold model a hash picks; a freeze in two commits; diagnostics; chart v2 |
+| v4-A12 | 2026-10-23 | Amendment A12: Stage 5 review: the results matrix loaded whole before the freeze; the snapshot directory checked; how the frozen loader and fit script read A11's |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -629,6 +630,15 @@ Stage 5's decisions, from a design review made after chart v1 and before any Sta
     | haiku, 100% less 75% | -0.0036 (-0.0087 to +0.0014) | +0.0207 (-0.0101 to +0.0519) |
     | sonnet, 100% less 75% | -0.0028 (-0.0054 to -0.0003) | +0.0186 (-0.0113 to +0.0486) |
     | opus_low, 100% less 75% | -0.0028 (-0.0059 to +0.0001) | +0.0079 (-0.0390 to +0.0573) |
+
+## Amendment A12 — Stage 5 review: the results matrix loaded whole before the freeze, the snapshot directory checked (2026-10-23)
+
+Four records from Stage 5's branch review, made after F's record (A11 item 21). None changes a file A11 item 19 or item 20 hashes, a setting, a weight, a threshold or an operating point, so A11 items 19 to 21 stand. The review's other findings were fixed in code neither item hashes.
+
+1. **The results matrix was loaded whole before the freeze** (A11 item 15). The frozen fit script's train side (`fit_train_side` in `analysis/fit_trained_router.py`) loads the results matrix with `analysis.matrix.load()`, which reads train's and dev's cells. It then keeps train's cells alone (`train_labels` reads `matrix.split("train")`). So dev's outcomes were in memory before the freeze commit, but no dev cell entered a computation, a printout or a file: the template lines, the standardizer, each config's C, the train signal check and F-train's weights come from train's cells. Item 15's rule, that before the freeze only train data and dev requests without outcomes are read, holds for what was computed, not for what was loaded. A loader that took train's cells alone would enforce the rule in code, but it would edit a hashed file and mean re-selecting F, so it isn't made. A later router's fit script can load train's cells alone from the start.
+2. **The snapshot directory holds only the five pinned files** (A11 item 4). The loader checks the sha256 of the five files and then hands `from_pretrained` the whole snapshot directory, which would also read other files placed there, such as `added_tokens.json`. `analysis/check_trained_router.py` now checks, in the hook, that the directory holds exactly the five files and nothing else, hidden files and subdirectories included. Stage 8's unlock (A11 item 17) runs the same check before test's requests are embedded.
+3. **`reference_compile`** (A11 item 4). The pinned `transformers` (5.20.2) has no `reference_compile` setting: passing it to `from_pretrained` is a `TypeError`. The loader sets it on the model's config, where nothing reads it, and the settings file's `false` is enforced by the settings parser, which refuses anything else. With nothing to switch on, the library can't change the arithmetic through it, which is what item 4 asked of it.
+4. **A name in the fit script.** Its helper for the cross-validation within train is named `out_of_fold`, and its docstring says "success estimate". In `GLOSSARY.md`'s terms these are router scores from train's cross-validation folds, not item 9's out-of-fold router scores, which only the fold models give. The file is hashed, so the name stands.
 
 ---
 
