@@ -129,6 +129,8 @@ uv run python -m analysis.trained_walk    # F's walks on dev, and F's section of
 uv run python -m analysis.check_trained_dev  # F and F-train on dev, against score_with; the hook only, it needs the dev cache and matrix
 uv run python -m analysis.learning_curve  # the learning curve's numbers on dev: F refit at 25, 50, 75 and 100% of its rows, F-train beside, the 75% to 100% difference (no walk)
 uv run python -m analysis.check_learning_curve  # the learning curve's subsamples and refits on synthetic rows; the hook adds dev: the 100% point equals F's router scores exactly
+uv run python -m analysis.trained_diagnostics  # F-train and the task rates walked, within-task concordance, log loss, same-target comparisons (nothing written)
+uv run python -m analysis.check_trained_diagnostics  # the diagnostics against hand-worked and independent counts; the hook only
 uv run python -m analysis.check_stage4     # E on dev, tables v0 and v1, A9's record (item 18) and the Stage 3 numbers A9 quotes, against the JSONs
 ```
 
