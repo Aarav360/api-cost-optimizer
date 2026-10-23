@@ -543,13 +543,46 @@ Stage 5's decisions, from a design review made after chart v1 and before any Sta
     - **Wave 4, in parallel, after F's walk:** the diagnostics that read outcomes (F-train's and the task-rates diagnostic's walks, within-task concordance), and the learning curve with its figure.
     - **Wave 5:** chart and table v2, item 21 with a check on it, and the README.
     - Each parallel ticket owns its new check script and wires it into the pre-commit hook and CI. A check that needs `results/` runs in the hook only, as `check_simulator` does.
-19. **The freeze record** (item 15), written in the freeze commit, before any F number on dev. Each entry is compared with its source by wave 2's check. To be filled in:
-    - the model's repository and commit and its five files' sha256; the window, compute precision, attention implementation, thread count and `reference_compile`; the exact library versions; the macOS build, the chip and PyTorch's math-library line (item 4);
-    - the drift measurement (item 4): over the train requests, the largest gap in router scores between the float32 router and float64, per config and overall; the drift limit, 100 times the overall gap; and whether the rerun at one thread matched bit for bit;
-    - the sha256 of each module in F's import closure, the fit script, the fold builder, the settings file, F-train's weights and both fold files, and of the train and dev embedding caches (kept under `results/`, not committed);
-    - from train prompts: the template lines' count by task, the share of train prompts holding the most common line below the cut, and stripped text length by task. From train and dev prompts, in the model's tokens: where Banking77's query starts, the longest stripped text, and the truncation and empty-text counts;
-    - from train outcomes: each config's C and whether it sits at an end of the grid, the signal check (item 7), and per task the train items that every scored config fails;
-    - latency, overall and per task, and the load time, with the machine (item 11).
+19. **The freeze record** (item 15), written in the freeze commit, before any F number on dev. Nothing here reads a dev outcome. `analysis/check_trained_freeze.py` compares each entry with its source, and each hash with its file. sha256, as in A7 item 3:
+    - **The model** (item 3): `Alibaba-NLP/gte-modernbert-base` at commit `e7f32e3c00f91d699e8c43b53106206bcc72bb22`. The five files the router reads (item 4), as `analysis/fetch_model.py` fetched them:
+      - `config.json`: `8ba54dc3d35d7194f5178a4194b649f146753e02dabd22bdca5c5cbac15069ed`
+      - `model.safetensors`: `3e85899d5728cb7de79781c0c3acfb91ccef9f875f1f7e0b3c9f3dd4b6a724ba`
+      - `special_tokens_map.json`: `ea97ecdbcc73713039d8d64dbb05e3689495c96657fbd9a18f5bed381be81049`
+      - `tokenizer.json`: `6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30`
+      - `tokenizer_config.json`: `9654072f7c873161814043cf08cb5ed72f71d0b935abcd4e267935cb34352c21`
+    - **Settings** (items 4, 5 and 7): window 8192 tokens, compute precision float32, attention implementation sdpa, 4 threads, `reference_compile` false. Solver: newton-cholesky, tolerance 1e-10, at most 100 iterations. The template lines' cut is 2% of train prompts. The C grid is 13 log-spaced values from 1e-4 to 1e2.
+    - **Library versions** (item 4): numpy 2.5.4, scikit-learn 1.9.1, tokenizers 0.23.3, torch 2.14.1, transformers 5.20.2.
+    - **Environment** (recorded, not pinned; item 4): macOS 27.0.1 (build 26A434), Apple M5 Pro, PyTorch's math library: BLAS_INFO=accelerate, LAPACK_INFO=accelerate, Python 3.13.13.
+    - **Drift measurement** (item 4), over the 991 train requests, one at a time, float32 router against the real model upcast to float64, F-train's heads standing in for the fold models in both: largest gap in router scores haiku 4.32e-07, opus_low 1.51e-07, sonnet 2.68e-07; overall 4.32e-07.
+    - **Drift limit**: `4.32e-05`, 100 times the overall gap. Any check that embeds a request again holds router scores to it.
+    - **Rerun at one thread**: the router scores matched the float32 router's bit for bit.
+    - **Frozen files**, F's import closure in `routers/`, the fit script, the fold builder, the settings, F-train's weights and both fold files (item 15):
+      - `routers/__init__.py`: `1c93dfb7989a0b24c0989368c751cc0b6fdab3d17a280ff68a1c31cb84136bf3`
+      - `routers/ladder.py`: `35448ba6ccf6b6d9a504d56127d40ad5e2f3b18c3ee0a562ad3b5bdbd299818d`
+      - `routers/request.py`: `15c809b5d422074f2c6a526d5ce2b542d0e8155930269a9b5763eb62463472e2`
+      - `routers/trained.py`: `6b61dcb0f09d5ac4cc37f3b8a5dab87779f67b0e4683fbcd1f2f38954870ccb0`
+      - `analysis/fit_trained_router.py`: `7a80b33a886ecca574bd99ddedbc791a6f05db7eb9f5b2fec98b428054ec9e66`
+      - `analysis/folds.py`: `6e165a1f49149ef1c16d33ed487fccbed90f4dbf67698065e04976a9e321623e`
+      - `routers/trained_settings.json`: `5631a1f343a8e3ff9b9b870e760ea6c19d467b243691adef2678aa3441d73eb1`
+      - `routers/trained_f_train_weights.json`: `186257cfc8fb1adfab5e877952a8e4c20b69698b81db702182b9a211abd6f1a0`
+      - `data/dev_folds.json`: `57204e5a7788c1fac17aa050252e6aab050bffc5600d9202eb9fa5829476cae5`
+      - `data/train_folds.json`: `e8e8fb38b40914cb8a1527251bc190ca7133040b5cd8f80ff3c0c900009a5ded`
+    - **Embedding caches**, kept under `results/trained_embeddings/`, not committed:
+      - `train.npy`: `03be0f15633f0d16e53efd8f19fe1fb5adb20ebafa9500d09bd81456dfc3d9b4`
+      - `train_items.json`: `29491dbb42c0498e979fb5c7dbbb9d1392802aa58780b7e529a37ebdd938712f`
+      - `dev.npy`: `44b427752a122c332bf4f5097bfd0da7015ff0d400ba67b2904b58df3f918492`
+      - `dev_items.json`: `311c291d205094082d8223b3f177a34f9e3ee65721d95cf9bc896976e9c505ca`
+    - **Template lines** (item 5), from the 991 train prompts: 83 in all. By task: ifeval 0, banking77 79, mmlu_pro 2, mbppplus 2. The most common line below the cut is in 7 prompts (0.71%), under the 2% cut; the lowest template line is in 14.4%, so any cut from 1% to 5% gives the same list.
+    - **Stripped text length by task**, in characters (shortest, median, longest), train: ifeval 63, 196, 1858; banking77 25, 54, 378; mmlu_pro 89, 461, 2798; mbppplus 83, 147, 423.
+    - **In the model's tokens**: Banking77's query starts at token 586 of the whole prompt (earliest 586, latest 586), and the prompt runs 599 to 674 tokens, so a 256 or 512-token window would cut the query off. The longest stripped text is 730 tokens on train and 930 on dev, against the window of 8192.
+    - **Truncation and empty-text counts**: train 0 truncated and 0 left empty; dev 0 truncated and 0 left empty.
+    - **C per config** (item 7), by five-fold cross-validation within train, mean log loss: haiku 0.001 (inside the grid), sonnet 0.000316228 (inside the grid), opus_low 0.000316228 (inside the grid).
+    - **The train signal check** (item 7), cross-validated, for the intercept-only model, the task-rates model and F: log loss, then within-task concordance (pairs within the same task and train fold):
+      - haiku: intercept only 0.4063, 0.5000; task rates 0.4065, 0.5000; F 0.3951, 0.6185.
+      - sonnet: intercept only 0.3821, 0.5000; task rates 0.3800, 0.5000; F 0.3778, 0.5728.
+      - opus_low: intercept only 0.3005, 0.5000; task rates 0.2974, 0.5000; F 0.2952, 0.5767.
+    - **Train items that every scored config fails**, per task: ifeval 5 of 208, banking77 36 of 320, mmlu_pro 16 of 320, mbppplus 9 of 143.
+    - **Latency** (item 11): `score(request)` over the 744 dev requests, one at a time, through the hash path, with F-train's heads in all five slots, the model loaded first, 50 warm-up calls excluded, the router scores thrown away: median 28.5 ms, p90 68.0 ms. Per task (median, p90 in ms): banking77 18.2, 19.3; ifeval 25.3, 36.5; mbppplus 28.8, 39.2; mmlu_pro 54.6, 112.3. Load time 0.33 s, of which the file check took 0.16 s. On Apple M5 Pro, Darwin 27.0.0 arm64, Python 3.13.13, PyTorch 2.14.1, 4 threads. It depends on the machine, so it is quoted as measured and isn't re-checked.
 20. **The fit record** (item 15), written in the fit commit. To be filled in: the freeze commit's hash, the fold weights' sha256, and each fold model's number of training rows.
 21. **Record.** F's operating points on dev and the hash of its section of `routers/operating_points.json`, as A9 item 18 records E's, compared with the committed files by a check. To be filled in when Stage 5 finishes: at each mix and target, the threshold (or "falls back to A"), quality, cost per 1k, savings against A, captured fraction and share of resamples meeting the target; F's section's sha256; and the headline diagnostics: within-task concordance per config, item 13's comparisons, and the learning curve's paired difference from 75% to 100%.
 

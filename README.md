@@ -118,6 +118,11 @@ uv run python -m analysis.check_rules_router  # E's cues, fit and freeze hashes 
 uv run python -m analysis.check_chart_routers  # the chart script's router list: E's entry and style, F's reserved, two routers drawn
 uv run python -m analysis.fetch_model      # once: the five embedding-model files at A11's pinned commit, into .cache/ (the router never fetches)
 uv run python -m analysis.check_trained_router  # the trained router's foundation, on a fake backend; with the snapshot, also the real tokenizer's window
+uv run python -m analysis.fit_trained_router caches    # F's embedding caches of train and dev requests, into results/trained_embeddings/ (no outcome read)
+uv run python -m analysis.fit_trained_router settings  # F's settings and F-train's weights, from train alone (A11 items 5, 7, 12)
+uv run python -m analysis.measure_trained_router drift | latency | environment | tokens | record [--write]  # the drift limit, latency and item 19 (run latency alone)
+uv run python -m analysis.fit_trained_router folds     # the fit commit only: the five fold models (reads dev outcomes, prints nothing about them)
+uv run python -m analysis.check_trained_freeze  # F's train-side fit on synthetic data, and A11 item 19 against its sources; the hook adds the snapshot and train matrix
 uv run python -m analysis.check_stage4     # E on dev, tables v0 and v1, A9's record (item 18) and the Stage 3 numbers A9 quotes, against the JSONs
 ```
 
