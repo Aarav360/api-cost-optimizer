@@ -3,13 +3,12 @@
 A `RouterEntry` holds what the chart script needs of one router and nothing of the router itself: its name in the
 operating-points file, its label, its short name for legends and captions, its style, how to build its dev
 router-score table, how to walk it, and any extra facts for its entry in the headline JSON. `ROUTERS` is the list, in
-the order the figures draw and the legend lists them; E's entry is built here, and F's joins the list when Stage 5's
-router has a dev table and a section in the operating-points file. Steps, operating points, McNemar rows and the
+the order the figures draw and the legend lists them; E's and F's entries are built here. Steps, operating points, McNemar rows and the
 matched-cost comparison are drawn and computed per entry, in `analysis/pareto.py`.
 
 Each router has its own style, so that two read apart on one panel without relying on colour alone: a colour from the
 data-viz reference palette's family, a marker for its steps and another for its operating points' centres, and a
-line. E's is chart v1's, unchanged. F's is reserved: red, triangles and a dashed line, against E's purple, squares,
+line. E's is chart v1's, unchanged. F's is red, triangles and a dashed line, against E's purple, squares,
 diamonds and a solid line; the figures' other colours are the configs' blue, the envelope's orange and the oracle's
 green.
 """
@@ -20,6 +19,7 @@ from dataclasses import dataclass, field
 from analysis.bootstrap import Bootstrap
 from analysis.dev_diagnostic import dev_diagnostic
 from analysis.matrix import Matrix
+from analysis.operating_points import NAMED_ROUTERS
 from analysis.router_table import RouterScoreTable
 from analysis.rules_table import dev_table
 from analysis.rules_walk import ROUTER as RULES_NAME
@@ -53,8 +53,18 @@ E_STYLE = RouterStyle(
     },
 )  # fmt: skip
 
-# F's, reserved: no entry draws it yet. Its label offsets are placed once its operating points exist.
-F_STYLE = RouterStyle(color="#e34948", marker="^", point_marker="v", linestyle="--")
+# F's: red, triangles and a dashed line, against E's purple, squares, diamonds and a solid line. Its label offsets are
+# placed by eye on the committed figure, as E's are.
+F_STYLE = RouterStyle(
+    color="#e34948", marker="^", point_marker="v", linestyle="--",
+    point_offsets={
+        ("realistic", "97%"): (-6, -58, "right"),
+        ("realistic", "99%"): (44, -24, "left"),
+        ("realistic", "100%: falls back to A"): (74, -80, "right"),
+        ("uniform", "97%"): (-24, -44, "right"),
+        ("uniform", "100%, 99%: falls back to A"): (8, -92, "right"),
+    },
+)  # fmt: skip
 
 
 @dataclass(frozen=True)
@@ -82,4 +92,22 @@ RULES = RouterEntry(
     facts=lambda: {"task_inference_dev": dev_diagnostic()},
 )
 
-ROUTERS: tuple[RouterEntry, ...] = (RULES,)
+
+def _trained_dev_table() -> RouterScoreTable:
+    # Imported here: the trained router's modules pull in PyTorch and scikit-learn, which a check that only draws
+    # committed numbers (CI's `check_chart_routers`) never needs.
+    from analysis import trained_table
+
+    return trained_table.dev_table()
+
+
+TRAINED = RouterEntry(
+    name=NAMED_ROUTERS["F"],
+    label="F: trained router",
+    short="F",
+    style=F_STYLE,
+    dev_table=_trained_dev_table,
+    walks=dev_walks,
+)
+
+ROUTERS: tuple[RouterEntry, ...] = (RULES, TRAINED)

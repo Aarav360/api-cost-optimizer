@@ -6,8 +6,8 @@ Reads only the committed figure JSONs, no results matrix, so CI runs it. It draw
 folder and never rewrites a figure. That a rebuild with E alone equals the committed JSONs is `check_stage4`'s, which
 needs `results/`.
 
-- the router list holds E first, under its name in the operating-points file, and each router has a style of its own:
-  a colour, a marker and a line that no other router's shares, and F's is ready beside E's;
+- the router list holds E first and F second, under their names in the operating-points file, and each router has a
+  style of its own: a colour, a marker and a line that no other router's shares;
 - a headline figure and a per-task figure drawn from E's committed numbers draw E's layer in E's style, and nothing in
   F's;
 - the same two figures drawn with a second router, copied from E's numbers under another name, draw both routers'
@@ -23,7 +23,7 @@ from pathlib import Path
 
 from matplotlib.figure import Figure
 
-from analysis.chart_routers import F_STYLE, ROUTERS, RULES
+from analysis.chart_routers import F_STYLE, ROUTERS, RULES, TRAINED
 from analysis.pareto import FIGURE_DATA, TASK_FIGURE_DATA, ChartError, draw_headline, draw_tasks
 
 NOTES = {"realistic": "a note"}  # the headline figure sizes its titles by its notes
@@ -57,13 +57,16 @@ def main() -> int:
     per_task = json.loads(TASK_FIGURE_DATA.read_text())
 
     print("-- the router list --")
-    check([r.name for r in ROUTERS] == ["rules"], "the list holds E alone for now, under its name in the file")
+    check([r.name for r in ROUTERS] == ["rules", "trained"],
+          "the list holds E then F, under their names in the operating-points file")  # fmt: skip
+    check(TRAINED.label == headline["routers"]["trained"]["label"] == "F: trained router" and TRAINED.style == F_STYLE,
+          "F's label is the committed one and its style is F's")  # fmt: skip
     check(RULES.label == headline["routers"]["rules"]["label"] == "E: rules router",
           "E's label is the committed one")  # fmt: skip
     twin = replace(RULES, name="twin", label="F: twin", short="F", style=F_STYLE)
-    styles = [RULES.style, F_STYLE]
+    styles = [r.style for r in ROUTERS]
     for field in ("color", "marker", "linestyle"):
-        check(len({getattr(s, field) for s in styles}) == 2, f"E's and F's styles differ in their {field}")
+        check(len({getattr(s, field) for s in styles}) == len(styles), f"E's and F's styles differ in their {field}")
     check(all(len(s.color) == 7 and s.color.startswith("#") for s in styles), "each style's colour is a hex colour")
     check(RULES.style.color == "#8e5bd0", "E's style is the one chart v1 drew it in")
 
