@@ -8,7 +8,7 @@ never a test item.
 
 - F's dev router-score table gives each dev item its router scores from the fold model its fold-file fold names, which
   never saw the item; they equal hand-worked ones (the weights file's own floats, a plain dot product and sigmoid), they
-  are not the scores of another fold model (known positive), every overhead is an explicit $0, and the table passes
+  are not the router scores of another fold model (known positive), every overhead is an explicit $0, and the table passes
   the table's refusal;
 - F-train's dev table is one model's, scored in the same way; it differs from F's;
 - with the model snapshot (the hook): the table equals `score_with` over the reader's dev requests, each embedded

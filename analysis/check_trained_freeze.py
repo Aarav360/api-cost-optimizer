@@ -147,8 +147,8 @@ def main() -> int:
           "labels that depend on the embedding choose a larger C, the one with the lowest mean log loss")  # fmt: skip
 
     print("\n-- within-task concordance and the signal check (items 7 and 12) --")
-    # Cell (t1, fold 0): successes score 0.9 and 0.5, failures 0.2 and 0.5: 3 pairs right, one tie = 3.5 of 4.
-    # Cell (t2, fold 0): the success scores below the failure: 0 of 1. A cell with no failure holds no pair.
+    # Cell (t1, fold 0): successes have router scores 0.9 and 0.5, failures 0.2 and 0.5: 3 pairs right, one tie = 3.5 of 4.
+    # Cell (t2, fold 0): the success's router score is below the failure's: 0 of 1. A cell with no failure holds no pair.
     scores = np.array([0.9, 0.2, 0.5, 0.5, 0.3, 0.7, 0.4, 0.6])
     outcome = np.array([1, 0, 1, 0, 1, 0, 1, 1])
     task_of = ["t1"] * 4 + ["t2"] * 2 + ["t3"] * 2
@@ -410,7 +410,7 @@ def hook_only(record: str, settings: trained.Settings) -> None:
         other = router.features(cached[(i + 1) % len(cached)], request)  # another request's cached vector
         swapped.append(max(abs(again[c] - router.score_features(trained.fold(request), other)[c]) for c in SCORED))
     check(len(sample) == 32 and worst <= limit,
-          f"{len(sample)} requests embedded again score within the drift limit {limit:.3g} of their cached embedding "
+          f"{len(sample)} requests embedded again give router scores within the drift limit {limit:.3g} of their cached embedding "
           f"(largest gap {worst:.2e}, {sum(g == 0 for g in gaps)} of {len(gaps)} embeddings identical)")  # fmt: skip
     check(max(swapped) > limit, "known positive: another request's cached embedding is further than the drift limit")
 

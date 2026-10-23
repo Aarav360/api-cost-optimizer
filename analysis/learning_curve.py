@@ -53,7 +53,7 @@ SIZES = (0.25, 0.5, 0.75, 1.0)  # shares of a fold model's training rows (item 1
 
 
 class CurveError(ValueError):
-    """Rows, sizes or scores the learning curve refuses. Nothing is computed."""
+    """Rows, sizes or router scores the learning curve refuses. Nothing is computed."""
 
 
 class Unit(NamedTuple):

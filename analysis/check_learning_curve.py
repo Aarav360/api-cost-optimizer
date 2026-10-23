@@ -230,17 +230,17 @@ def main() -> int:
             worst = max(worst, float(np.abs(fitted.scores[1.0][c][held] - expected).max()))
     check(worst < 1e-9, f"the 100% point is scikit-learn's own fit on all the fold model's rows ({worst:.1e})")
     check(all(float(np.abs(fitted.scores[0.25][c] - fitted.scores[1.0][c]).max()) > 1e-3 for c in SCORED),
-          "known positive: 25% scores differ from 100%")  # fmt: skip
+          "known positive: 25% router scores differ from 100%")  # fmt: skip
     flipped = {c: np.where(dev_folds == 0, 1 - v, v) for c, v in dev_y.items()}
     retrained = lc.refit_out_of_fold(settings, (train_x, train_y, train_units), (dev_x, flipped, dev_units), dev_folds)
     own = dev_folds == 0
     check(all(np.array_equal(retrained.scores[s][c][own], fitted.scores[s][c][own]) for s in fitted.scores for c in SCORED),
-          "a fold model never reads its own fold's labels: flipping them changes nothing it scores")  # fmt: skip
+          "a fold model never reads its own fold's labels: flipping them changes no router score it gives")  # fmt: skip
     check(all(not np.array_equal(retrained.scores[1.0][c][~own], fitted.scores[1.0][c][~own]) for c in SCORED),
-          "known positive: the other folds' scores do move, since they train on those labels")  # fmt: skip
+          "known positive: the other folds' router scores do move, since they train on those labels")  # fmt: skip
 
     print("\n-- the readings, on four hand-worked items --")
-    # One task, one cell. Successes 1, 0, 1, 0. At 75% the scores are .9, .6, .4, .2: the successes (.9, .4) against
+    # One task, one cell. Successes 1, 0, 1, 0. At 75% the router scores are .9, .6, .4, .2: the successes (.9, .4) against
     # the failures (.6, .2) are right in .9>.6, .9>.2, .4>.2 and wrong in .4<.6, so 3 of 4 pairs. At 100% they are
     # .9, .2, .8, .1: all 4 pairs. Log loss is the mean of -ln(p of the outcome): .9, .4, .4, .8 at 75% and
     # .9, .8, .8, .9 at 100%.
@@ -267,7 +267,7 @@ def main() -> int:
     f_train = curve.f_train["sonnet"]
     check(f_train.labels == 3.0 and math.isclose(f_train.log_loss.pooled.value or 0, math.log(2))
           and f_train.concordance.pooled.value == 0.5,
-          "F-train is a separate point: its own rows, ln 2 for a score of .5, ties counting half")  # fmt: skip
+          "F-train is a separate point: its own rows, ln 2 for a router score of .5, ties counting half")  # fmt: skip
     data = lc.as_data(curve)
     check(data["sizes"] == [0.75, 1.0] and data["headline"]["haiku"]["concordance"]["pooled"]["value"] == 0.25
           and data["points"]["haiku"]["0.75"]["labels"] == 3.5 and set(data["f_train"]) == set(SCORED),

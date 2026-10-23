@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # The repo's fast checks, run before every commit and by hand from the project root:  .githooks/pre-commit
 # Turn the hook on once per clone:  git config core.hooksPath .githooks
-# CI (.github/workflows/check.yml) runs the same checks except check_simulator and check_stage4, which need the
-# dev results matrix in results/ (not committed). check_collect, check_sandbox and
-# check_evaluators need Docker and take minutes, so they stay manual (README, "Running it").
+# CI (.github/workflows/check.yml) runs the same checks except the ones in the results/ block at the end
+# (check_simulator, check_stage4, check_trained_dev, check_trained_diagnostics), which need the dev results matrix in
+# results/ (not committed); several others also have a section that runs only where results/ or the model snapshot is
+# present. check_collect, check_sandbox and check_evaluators need Docker and take minutes, so they stay manual (README,
+# "Running it").
 set -euo pipefail
 
 uv run ruff check

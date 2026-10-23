@@ -11,8 +11,8 @@ other folds' labels, so pairs across folds are ordered against the labels, and a
 would score below 0.5 (item 12). A resample draws pairs by how often it draws the two items, and one that draws no
 pair is n/a: it is left out of the interval, whose `undefined` says what share that was.
 
-**Log loss** is the mean of -ln of the probability the router score gives the item's outcome. A router score of
-exactly 0 or 1 is clipped to the float epsilon, as scikit-learn's log loss does, so it costs a finite amount.
+**Log loss** is the mean of -ln of the router score for the item's outcome: the router score itself where the config
+succeeded, one less the router score where it failed. A router score of exactly 0 or 1 is clipped to the float epsilon, as scikit-learn's log loss does, so it costs a finite amount.
 
 Both are reported pooled over items (or pairs) and per task, with A7 item 2's warnings left to the reader of the
 tables; `difference` takes two readings over the same resamples, as the learning curve's 75% to 100% step does.
@@ -143,7 +143,7 @@ def within_task_concordance(
 
 
 def log_loss(draws: Bootstrap, scores: Mapping[str, float], successes: Mapping[str, float]) -> Reading:
-    """A config's log loss: the mean over items of -ln of the probability its router score gives the item's outcome,
+    """A config's log loss: the mean over items of -ln of its router score for the item's outcome,
     pooled and per task, each resample weighing items by how often it draws them.
 
     Refuses (MetricsError) what `within_task_concordance` refuses of scores and successes, and a router score outside
@@ -151,9 +151,7 @@ def log_loss(draws: Bootstrap, scores: Mapping[str, float], successes: Mapping[s
     """
     _check_items(draws, scores, successes)
     if bad := [v for v in scores.values() if not 0 <= v <= 1]:
-        raise MetricsError(
-            f"every router score must be a probability from 0 to 1, and {len(bad)} aren't, e.g. {bad[0]}"
-        )
+        raise MetricsError(f"every router score must be from 0 to 1, and {len(bad)} aren't, e.g. {bad[0]}")
     p = np.clip(np.array([scores[i] for i in draws.item_ids]), _EPSILON, 1 - _EPSILON)
     y = np.array([successes[i] for i in draws.item_ids])
     loss = -(y * np.log(p) + (1 - y) * np.log(1 - p))
