@@ -30,4 +30,6 @@ if [ -f results/dev_matrix.sqlite ]; then
   uv run python -m analysis.check_stage4 | grep -E "^FAIL|checks"
   # F and F-train on dev: the tables against score_with (about 30 s: it embeds the 744 dev requests again).
   uv run python -m analysis.check_trained_dev | grep -E "^FAIL|checks"
+  # The learning curve: synthetic sections anywhere, and on dev the 100% point against F's router scores (about 30 s).
+  uv run python -m analysis.check_learning_curve | grep -E "^FAIL|checks"
 fi
