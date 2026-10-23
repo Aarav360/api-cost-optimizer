@@ -2,26 +2,29 @@
 
 Run from the project root:  uv run python -m analysis.check_trained_dev
 
-Needs the dev embedding cache, the fold weights and (for the walk) the dev results matrix, none of which CI has, so
-the hook runs it where they are present, like check_stage4. It reads train and dev only, through the reader, and
-never a test item.
+Needs the dev embedding cache, the fold weights, the model snapshot (F's table embeds the dev requests live) and, for
+the walk, the dev results matrix, none of which CI has, so the hook runs it where they are present, like check_stage4.
+It reads train and dev only, through the reader, and never a test item.
 
 - F's dev router-score table gives each dev item its router scores from the fold model its fold-file fold names, which
   never saw the item; they equal hand-worked ones (the weights file's own floats, a plain dot product and sigmoid), they
   are not the router scores of another fold model (known positive), every overhead is an explicit $0, and the table passes
   the table's refusal;
 - F-train's dev table is one model's, scored in the same way; it differs from F's;
-- with the model snapshot (the hook): the table equals `score_with` over the reader's dev requests, each embedded
-  again, within the drift limit (item 19), with a known positive;
+- F's table is built through `score_with` (the syntax tree shows the call), with each item's fold from the fold file,
+  and equals what the dev embedding cache's vectors give through the same fold models, within the drift limit
+  (item 19), with a known positive;
 - the per-fold quantiles: each fold model's router-score quantiles per config on its held-out items, from the table's
   own numbers, in order and inside 0 to 1, and over the fold file's held-out items.
 """
 
+import ast
 import copy
 import json
 import re
 import sys
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -33,6 +36,7 @@ from analysis.benchmark import read_rows
 from analysis.bootstrap import resample
 from analysis.folds import N_FOLDS, read_folds
 from analysis.measure_trained_router import drift_limit
+from analysis.no_backend import NoBackend
 from analysis.operating_points import (
     OPERATING_POINTS_FILE,
     OperatingPointsError,
@@ -61,6 +65,17 @@ def check(ok: bool, what: str) -> None:
     print(f"{'PASS' if ok else 'FAIL'}  {what}")
     if not ok:
         problems.append(what)
+
+
+TABLE_MODULE = PROJECT_ROOT / "analysis" / "trained_table.py"
+
+
+def calls_in(path: Path, function: str, name: str) -> bool:
+    """Whether the module's `function` calls something named `name` (a method or a function), as its syntax tree has it."""
+    tree = ast.parse(path.read_text())
+    (node,) = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == function]
+    return any(isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute) and call.func.attr == name
+               for call in ast.walk(node))  # fmt: skip
 
 
 def refused(call: Callable[[], object]) -> bool:
@@ -155,31 +170,26 @@ def table_checks() -> None:
     check(ok, "per fold and config the quantiles run from the held-out minimum to its maximum, in order, inside 0 to 1, "
               "with the median the held-out median")  # fmt: skip
 
-    snapshot = trained.SNAPSHOT / "model.safetensors"
-    if snapshot.exists():
-        print("\n-- the table against score_with over the reader's dev requests (the hook only) --")
-        settings_obj = trained.read_settings()
-        router = TrainedRouter(settings_obj, trained.read_fold_weights())
-        limit = drift_limit()
-        gaps = []
-        for entry, row in zip(table.items, rows):
-            again = router.score_with(fold_of[entry.item_id], from_row(row))
-            gaps.append(max(abs(again[c] - entry.router_scores[c]) for c in SCORED))
-        check(len(gaps) == 744 and max(gaps) <= limit,
-              f"all 744 dev requests embedded again and scored by score_with: within the drift limit {limit:.3g} "
-              f"(largest gap {max(gaps):.2e}, {sum(g == 0 for g in gaps)} identical)")  # fmt: skip
-        shifted = [
-            max(
-                abs(router.score_with((fold_of[e.item_id] + 1) % N_FOLDS, from_row(r))[c] - e.router_scores[c])
-                for c in SCORED
-            )
-            for e, r in list(zip(table.items, rows))[:20]
-        ]
-        check(
-            max(shifted) > limit, "known positive: score_with from another fold model is further than the drift limit"
-        )
-    else:
-        print("\n(the model snapshot is missing: the score_with comparison is skipped)")
+    print("\n-- the table is built through score_with (Amendment A11, item 10) --")
+    check(calls_in(TABLE_MODULE, "dev_table", "score_with") and not calls_in(TABLE_MODULE, "dev_table", "score_features"),
+          "F's table calls the router's own score_with on each dev request, and not the heads' arithmetic itself")  # fmt: skip
+    check(calls_in(TABLE_MODULE, "f_train_table", "score_features") and not calls_in(TABLE_MODULE, "f_train_table", "score_with"),
+          "known positive: the search finds F-train's table, a diagnostic, scoring from the cache instead")  # fmt: skip
+    # The independent route: the same router, fed the dev embedding cache's vectors, never embedding.
+    cached = TrainedRouter(trained.read_settings(), trained.read_fold_weights(), backend=NoBackend())
+    limit = drift_limit()
+    gaps, moved = [], []
+    for i, (entry, row) in enumerate(zip(table.items, rows, strict=True)):
+        fold, request = fold_of[entry.item_id], from_row(row)
+        features = cached.features(cache.embeddings[i], request)
+        gaps.append(max(abs(cached.score_features(fold, features)[c] - entry.router_scores[c]) for c in SCORED))
+        other = cached.score_features((fold + 1) % N_FOLDS, features)
+        moved.append(max(abs(other[c] - entry.router_scores[c]) for c in SCORED))
+    check(len(gaps) == 744 and max(gaps) <= limit,
+          f"all 744 dev requests embedded live and scored by score_with equal the cache's vectors scored by the same "
+          f"fold model, within the drift limit {limit:.3g} (largest gap {max(gaps):.2e}, "
+          f"{sum(g == 0 for g in gaps)} identical)")  # fmt: skip
+    check(max(moved) > limit, "known positive: the next fold model's router scores are further than the drift limit")
 
 
 def certified_steps_clear(section: dict[str, Any]) -> bool:
@@ -278,9 +288,12 @@ def walk_checks() -> None:
 
 
 def main() -> int:
-    needed = [fit.cache_paths("dev")[0], trained.FOLD_WEIGHTS_FILE, PROJECT_ROOT / "results" / "dev_matrix.sqlite"]
+    needed = [fit.cache_paths("dev")[0], trained.FOLD_WEIGHTS_FILE, trained.SNAPSHOT / "model.safetensors",
+              PROJECT_ROOT / "results" / "dev_matrix.sqlite"]  # fmt: skip
     if not all(p.exists() for p in needed):
-        print("(the dev cache, the fold weights or the dev matrix is missing: nothing to check here)")
+        print(
+            "(the dev cache, the fold weights, the model snapshot or the dev matrix is missing: nothing to check here)"
+        )
         return 0
     table_checks()
     if trained.FOLD_WEIGHTS_FILE.exists() and trained_walk.ROUTER in json.loads(OPERATING_POINTS_FILE.read_text()):

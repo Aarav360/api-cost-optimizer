@@ -224,6 +224,7 @@ def real() -> None:
           "the paired differences are the readings' differences, F less the task rates and F less F-train")  # fmt: skip
 
     print("\n-- the walks --")
+    trained_table.dev_table.cache_clear()  # F's table is cached per process: embed the dev requests again
     again = {
         E: rules_table.dev_table(), F: trained_table.dev_table(), F_TRAIN: trained_table.f_train_table(),
         TASK_RATES: task_rates_table(train, dev, result.fold_of),

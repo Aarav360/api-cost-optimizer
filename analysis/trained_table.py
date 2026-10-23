@@ -6,15 +6,17 @@ Run from the project root:  uv run python -m analysis.trained_table
 The first dev step after the fit commit: dev's tables for F and F-train, then the per-fold quantiles; the walks come
 after, in `analysis/trained_walk.py`. It reads no outcome.
 
-- F's table gives each dev item the router scores of its fold model, the one the fold file says is held out on it
-  (`read_folds("dev")`), through the deployable router's own `features` and `score_features`. The vectors are the
-  dev embedding cache's, which `score_with` computes again within the drift limit (item 19): the hook checks the table
-  against `score_with` over every dev request, so table and router can't drift apart.
-- F-train's table is the one model refit on train alone (item 12), in all five slots, scoring dev directly.
+- F's table calls the deployable router's own `score_with` on every dev request, with the fold the fold file says is
+  held out on it (`read_folds("dev")`), so table and router can't drift apart (item 10), as E's table calls E's
+  `score`. It embeds the 744 dev requests live with the snapshot, about 30 s; the hook checks it against the router
+  scores that the dev embedding cache gives.
+- F-train's table is the one model refit on train alone (item 12), in all five slots, scoring dev from the embedding
+  cache: it is a diagnostic, never a policy, and `score_with` would embed the 744 requests a second time.
 - Every overhead is an explicit $0: the model runs locally (item 11).
 - `fold_quantiles` reports, per fold model and config, the router scores' quantiles on its held-out items (item 9).
 """
 
+import functools
 from collections.abc import Mapping, Sequence
 
 import numpy as np
@@ -22,46 +24,46 @@ import numpy as np
 from analysis import fit_trained_router as fit
 from analysis.benchmark import read_rows
 from analysis.folds import N_FOLDS, read_folds
+from analysis.no_backend import NoBackend
 from analysis.router_table import LOCAL_OVERHEAD, ItemRouterScores, RouterScoreTable
 from routers import trained
 from routers.ladder import SCORED
 from routers.request import from_row
-from routers.trained import FoldWeights, TrainedRouter
+from routers.trained import TrainedRouter
 
 QUANTILES = (0.0, 0.05, 0.25, 0.5, 0.75, 0.95, 1.0)  # the reported quantiles of a fold model's router scores
 
 
-class _CachedOnly:
-    """A backend that can't embed: the table reads cached vectors, so a stray call is a bug, not a silent load."""
+@functools.cache
+def dev_table() -> RouterScoreTable:
+    """F's table over every dev item, in the reader's order: each item's out-of-fold router scores from the router's
+    own `score_with`, with the fold the fold file gives it, or the table's refusal.
 
-    def encode(self, text: str) -> list[int]:
-        raise RuntimeError("the dev tables read the embedding cache; they never embed")
-
-    def cls_vector(self, ids: list[int]) -> np.ndarray:
-        raise RuntimeError("the dev tables read the embedding cache; they never embed")
-
-
-def _table(weights: FoldWeights, fold_of: Mapping[str, int] | None) -> RouterScoreTable:
-    """A table from the router built on `weights`; `fold_of` None means fold 0's model for every item."""
-    router = TrainedRouter(trained.read_settings(), weights, backend=_CachedOnly())
+    Embeds the dev requests with the verified snapshot (about 30 s), so a process builds it once.
+    """
+    router = TrainedRouter(trained.read_settings(), trained.read_fold_weights())
+    fold_of = read_folds("dev")
     rows = read_rows(split="dev")
-    cache = fit.read_cache("dev")
-    items = []
-    for row, embedding in zip(rows, cache.embeddings, strict=True):
-        fold = 0 if fold_of is None else fold_of[row["item_id"]]
-        features = router.features(embedding, from_row(row))
-        items.append(ItemRouterScores(row["item_id"], router.score_features(fold, features), LOCAL_OVERHEAD))
+    items = [
+        ItemRouterScores(row["item_id"], router.score_with(fold_of[row["item_id"]], from_row(row)), LOCAL_OVERHEAD)
+        for row in rows
+    ]
     return RouterScoreTable.build(items, [row["item_id"] for row in rows])
 
 
-def dev_table() -> RouterScoreTable:
-    """F's table over every dev item, in the reader's order: out-of-fold router scores, or the table's refusal."""
-    return _table(trained.read_fold_weights(), read_folds("dev"))
-
-
 def f_train_table() -> RouterScoreTable:
-    """F-train's table over every dev item: one model, fitted on train alone (a diagnostic, never a policy)."""
-    return _table(fit.read_f_train_weights(), None)
+    """F-train's table over every dev item: one model, fitted on train alone, scoring from the dev embedding cache (a
+    diagnostic, never a policy). Fold 0 stands for the model in every slot, which all hold the same one."""
+    router = TrainedRouter(trained.read_settings(), fit.read_f_train_weights(), backend=NoBackend())
+    rows = read_rows(split="dev")
+    embeddings = fit.read_cache("dev").embeddings
+    items = [
+        ItemRouterScores(
+            row["item_id"], router.score_features(0, router.features(embedding, from_row(row))), LOCAL_OVERHEAD
+        )
+        for row, embedding in zip(rows, embeddings, strict=True)
+    ]
+    return RouterScoreTable.build(items, [row["item_id"] for row in rows])
 
 
 def fold_quantiles(table: RouterScoreTable, fold_of: Mapping[str, int]) -> dict[int, dict]:
