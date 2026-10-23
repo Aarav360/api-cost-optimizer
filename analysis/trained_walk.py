@@ -11,11 +11,12 @@ task-rates diagnostic's walks come after, as diagnostics (item 15), and never en
 
 from analysis import matrix as results_matrix
 from analysis.bootstrap import resample
-from analysis.operating_points import NAMED_ROUTERS, build_section, write_section
+from analysis.operating_points import build_section, write_section
+from analysis.router_names import NAMED_ROUTERS, F
 from analysis.rules_walk import dev_walks
 from analysis.trained_table import dev_table
 
-ROUTER = NAMED_ROUTERS["F"]  # F's name in the operating-points file
+ROUTER = NAMED_ROUTERS[F]  # F's name in the operating-points file
 
 
 def rebuilt_section() -> dict:

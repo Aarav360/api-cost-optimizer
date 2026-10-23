@@ -17,24 +17,19 @@ from matplotlib.lines import Line2D
 from matplotlib.ticker import MaxNLocator
 
 from analysis.chart_routers import F_STYLE
-from analysis.pareto import GRID, INK, INK_SECONDARY, SURFACE
-from analysis.router_metrics import Reading
+from analysis.pareto import GRID, INK, INK_SECONDARY, SERIES_1, SURFACE
+from analysis.router_metrics import Reading, estimate_data
 from harness.client import PROJECT_ROOT
 from routers.ladder import SCORED
 
 LEARNING_FIGURE = PROJECT_ROOT / "figures" / "learning_curve.png"
 LEARNING_FIGURE_DATA = PROJECT_ROOT / "figures" / "learning_curve.json"
-F_TRAIN_COLOR = "#2a78d6"  # the data-viz reference palette's series 1; F's red is `F_STYLE.color`
+F_TRAIN_COLOR = SERIES_1  # F-train takes the configs' blue, in a square; F's colour is `F_STYLE.color`
 TASK_RATES_LABEL = "Task-rates diagnostic's out-of-fold log loss (knows only the task)"
 CHANCE_LABEL = "0.5: ordering by chance, or by the task alone"
 F_LABEL = "F's fold models at 25, 50, 75 and 100% of their training rows, 95% intervals"
 F_TRAIN_LABEL = "F-train (refit on train alone), a separate point, 95% interval"
 CAPTION_WIDTH, LINE = 150, 1 / 6
-
-
-def estimate(reading: Reading) -> dict[str, float | None]:
-    p = reading.pooled
-    return {"value": p.value, "low": p.low, "high": p.high, "undefined": p.undefined}
 
 
 def curve_data(learning: dict, task_rates_log_loss: dict[str, Reading]) -> dict:
@@ -49,7 +44,7 @@ def curve_data(learning: dict, task_rates_log_loss: dict[str, Reading]) -> dict:
                          "dashed line); concordance: 0.5, which the task-rates diagnostic scores exactly",
         },
         "curve": learning,
-        "reference": {"task_rates_log_loss": {c: estimate(task_rates_log_loss[c]) for c in SCORED}, "concordance": 0.5},
+        "reference": {"task_rates_log_loss": {c: estimate_data(task_rates_log_loss[c].pooled) for c in SCORED}, "concordance": 0.5},
     }  # fmt: skip
 
 

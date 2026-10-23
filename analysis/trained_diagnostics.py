@@ -25,35 +25,34 @@ from dataclasses import dataclass
 
 from analysis import matrix as results_matrix
 from analysis import rules_table, trained_table
-from analysis.bootstrap import Bootstrap, Estimate, resample
+from analysis.bootstrap import Bootstrap, resample
 from analysis.folds import read_folds
 from analysis.matrix import Matrix
-from analysis.router_metrics import Difference, PairedEstimate, Reading, difference, log_loss, within_task_concordance
-from analysis.router_table import ItemRouterScores, RouterScoreTable
+from analysis.router_metrics import (
+    Difference,
+    Reading,
+    difference,
+    estimate_data,
+    log_loss,
+    size_data,
+    within_task_concordance,
+)
+from analysis.router_names import F_TRAIN, TASK_RATES, E, F
+from analysis.router_table import LOCAL_OVERHEAD, ItemRouterScores, RouterScoreTable
 from analysis.rules_walk import MIXES, dev_walks
 from analysis.same_target import SameTarget, compare_same_target
 from analysis.simulator import load_mixes
+from analysis.task_warnings import task_warning
 from analysis.walk import ALL_STEPS_UP_TO, Walk, item_breakpoints, step_thresholds
 from routers.ladder import SCORED
 
-OVERHEAD = 0.0  # a table of rates is not a router run: an explicit $0, as F's and E's
-E, F, F_TRAIN, TASK_RATES = "E", "F", "F-train", "task rates"  # the routers' names in these readings
 DIAGNOSTICS = (F, F_TRAIN, TASK_RATES)  # the routers with concordance and log loss readings, in print order
 # A11 item 13's comparisons, first less second.
 COMPARISONS = ((F, E), (F_TRAIN, E), (F, F_TRAIN))
-# Fewer items than the "few hundred" §5 asks for before a per-task claim (A7 item 2); the chart script's own list.
-WARNED = ("ifeval", "mbppplus")
 
 
 class DiagnosticsError(ValueError):
     """Inputs a diagnostic refuses: matrices of the wrong split, or dev items without a fold. Nothing is computed."""
-
-
-def task_warning(task: str, dev_items: int) -> str | None:
-    """A7 item 2's warning for a small task's per-task results, or None for the tasks that carry none."""
-    if task not in WARNED:
-        return None
-    return f"Only {dev_items} dev items, below the plan's minimum of a few hundred: indicative"
 
 
 def task_rates_table(train: Matrix, dev: Matrix, fold_of: Mapping[str, int]) -> RouterScoreTable:
@@ -94,7 +93,7 @@ def task_rates_table(train: Matrix, dev: Matrix, fold_of: Mapping[str, int]) -> 
         return total / count
 
     entries = [
-        ItemRouterScores(item_id, {c: rate(fold_of[item_id], item.task, c) for c in SCORED}, OVERHEAD)
+        ItemRouterScores(item_id, {c: rate(fold_of[item_id], item.task, c) for c in SCORED}, LOCAL_OVERHEAD)
         for item_id, item in dev.items.items()
     ]
     return RouterScoreTable.build(entries, list(dev.items))
@@ -207,20 +206,12 @@ def compute() -> Diagnostics:
 # JSON-ready data, for table v2 and A11 item 21
 
 
-def _estimate_data(estimate: PairedEstimate | Estimate | None) -> dict[str, float | None] | None:
-    if estimate is None:
-        return None
-    return {"value": estimate.value, "low": estimate.low, "high": estimate.high,
-            "undefined": getattr(estimate, "undefined", 0.0)}  # fmt: skip
-
-
 def _reading_data(reading: Reading | Difference, items: Mapping[str, int]) -> dict[str, object]:
-    size = getattr(reading, "size", None)
     return {
-        "pooled": _estimate_data(reading.pooled),
-        "per_task": {t: {**(_estimate_data(e) or {}), "warning": task_warning(t, items[t])}
+        "pooled": estimate_data(reading.pooled),
+        "per_task": {t: {**(estimate_data(e) or {}), "warning": task_warning(t, items[t])}
                      for t, e in reading.per_task.items()},
-        "size": None if size is None else {"pooled" if k is None else k: n for k, n in size.items()},
+        "size": size_data(reading.size) if isinstance(reading, Reading) else None,
     }  # fmt: skip
 
 
@@ -244,7 +235,7 @@ def to_data(result: Diagnostics) -> dict[str, object]:
             f"{a} less {b}": {
                 mix: {f"{share:.0%}": {"reading": cell.reading, "first_fell_back": cell.first_fell_back,
                                        "second_fell_back": cell.second_fell_back,
-                                       "cost_per_1k": _estimate_data(cell.cost), "quality": _estimate_data(cell.quality)}
+                                       "cost_per_1k": estimate_data(cell.cost), "quality": estimate_data(cell.quality)}
                       for share, cell in by_share.items()}
                 for mix, by_share in by_mix.items()}
             for (a, b), by_mix in result.same_target.items()},

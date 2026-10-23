@@ -9,18 +9,16 @@ after the freeze, in this order: this table, the dev task-inference diagnostic, 
 """
 
 from analysis.benchmark import read_rows
-from analysis.router_table import ItemRouterScores, RouterScoreTable
+from analysis.router_table import LOCAL_OVERHEAD, ItemRouterScores, RouterScoreTable
 from routers import rules
 from routers.ladder import SCORED
 from routers.request import from_row
-
-OVERHEAD = 0.0  # E runs locally: no API call, no dollars (item 6)
 
 
 def dev_table() -> RouterScoreTable:
     """The table over every dev item, in the reader's order, or the table's refusal (TableError)."""
     rows = read_rows(split="dev")
-    items = [ItemRouterScores(row["item_id"], rules.score(from_row(row)), OVERHEAD) for row in rows]
+    items = [ItemRouterScores(row["item_id"], rules.score(from_row(row)), LOCAL_OVERHEAD) for row in rows]
     return RouterScoreTable.build(items, [row["item_id"] for row in rows])
 
 

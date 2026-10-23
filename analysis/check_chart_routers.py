@@ -7,7 +7,10 @@ folder and never rewrites a figure. That a rebuild with E alone equals the commi
 needs `results/`.
 
 - the router list holds E first and F second, under their names in the operating-points file, and each router has a
-  style of its own: a colour, a marker and a line that no other router's shares;
+  style of its own: a colour, a marker and a line that no other router's shares, and F's colour at least 15 apart
+  (OKLab x100, in normal vision and under simulated protan, deutan and tritan vision) from every other colour the
+  figures draw: the configs' blue, the envelope's orange, the oracle's green and E's purple (known positive: F's
+  earlier red was 5 from the envelope's orange);
 - a headline figure and a per-task figure drawn from E's committed numbers draw E's layer in E's style, and nothing in
   F's;
 - the same two figures drawn with a second router, copied from E's numbers under another name, draw both routers'
@@ -16,6 +19,7 @@ needs `results/`.
 """
 
 import json
+import math
 import sys
 import tempfile
 from dataclasses import replace
@@ -24,8 +28,25 @@ from pathlib import Path
 from matplotlib.figure import Figure
 
 from analysis.chart_routers import F_STYLE, ROUTERS, RULES, TRAINED
-from analysis.pareto import FIGURE_DATA, TASK_FIGURE_DATA, ChartError, draw_headline, draw_tasks
+from analysis.pareto import (
+    FIGURE_DATA,
+    SERIES_1,
+    SERIES_2,
+    SERIES_3,
+    TASK_FIGURE_DATA,
+    ChartError,
+    draw_headline,
+    draw_tasks,
+)
+from analysis.router_names import LABELS, NAMED_ROUTERS, E, F
 
+# Machado, Oliveira and Fernandes (2009) simulations of protan, deutan and tritan vision at severity 1, on linear RGB.
+SIMULATIONS = {
+    "protan": [[0.152286, 1.052583, -0.204868], [0.114503, 0.786281, 0.099216], [-0.003882, -0.048116, 1.051998]],
+    "deutan": [[0.367322, 0.860646, -0.227968], [0.280085, 0.672501, 0.047413], [-0.011820, 0.042940, 0.968881]],
+    "tritan": [[1.255528, -0.076749, -0.178779], [-0.078411, 0.930809, 0.147602], [0.004733, 0.691367, 0.303900]],
+}
+APART = 15  # the data-viz reference's floor for two colours that can sit side by side, in OKLab x100
 NOTES = {"realistic": "a note"}  # the headline figure sizes its titles by its notes
 problems: list[str] = []
 
@@ -34,6 +55,33 @@ def check(ok: bool, what: str) -> None:
     print(f"{'PASS' if ok else 'FAIL'}  {what}")
     if not ok:
         problems.append(what)
+
+
+def oklab(rgb: list[float]) -> list[float]:
+    """OKLab (Ottosson, 2020) of linear RGB."""
+    r, g, b = rgb
+    cone = [(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b) ** (1 / 3),
+            (0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b) ** (1 / 3),
+            (0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b) ** (1 / 3)]  # fmt: skip
+    return [0.2104542553 * cone[0] + 0.7936177850 * cone[1] - 0.0040720468 * cone[2],
+            1.9779984951 * cone[0] - 2.4285922050 * cone[1] + 0.4505937099 * cone[2],
+            0.0259040371 * cone[0] + 0.7827717662 * cone[1] - 0.8086757660 * cone[2]]  # fmt: skip
+
+
+def linear_rgb(colour: str) -> list[float]:
+    values = [int(colour[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+    return [v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in values]
+
+
+def gap(first: str, second: str) -> float:
+    """The smallest OKLab distance x100 between two hex colours, as seen by normal vision and by each simulated colour
+    blindness: how far apart they read to the readers who see them least apart."""
+    one, other = linear_rgb(first), linear_rgb(second)
+    views = [(one, other)]
+    for matrix in SIMULATIONS.values():
+        views.append(tuple([min(1.0, max(0.0, sum(row[k] * rgb[k] for k in range(3)))) for row in matrix]  # type: ignore[arg-type]
+                           for rgb in (one, other)))  # fmt: skip
+    return min(100 * math.dist(oklab(a), oklab(b)) for a, b in views)
 
 
 def colours(fig: Figure) -> set[str]:
@@ -57,11 +105,11 @@ def main() -> int:
     per_task = json.loads(TASK_FIGURE_DATA.read_text())
 
     print("-- the router list --")
-    check([r.name for r in ROUTERS] == ["rules", "trained"],
+    check([r.name for r in ROUTERS] == ["rules", "trained"] == [NAMED_ROUTERS[E], NAMED_ROUTERS[F]],
           "the list holds E then F, under their names in the operating-points file")  # fmt: skip
-    check(TRAINED.label == headline["routers"]["trained"]["label"] == "F: trained router" and TRAINED.style == F_STYLE,
+    check(TRAINED.label == headline["routers"][TRAINED.name]["label"] == LABELS[F] and TRAINED.style == F_STYLE,
           "F's label is the committed one and its style is F's")  # fmt: skip
-    check(RULES.label == headline["routers"]["rules"]["label"] == "E: rules router",
+    check(RULES.label == headline["routers"][RULES.name]["label"] == LABELS[E],
           "E's label is the committed one")  # fmt: skip
     twin = replace(RULES, name="twin", label="F: twin", short="F", style=F_STYLE)
     styles = [r.style for r in ROUTERS]
@@ -69,6 +117,15 @@ def main() -> int:
         check(len({getattr(s, field) for s in styles}) == len(styles), f"E's and F's styles differ in their {field}")
     check(all(len(s.color) == 7 and s.color.startswith("#") for s in styles), "each style's colour is a hex colour")
     check(RULES.style.color == "#8e5bd0", "E's style is the one chart v1 drew it in")
+    check(abs(gap("#000000", "#ffffff") - 100) < 1e-3 and gap("#2a78d6", "#2a78d6") == 0,
+          "the colour gap reads 100 from black to white (OKLab lightness 0 to 1) and 0 from a colour to itself")  # fmt: skip
+    drawn = {"the configs' blue": SERIES_1, "the envelope's orange": SERIES_2, "the oracle's green": SERIES_3,
+             "E's purple": RULES.style.color}  # fmt: skip
+    for what, colour in drawn.items():
+        check(gap(F_STYLE.color, colour) >= APART, f"F's colour is {gap(F_STYLE.color, colour):.1f} from {what}, "
+              f"at least {APART} in every view")  # fmt: skip
+    check(gap("#e34948", SERIES_2) < APART,
+          "known positive: F's earlier red (#e34948) was too close to the envelope's orange, and the check says so")  # fmt: skip
 
     print("\n-- drawn with E alone --")
     e_steps = "E: rules router, its steps from A (straight lines in linear cost)"

@@ -31,7 +31,7 @@ from analysis import fit_trained_router as fit
 from analysis import measure_trained_router as measure
 from analysis.benchmark import read_rows
 from analysis.fake_backend import FakeBackend
-from analysis.freeze import closure
+from analysis.freeze import closure, sha256
 from analysis.plan import PLAN, amendment_item
 from harness.client import PROJECT_ROOT
 from routers import trained
@@ -147,8 +147,8 @@ def main() -> int:
           "labels that depend on the embedding choose a larger C, the one with the lowest mean log loss")  # fmt: skip
 
     print("\n-- within-task concordance and the signal check (items 7 and 12) --")
-    # Cell (t1, fold 0): successes score 0.9 and 0.5, failures 0.2 and 0.5: 3 pairs right, one tie = 3.5 of 4.
-    # Cell (t2, fold 0): the success scores below the failure: 0 of 1. A cell with no failure holds no pair.
+    # Cell (t1, fold 0): successes have router scores 0.9 and 0.5, failures 0.2 and 0.5: 3 pairs right, one tie = 3.5 of 4.
+    # Cell (t2, fold 0): the success's router score is below the failure's: 0 of 1. A cell with no failure holds no pair.
     scores = np.array([0.9, 0.2, 0.5, 0.5, 0.3, 0.7, 0.4, 0.6])
     outcome = np.array([1, 0, 1, 0, 1, 0, 1, 1])
     task_of = ["t1"] * 4 + ["t2"] * 2 + ["t3"] * 2
@@ -253,14 +253,14 @@ def main() -> int:
     check(all(p in recorded for p in frozen) and len(frozen) == len(set(frozen)),
           f"item 19 records the closure and the {len(measure.FROZEN_OTHERS)} other frozen files, once each")  # fmt: skip
     for relative in frozen:
-        check(measure.sha256_file(PROJECT_ROOT / relative) == recorded.get(relative), f"{relative} hashes as recorded")
+        check(sha256(PROJECT_ROOT / relative) == recorded.get(relative), f"{relative} hashes as recorded")
     check(set(trained.MODEL_FILES) <= set(recorded), "the five model files' sha256 are recorded")
     with tempfile.TemporaryDirectory() as tmp:
         for relative in frozen:
             copy = Path(tmp) / Path(relative).name
             copy.write_bytes((PROJECT_ROOT / relative).read_bytes() + b" ")
             check(
-                measure.sha256_file(copy) != recorded.get(relative),
+                sha256(copy) != recorded.get(relative),
                 f"a byte added to a copy of {relative} changes its hash",
             )
     from analysis.freeze import closure as closure_of
@@ -350,7 +350,7 @@ def hook_only(record: str, settings: trained.Settings) -> None:
           "and the hashes the snapshot gives are the settings' and item 19's")  # fmt: skip
     for name in measure.CACHE_FILES:
         check(
-            measure.sha256_file(fit.CACHE_DIR / name) == recorded.get(name),
+            sha256(fit.CACHE_DIR / name) == recorded.get(name),
             f"the cache file {name} hashes as item 19 records",
         )
     caches = {split: fit.read_cache(split) for split in ("train", "dev")}
@@ -410,7 +410,7 @@ def hook_only(record: str, settings: trained.Settings) -> None:
         other = router.features(cached[(i + 1) % len(cached)], request)  # another request's cached vector
         swapped.append(max(abs(again[c] - router.score_features(trained.fold(request), other)[c]) for c in SCORED))
     check(len(sample) == 32 and worst <= limit,
-          f"{len(sample)} requests embedded again score within the drift limit {limit:.3g} of their cached embedding "
+          f"{len(sample)} requests embedded again give router scores within the drift limit {limit:.3g} of their cached embedding "
           f"(largest gap {worst:.2e}, {sum(g == 0 for g in gaps)} of {len(gaps)} embeddings identical)")  # fmt: skip
     check(max(swapped) > limit, "known positive: another request's cached embedding is further than the drift limit")
 

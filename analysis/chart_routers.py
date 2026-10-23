@@ -6,11 +6,11 @@ router-score table, how to walk it, and any extra facts for its entry in the hea
 the order the figures draw and the legend lists them; E's and F's entries are built here. Steps, operating points, McNemar rows and the
 matched-cost comparison are drawn and computed per entry, in `analysis/pareto.py`.
 
-Each router has its own style, so that two read apart on one panel without relying on colour alone: a colour from the
-data-viz reference palette's family, a marker for its steps and another for its operating points' centres, and a
-line. E's is chart v1's, unchanged. F's is red, triangles and a dashed line, against E's purple, squares,
-diamonds and a solid line; the figures' other colours are the configs' blue, the envelope's orange and the oracle's
-green.
+Each router has its own style, so that two read apart on one panel without relying on colour alone: a colour, a marker
+for its steps and another for its operating points' centres, and a line. E's is chart v1's, unchanged. F's is maroon,
+triangles and a dashed line, against E's purple, squares, diamonds and a solid line; the figures' other colours are the
+configs' blue, the envelope's orange and the oracle's green. F's maroon is at least 15 apart in OKLab (x100) from each
+of those four, in normal vision and under simulated red-green colour blindness; `check_chart_routers` measures it.
 """
 
 from collections.abc import Callable
@@ -19,10 +19,9 @@ from dataclasses import dataclass, field
 from analysis.bootstrap import Bootstrap
 from analysis.dev_diagnostic import dev_diagnostic
 from analysis.matrix import Matrix
-from analysis.operating_points import NAMED_ROUTERS
+from analysis.router_names import LABELS, NAMED_ROUTERS, E, F
 from analysis.router_table import RouterScoreTable
 from analysis.rules_table import dev_table
-from analysis.rules_walk import ROUTER as RULES_NAME
 from analysis.rules_walk import dev_walks
 from analysis.walk import Walk
 
@@ -53,15 +52,15 @@ E_STYLE = RouterStyle(
     },
 )  # fmt: skip
 
-# F's: red, triangles and a dashed line, against E's purple, squares, diamonds and a solid line. Its label offsets are
+# F's: maroon, triangles and a dashed line, against E's purple, squares, diamonds and a solid line. Its label offsets are
 # placed by eye on the committed figure, as E's are.
 F_STYLE = RouterStyle(
-    color="#e34948", marker="^", point_marker="v", linestyle="--",
+    color="#9b1c31", marker="^", point_marker="v", linestyle="--",
     point_offsets={
         ("realistic", "97%"): (-6, -58, "right"),
         ("realistic", "99%"): (44, -24, "left"),
         ("realistic", "100%: falls back to A"): (74, -80, "right"),
-        ("uniform", "97%"): (-24, -44, "right"),
+        ("uniform", "97%"): (-84, 0, "right"),
         ("uniform", "100%, 99%: falls back to A"): (8, -92, "right"),
     },
 )  # fmt: skip
@@ -83,9 +82,9 @@ class RouterEntry:
 
 
 RULES = RouterEntry(
-    name=RULES_NAME,
-    label="E: rules router",
-    short="E",
+    name=NAMED_ROUTERS[E],
+    label=LABELS[E],
+    short=E,
     style=E_STYLE,
     dev_table=dev_table,
     walks=dev_walks,
@@ -102,9 +101,9 @@ def _trained_dev_table() -> RouterScoreTable:
 
 
 TRAINED = RouterEntry(
-    name=NAMED_ROUTERS["F"],
-    label="F: trained router",
-    short="F",
+    name=NAMED_ROUTERS[F],
+    label=LABELS[F],
+    short=F,
     style=F_STYLE,
     dev_table=_trained_dev_table,
     walks=dev_walks,

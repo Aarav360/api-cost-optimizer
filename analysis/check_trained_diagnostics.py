@@ -29,28 +29,25 @@ from pathlib import Path
 
 import numpy as np
 
-from analysis import pareto, rules_table, trained_table
+from analysis import rules_table, trained_table
 from analysis import trained_diagnostics as diagnostics
 from analysis.matrix import Matrix
 from analysis.operating_points import (
-    NAMED_ROUTERS,
     OPERATING_POINTS_FILE,
     build_section,
     check_sections,
     read_section,
     section_hash,
 )
+from analysis.pareto import TASK_FIGURE_DATA
 from analysis.router_metrics import within_task_concordance
+from analysis.router_names import F_TRAIN, NAMED_ROUTERS, TASK_RATES, E, F
+from analysis.task_warnings import task_warning
 from analysis.trained_diagnostics import (
     COMPARISONS,
     DIAGNOSTICS,
-    F_TRAIN,
-    TASK_RATES,
     DiagnosticsError,
-    E,
-    F,
     task_rates_table,
-    task_warning,
 )
 from analysis.walk import ALL_STEPS_UP_TO
 from harness.client import PROJECT_ROOT
@@ -227,6 +224,7 @@ def real() -> None:
           "the paired differences are the readings' differences, F less the task rates and F less F-train")  # fmt: skip
 
     print("\n-- the walks --")
+    trained_table.dev_table.cache_clear()  # F's table is cached per process: embed the dev requests again
     again = {
         E: rules_table.dev_table(), F: trained_table.dev_table(), F_TRAIN: trained_table.f_train_table(),
         TASK_RATES: task_rates_table(train, dev, result.fold_of),
@@ -234,7 +232,8 @@ def real() -> None:
     for name, table in again.items():
         check(table == tables[name] and diagnostics.dev_walks(dev, table, draws) == result.walks[name],
               f"{name}: a table built again and walked again gives the same table and walks")  # fmt: skip
-    for name, router in ((E, NAMED_ROUTERS["E"]), (F, NAMED_ROUTERS["F"])):
+    for name in (E, F):
+        router = NAMED_ROUTERS[name]
         committed = read_section(router)
         check(build_section(result.walks[name]) == committed
               and section_hash(build_section(result.walks[name])) == section_hash(committed),
@@ -249,7 +248,7 @@ def real() -> None:
           "the file is byte for byte as it was before the diagnostics ran")  # fmt: skip
     check_ok = True
     try:
-        check_sections(required=(NAMED_ROUTERS["E"], NAMED_ROUTERS["F"]))
+        check_sections(required=(NAMED_ROUTERS[E], NAMED_ROUTERS[F]))
     except ValueError:
         check_ok = False
     check(check_ok, "the allowlist still passes: sections for E and F only, none for F-train or a diagnostic")
@@ -261,9 +260,10 @@ def real() -> None:
 
     print("\n-- per-task warnings --")
     counts = {t: sum(1 for it in dev.items.values() if it.task == t) for t in by_task_train}
-    check(all(task_warning(t, n) == (pareto.warning(n) if t in pareto.WARNED else None) for t, n in counts.items())
-          and set(pareto.WARNED) == {"ifeval", "mbppplus"},
-          "the warning is the chart script's A7 item 2 text for IFEval and MBPP+, and none for the others")  # fmt: skip
+    committed = json.loads(TASK_FIGURE_DATA.read_text())["panels"]
+    check(all(task_warning(t, n) == committed[t]["warning"] for t, n in counts.items())
+          and {t for t in counts if task_warning(t, counts[t])} == {"ifeval", "mbppplus"},
+          "the warning is the committed per-task figure's A7 item 2 text for IFEval and MBPP+, and none for the others")  # fmt: skip
     check(task_warning("mbppplus", 107) == "Only 107 dev items, below the plan's minimum of a few hundred: indicative"
           and task_warning("banking77", 240) is None,
           "hand-written: MBPP+ reads 'Only 107 dev items...', Banking77 reads nothing")  # fmt: skip

@@ -33,14 +33,17 @@ from analysis import fit_trained_router as fit
 from analysis import matrix as results_matrix
 from analysis import trained_table
 from analysis.benchmark import read_rows
-from analysis.bootstrap import Bootstrap, resample
+from analysis.bootstrap import SEED, Bootstrap, resample
 from analysis.folds import N_FOLDS, read_folds
+from analysis.no_backend import NoBackend
 from analysis.router_metrics import (
     Difference,
     PairedEstimate,
     Reading,
     difference,
+    estimate_data,
     log_loss,
+    size_data,
     within_task_concordance,
 )
 from routers import trained
@@ -48,12 +51,11 @@ from routers.ladder import SCORED
 from routers.request import from_row
 from routers.trained import Settings, TrainedRouter
 
-SEED = 2026  # the bootstrap's and the fold builder's seed (A11 item 8)
 SIZES = (0.25, 0.5, 0.75, 1.0)  # shares of a fold model's training rows (item 12)
 
 
 class CurveError(ValueError):
-    """Rows, sizes or scores the learning curve refuses. Nothing is computed."""
+    """Rows, sizes or router scores the learning curve refuses. Nothing is computed."""
 
 
 class Unit(NamedTuple):
@@ -105,14 +107,13 @@ def nested_subsamples(
 # The refits (item 12): the fit script's own `fit_head`, on each fold's subsample
 
 
-class _NoEmbedding:
-    """A backend that can't embed: the refits score feature rows, never text."""
+@dataclass(frozen=True)
+class SplitRows:
+    """One split's rows as the refits read them, in the reader's order."""
 
-    def encode(self, text: str) -> list[int]:
-        raise CurveError("the learning curve scores feature rows; it never embeds")
-
-    def cls_vector(self, ids: list[int]) -> np.ndarray:
-        raise CurveError("the learning curve scores feature rows; it never embeds")
+    x: np.ndarray  # the router's `features`, one row per request
+    y: Mapping[str, np.ndarray]  # run-0 success per config
+    units: Sequence[Unit]
 
 
 @dataclass(frozen=True)
@@ -125,37 +126,34 @@ class Refits:
 
 def refit_out_of_fold(
     settings: Settings,
-    train: tuple[np.ndarray, Mapping[str, np.ndarray], Sequence[Unit]],
-    dev: tuple[np.ndarray, Mapping[str, np.ndarray], Sequence[Unit]],
+    train: SplitRows,
+    dev: SplitRows,
     dev_folds: np.ndarray,
     sizes: Sequence[float] = SIZES,
     seed: int = SEED,
 ) -> Refits:
     """Refit every fold model at every size and score its held-out dev fold.
 
-    `train` and `dev` hold each split's feature rows (the router's `features`), its run-0 successes per config and
-    each row's `Unit`. Fold model k's rows are all of train and the dev rows outside fold k, stacked in that order
+    `train` and `dev` hold each split's feature rows, run-0 successes per config and each row's `Unit`. Fold model k's rows are all of train and the dev rows outside fold k, stacked in that order
     as `fit_fold_models` stacks them, then thinned to the size's subsample; each config's head is fitted at its own C
     by `fit_head` and scored through `TrainedRouter.score_features`, as F's table is.
     """
-    train_x, train_y, train_units = train
-    dev_x, dev_y, dev_units = dev
-    scores = {size: {config: np.zeros(len(dev_x)) for config in SCORED} for size in sizes}
+    scores = {size: {config: np.zeros(len(dev.x)) for config in SCORED} for size in sizes}
     rows: dict[float, list[int]] = {size: [] for size in sizes}
     for k in range(N_FOLDS):
         held = dev_folds == k
-        x = np.vstack([train_x, dev_x[~held]])
-        y = {config: np.concatenate([train_y[config], dev_y[config][~held]]) for config in SCORED}
-        units = [*train_units, *(u for u, h in zip(dev_units, held, strict=True) if not h)]
+        x = np.vstack([train.x, dev.x[~held]])
+        y = {config: np.concatenate([train.y[config], dev.y[config][~held]]) for config in SCORED}
+        units = [*train.units, *(u for u, h in zip(dev.units, held, strict=True) if not h)]
         masks = nested_subsamples(units, sizes, seed)
         for size in sizes:
             keep = masks[size]
             heads = {config: fit.fit_head(x[keep], y[config][keep], settings.c[config]) for config in SCORED}
-            router = TrainedRouter(settings, (heads,) * trained.FOLDS, backend=_NoEmbedding())
+            router = TrainedRouter(settings, (heads,) * trained.FOLDS, backend=NoBackend())
             for i in np.flatnonzero(held):
                 # A copy, as the router's own `features` gives a fresh array: a dot product's last bit can depend on
                 # the array's alignment, and a row of a 769-wide matrix isn't aligned like one (15 of 744 differed).
-                for config, value in router.score_features(0, np.array(dev_x[i])).items():
+                for config, value in router.score_features(0, np.array(dev.x[i])).items():
                     scores[size][config][i] = value
             rows[size].append(int(keep.sum()))
     return Refits(scores, {size: tuple(n) for size, n in rows.items()})
@@ -234,16 +232,15 @@ def measure(
 # On the benchmark's train and dev rows
 
 
-def _split_inputs(
-    settings: Settings, matrix: results_matrix.Matrix, split: str
-) -> tuple[list[str], np.ndarray, dict[str, np.ndarray], list[Unit]]:
-    """A split's item IDs in the reader's order, feature rows from the embedding cache, run-0 successes, units."""
+def _split_inputs(settings: Settings, matrix: results_matrix.Matrix, split: str) -> tuple[list[str], SplitRows]:
+    """A split's item IDs in the reader's order, and its rows: feature rows from the embedding cache, run-0 successes,
+    units."""
     rows = read_rows(split=split)
     ids = [row["item_id"] for row in rows]
     x = fit.feature_matrix(settings, fit.read_cache(split).embeddings, [from_row(row) for row in rows])
     cells = matrix.split(split).cells
     y = {config: np.array([cells[(i, config)].success for i in ids]) for config in SCORED}
-    return ids, x, y, [Unit(row["source"], split, row["source_group"]) for row in rows]
+    return ids, SplitRows(x, y, [Unit(row["source"], split, row["source_group"]) for row in rows])
 
 
 def build(sizes: Sequence[float] = SIZES) -> tuple[LearningCurve, Refits]:
@@ -253,11 +250,11 @@ def build(sizes: Sequence[float] = SIZES) -> tuple[LearningCurve, Refits]:
     """
     settings = trained.read_settings()
     matrix = results_matrix.load()
-    _, train_x, train_y, train_units = _split_inputs(settings, matrix, "train")
-    dev_ids, dev_x, dev_y, dev_units = _split_inputs(settings, matrix, "dev")
+    _, train = _split_inputs(settings, matrix, "train")
+    dev_ids, dev_rows = _split_inputs(settings, matrix, "dev")
     dev_fold_of = read_folds("dev")
     dev_folds = np.array([dev_fold_of[i] for i in dev_ids])
-    refits = refit_out_of_fold(settings, (train_x, train_y, train_units), (dev_x, dev_y, dev_units), dev_folds, sizes)
+    refits = refit_out_of_fold(settings, train, dev_rows, dev_folds, sizes)
     dev = matrix.split("dev")
     success = {config: {i: dev.cells[(i, config)].success for i in dev_ids} for config in SCORED}
     task = {i: dev.items[i].task for i in dev_ids}
@@ -265,7 +262,7 @@ def build(sizes: Sequence[float] = SIZES) -> tuple[LearningCurve, Refits]:
     f_train_scores = {config: {e.item_id: e.router_scores[config] for e in f_train.items} for config in SCORED}
     curve = measure(
         resample(dev), refits, dev_ids, success, {i: (task[i], dev_fold_of[i]) for i in dev_ids},
-        (len(train_units), f_train_scores, task),
+        (len(train.units), f_train_scores, task),
     )  # fmt: skip
     return curve, refits
 
@@ -276,12 +273,12 @@ def learning_curve() -> LearningCurve:
 
 
 def _reading_data(reading: Reading | Difference) -> dict:
-    def estimate(e: PairedEstimate) -> dict:
-        return {"value": e.value, "low": e.low, "high": e.high, "undefined": e.undefined}
-
-    out = {"pooled": estimate(reading.pooled), "per_task": {t: estimate(e) for t, e in reading.per_task.items()}}
+    out: dict[str, object] = {
+        "pooled": estimate_data(reading.pooled),
+        "per_task": {t: estimate_data(e) for t, e in reading.per_task.items()},
+    }
     if isinstance(reading, Reading):
-        out["size"] = {"pooled" if k is None else k: n for k, n in reading.size.items()}  # pairs or items
+        out["size"] = size_data(reading.size)  # pairs or items
     return out
 
 

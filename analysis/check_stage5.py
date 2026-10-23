@@ -44,7 +44,6 @@ from matplotlib.figure import Figure
 from analysis.chart_routers import F_STYLE
 from analysis.learning_figure import F_TRAIN_COLOR, LEARNING_FIGURE_DATA, draw_learning_curve
 from analysis.operating_points import (
-    NAMED_ROUTERS,
     OPERATING_POINTS_FILE,
     OperatingPointsError,
     check_sections,
@@ -54,15 +53,20 @@ from analysis.operating_points import (
 from analysis.pareto import FIGURE_DATA, PANELS, TASK_FIGURE_DATA
 from analysis.plan import PLAN, amendment_item
 from analysis.references import ROUNDING
-from analysis.table_v2 import DESCRIPTIVE, DIAGNOSTIC_LABEL, MIXES, TABLE_V2
+from analysis.router_names import F_TRAIN, LABELS, NAMED_ROUTERS, TASK_RATES, E, F
+from analysis.rules_walk import MIXES
+from analysis.table_v2 import DESCRIPTIVE, DIAGNOSTIC_LABEL, TABLE_V2
 from harness.client import PROJECT_ROOT
 from routers.ladder import FRONTIER, LADDER, SCORED
 
-E, F = NAMED_ROUTERS["E"], NAMED_ROUTERS["F"]  # the routers' names in the operating-points file and the JSONs
+E_SECTION, F_SECTION = (
+    NAMED_ROUTERS[E],
+    NAMED_ROUTERS[F],
+)  # the routers' names in the operating-points file and the JSONs
 TARGETS = ("100%", "99%", "97%")
 DEV_TASKS = ("ifeval", "banking77", "mmlu_pro", "mbppplus")
-PAIRS = (("F", "E"), ("F-train", "E"), ("F", "F-train"))  # item 13's comparisons, first less second
-DIAGNOSTICS = ("F-train", "task rates")  # the diagnostics that are walked like routers; never in the file
+PAIRS = ((F, E), (F_TRAIN, E), (F, F_TRAIN))  # item 13's comparisons, first less second
+DIAGNOSTICS = (F_TRAIN, TASK_RATES)  # the diagnostics that are walked like routers; never in the file
 problems: list[str] = []
 
 
@@ -136,7 +140,7 @@ def comparison_text(cell: dict, which: str) -> str:
 def record_lines(headline: dict, table: dict, section: dict[str, Any]) -> list[str]:
     """Amendment A11 item 21's lines that hold a number, as the figure JSONs and the operating-points file give them,
     at the precision the record prints."""
-    mixes = [headline["panels"][mix]["routers"][F]["operating_points"] for mix in MIXES]
+    mixes = [headline["panels"][mix]["routers"][F_SECTION]["operating_points"] for mix in MIXES]
     bootstrap = headline["bootstrap"]
     diag = table["diagnostics"]
 
@@ -174,7 +178,7 @@ def record_lines(headline: dict, table: dict, section: dict[str, Any]) -> list[s
                 ", ".join(comparison_text(cell, which) for cell in by_mix[mix].values()) for mix in MIXES) + " |")  # fmt: skip
     lines.append(f"- Within-task concordance, pooled over pairs within a task and fold ({DIAGNOSTIC_LABEL}), with its "
                  f"95% paired interval:")  # fmt: skip
-    for name, label in (("F", "F"), ("F-train", "F-train"), ("task rates", "The task-rates diagnostic")):
+    for name, label in ((F, F), (F_TRAIN, F_TRAIN), (TASK_RATES, "The task-rates diagnostic")):
         lines.append(f"| {label}, concordance | " + " | ".join(
             interval(diag["within_task_concordance"][name][c]["pooled"], 1, 3, False) for c in SCORED) + " |")  # fmt: skip
     for gap, label in (("F less task rates", "F less the task-rates diagnostic"), ("F less F-train", "F less F-train")):
@@ -240,35 +244,35 @@ def record_checks(headline: dict, table: dict, section: dict[str, Any]) -> None:
 
 def v1_kept(headline: dict, per_task: dict) -> None:
     print("\n-- table v2 keeps table v1, and the figures show policies only (Amendment A11, items 13 and 16) --")
-    named = [E, F]
+    named = [E_SECTION, F_SECTION]
     check(list(headline["routers"]) == named and all(list(p["routers"]) == named for p in headline["panels"].values()),
           "figures/pareto.json holds E's entry and F's, in that order, under their names in the operating-points file")  # fmt: skip
     check(all(list(p["routers"]) == named for p in per_task["panels"].values()),
           "figures/pareto_tasks.json holds E's part and F's in each task")  # fmt: skip
-    check(headline["routers"][F]["label"] == "F: trained router", "F's label is the chart's: F: trained router")
+    check(headline["routers"][F_SECTION]["label"] == LABELS[F], f"F's label is the chart's: {LABELS[F]}")
     for panel in headline["panels"].values():
-        check(list(panel["routers"][F]) == list(panel["routers"][E]) == ["steps", "operating_points"],
+        check(list(panel["routers"][F_SECTION]) == list(panel["routers"][E_SECTION]) == ["steps", "operating_points"],
               "F's part of a panel has E's keys: its steps and its operating points")  # fmt: skip
     for task, panel in per_task["panels"].items():
-        check(list(panel["routers"][F]) == list(panel["routers"][E]), f"{task}: F's part has E's keys")
+        check(list(panel["routers"][F_SECTION]) == list(panel["routers"][E_SECTION]), f"{task}: F's part has E's keys")
     text = FIGURE_DATA.read_text() + TASK_FIGURE_DATA.read_text()
-    check("F-train" not in text and "task rates" not in text and "diagnostic, dev only" not in text,
+    check(F_TRAIN not in text and TASK_RATES not in text and "diagnostic, dev only" not in text,
           "neither figure JSON holds a diagnostic: F-train and the task-rates diagnostic are not policies")  # fmt: skip
     check(not any("band" in key for key in headline), "no band")
-    check(set(json.loads(OPERATING_POINTS_FILE.read_text())) == {E, F},
+    check(set(json.loads(OPERATING_POINTS_FILE.read_text())) == {E_SECTION, F_SECTION},
           "the operating-points file holds E's section and F's, and no other")  # fmt: skip
-    check_sections(required=(E, F))
-    check(refused(lambda: check_sections(required=("F-train",))), "known positive: the allowlist refuses F-train")
+    check_sections(required=(E_SECTION, F_SECTION))
+    check(refused(lambda: check_sections(required=(F_TRAIN,))), f"known positive: the allowlist refuses {F_TRAIN}")
 
 
 def f_rows(headline: dict, section: dict[str, Any]) -> None:
     print("\n-- F's steps and operating points, read from the JSON (Amendment A9, items 9, 10, 14 and 15) --")
-    check(headline["routers"][F]["operating_points_sha256"] == section_hash(section)
+    check(headline["routers"][F_SECTION]["operating_points_sha256"] == section_hash(section)
           == hashlib.sha256(json.dumps(section, sort_keys=True, indent=2).encode()).hexdigest(),
           "the figure JSON's hash of F's section is the sha256 of the section read from the file, sorted keys")  # fmt: skip
     for mix in PANELS:
         panel = headline["panels"][mix]
-        part = panel["routers"][F]
+        part = panel["routers"][F_SECTION]
         line, points = part["steps"], part["operating_points"]
         a = panel["configs"][FRONTIER]
         check(line[0]["threshold"] is None and line[0]["quality"] == a["quality"]["value"]
@@ -317,7 +321,7 @@ def f_rows(headline: dict, section: dict[str, Any]) -> None:
 def includes_zero(headline: dict) -> None:
     """The README says F's paired difference from the envelope at matched cost includes 0 at every operating point."""
     gaps = [(mix, key, point["matched_cost"]) for mix in PANELS
-            for key, point in headline["panels"][mix]["routers"][F]["operating_points"].items()]  # fmt: skip
+            for key, point in headline["panels"][mix]["routers"][F_SECTION]["operating_points"].items()]  # fmt: skip
     check(len(gaps) == 6 and all(g["low"] <= 0 <= g["high"] for _, _, g in gaps),
           "F's paired difference from the envelope at matched cost has an interval that includes 0 at each of its six "
           "operating points, as the README says")  # fmt: skip
@@ -334,8 +338,8 @@ def table_v2_file(headline: dict, table: dict, curve: dict) -> None:
           f"the diagnostics are labeled \"{DIAGNOSTIC_LABEL}\"")  # fmt: skip
     check(list(table["comparisons"]["same_target"]) == [f"{a} less {b}" for a, b in PAIRS],
           "the comparisons are F against E, F-train against E and F against F-train, first less second")  # fmt: skip
-    points = {mix: {"E": headline["panels"][mix]["routers"][E]["operating_points"],
-                    "F": headline["panels"][mix]["routers"][F]["operating_points"],
+    points = {mix: {E: headline["panels"][mix]["routers"][E_SECTION]["operating_points"],
+                    F: headline["panels"][mix]["routers"][F_SECTION]["operating_points"],
                     **{name: table["diagnostics"]["operating_points"][name][mix] for name in DIAGNOSTICS}}
               for mix in MIXES}  # fmt: skip
     for pair in PAIRS:
@@ -364,13 +368,16 @@ def table_v2_file(headline: dict, table: dict, curve: dict) -> None:
         rows = table["diagnostics"]["operating_points"][name]
         check(set(rows) == set(MIXES) and all(set(by) == set(TARGETS) for by in rows.values()),
               f"{name}'s operating points: both mixes and all three targets, none in the operating-points file")  # fmt: skip
-    check(set(json.loads(OPERATING_POINTS_FILE.read_text())) == {E, F}, "and the file still holds E's and F's only")
+    check(
+        set(json.loads(OPERATING_POINTS_FILE.read_text())) == {E_SECTION, F_SECTION},
+        "and the file still holds E's and F's only",
+    )
     concordance = table["diagnostics"]["within_task_concordance"]
-    check(all(concordance["task rates"][c]["pooled"][k] == 0.5 for c in SCORED for k in ("value", "low", "high")),
+    check(all(concordance[TASK_RATES][c]["pooled"][k] == 0.5 for c in SCORED for k in ("value", "low", "high")),
           "the task-rates diagnostic's within-task concordance is exactly 0.5, with no width, as it must be")  # fmt: skip
-    check(all(0.4 < concordance[n][c]["pooled"]["value"] < 0.7 for n in ("F", "F-train") for c in SCORED)
+    check(all(0.4 < concordance[n][c]["pooled"]["value"] < 0.7 for n in (F, F_TRAIN) for c in SCORED)
           and all(concordance[n][c]["pooled"]["low"] < concordance[n][c]["pooled"]["value"]
-                  < concordance[n][c]["pooled"]["high"] for n in ("F", "F-train") for c in SCORED),
+                  < concordance[n][c]["pooled"]["high"] for n in (F, F_TRAIN) for c in SCORED),
           "F's and F-train's concordance sit near chance, inside their intervals")  # fmt: skip
     check(all(set(concordance[n][c]["per_task"]) == set(DEV_TASKS) for n in concordance for c in SCORED)
           and all((concordance[n][c]["per_task"][t]["warning"] is not None) == (t in ("ifeval", "mbppplus"))
@@ -397,7 +404,7 @@ def table_v2_file(headline: dict, table: dict, curve: dict) -> None:
                   f"{config}: the {metric.replace('_', ' ')} headline is the 100% point less the 75% point "
                   f"({step['value']:+.4f})")  # fmt: skip
         reference = curve["reference"]["task_rates_log_loss"][config]["value"]
-        reading = table["diagnostics"]["log_loss"]["task rates"][config]["pooled"]["value"]
+        reading = table["diagnostics"]["log_loss"][TASK_RATES][config]["pooled"]["value"]
         check(
             reference == reading, f"{config}: the dashed line is the task-rates diagnostic's log loss ({reference:.4f})"
         )
@@ -459,11 +466,13 @@ def on_dev(headline: dict, per_task: dict, table: dict, curve: dict) -> None:
     f_table = trained_table.dev_table()
     walks = dev_walks(dev, f_table, draws)
     steps = step_outcomes(dev, f_table, fixed[FRONTIER])
-    check(trained_walk.rebuilt_section() == read_section(F), "the walk on dev reproduces F's section of the file")
+    check(
+        trained_walk.rebuilt_section() == read_section(F_SECTION), "the walk on dev reproduces F's section of the file"
+    )
     for mix in PANELS:
         savings = draws.savings(dev, fixed[FRONTIER], mixes[mix])
         rebuilt = router_part_of_mix_panel(draws, savings, steps, walks[mix], fixed, mixes[mix])
-        check(json.loads(json.dumps(rebuilt)) == headline["panels"][mix]["routers"][F],
+        check(json.loads(json.dumps(rebuilt)) == headline["panels"][mix]["routers"][F_SECTION],
               f"{mix} mix: F's steps and operating points in figures/pareto.json are what the package gives now")  # fmt: skip
     scores = {entry.item_id: entry.router_scores for entry in f_table.items}
 
@@ -474,12 +483,12 @@ def on_dev(headline: dict, per_task: dict, table: dict, curve: dict) -> None:
         rebuilt_task = {"mcnemar_vs_A": config_mcnemar(fixed, task),
                         "routers": {F: router_part_of_task_panel(draws, steps, walks, task)}}  # fmt: skip
         committed = {"mcnemar_vs_A": per_task["panels"][task]["mcnemar_vs_A"],
-                     "routers": {F: per_task["panels"][task]["routers"][F]}}  # fmt: skip
+                     "routers": {F: per_task["panels"][task]["routers"][F_SECTION]}}  # fmt: skip
         check(json.loads(json.dumps(rebuilt_task)) == committed,
               f"{task}: F's steps, operating points and McNemar rows in figures/pareto_tasks.json are current")  # fmt: skip
         ids = [i for i, item in dev.items.items() if item.task == task]
         shown = 0
-        for mix, by_target in per_task["panels"][task]["routers"][F]["operating_points"].items():
+        for mix, by_target in per_task["panels"][task]["routers"][F_SECTION]["operating_points"].items():
             for key, point in by_target.items():
                 if point["fell_back"]:
                     check(point["threshold"] is None and point["mcnemar"] is None,
@@ -505,11 +514,11 @@ def main() -> int:
     if "--print" in sys.argv:
         headline = json.loads(FIGURE_DATA.read_text())
         table = json.loads(TABLE_V2.read_text())
-        print("\n".join(record_lines(headline, table, read_section(F))))
+        print("\n".join(record_lines(headline, table, read_section(F_SECTION))))
         return 0
     headline, per_task = (json.loads(path.read_text()) for path in (FIGURE_DATA, TASK_FIGURE_DATA))
     table, curve = (json.loads(path.read_text()) for path in (TABLE_V2, LEARNING_FIGURE_DATA))
-    section = read_section(F)
+    section = read_section(F_SECTION)
     v1_kept(headline, per_task)
     f_rows(headline, section)
     includes_zero(headline)

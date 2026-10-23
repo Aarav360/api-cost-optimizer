@@ -10,9 +10,7 @@ curve can double back (A9 item 14), so one cost can have several qualities.
 
 from dataclasses import dataclass
 
-import numpy as np
-
-from analysis.bootstrap import Bootstrap, Estimate
+from analysis.bootstrap import Bootstrap, Estimate, percentile_estimate
 from analysis.simulator import totals
 from analysis.walk import Walk
 
@@ -39,11 +37,6 @@ class SameTarget:
         return "both fall back to A" if self.both_fall_back else ""
 
 
-def _estimate(value: float, resampled: np.ndarray) -> Estimate:
-    low, high = np.percentile(resampled, [2.5, 97.5])
-    return Estimate(value, float(low), float(high), float(np.std(resampled, ddof=1)))
-
-
 def compare_same_target(draws: Bootstrap, mix: dict[str, float], first: Walk, second: Walk) -> SameTarget:
     """The operating point of `first`'s walk less that of `second`'s, under `mix`: cost per 1k and quality, each with
     its percentile 95% interval over the resamples, each resample weighing both alike.
@@ -57,14 +50,16 @@ def compare_same_target(draws: Bootstrap, mix: dict[str, float], first: Walk, se
                               f"of A's quality")  # fmt: skip
     if not (first.steps and second.steps):
         raise SameTargetError("a walk with no steps has no operating point, not even A")
-    one, other = first.operating, second.operating
     if first.fell_back and second.fell_back:
         return SameTarget(True, True, None, None)
-    one_quality, one_cost = draws.resampled(list(one.outcomes), mix)
-    other_quality, other_cost = draws.resampled(list(other.outcomes), mix)
-    one_total, other_total = totals(list(one.outcomes), mix), totals(list(other.outcomes), mix)
+    first_quality, first_cost = draws.resampled(list(first.operating.outcomes), mix)
+    second_quality, second_cost = draws.resampled(list(second.operating.outcomes), mix)
+    first_total, second_total = (
+        totals(list(first.operating.outcomes), mix),
+        totals(list(second.operating.outcomes), mix),
+    )
     return SameTarget(
         first.fell_back, second.fell_back,
-        _estimate(one_total.cost_per_1k - other_total.cost_per_1k, one_cost - other_cost),
-        _estimate(one_total.quality - other_total.quality, one_quality - other_quality),
+        percentile_estimate(first_total.cost_per_1k - second_total.cost_per_1k, first_cost - second_cost),
+        percentile_estimate(first_total.quality - second_total.quality, first_quality - second_quality),
     )  # fmt: skip

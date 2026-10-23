@@ -24,13 +24,13 @@ import numpy as np
 from analysis.bootstrap import Bootstrap, BootstrapError
 from analysis.check_comparisons import MATRIX, MIX
 from analysis.operating_points import (
-    NAMED_ROUTERS,
     OPERATING_POINTS_FILE,
     OperatingPointsError,
     check_sections,
     write_section,
 )
 from analysis.router_metrics import MetricsError, difference, log_loss, within_task_concordance
+from analysis.router_names import NAMED_ROUTERS, E, F
 from analysis.same_target import SameTargetError, compare_same_target
 from analysis.simulator import Trace, simulate
 from analysis.walk import Step, Walk
@@ -75,9 +75,9 @@ def main() -> int:
         return got is not None and math.isclose(got, expected, abs_tol=tolerance)
 
     print("-- within-task concordance, ties counting half --")
-    # Task t1, one cell: successes score .9, .6, .5 and failures .7, .5. The pairs: .9 beats both failures (2), .6
+    # Task t1, one cell: successes have router scores .9, .6, .5 and failures .7, .5. The pairs: .9 beats both failures (2), .6
     # beats .5 and loses to .7 (1), .5 loses to .7 and ties .5 (half): 3.5 of 6. Task t2 has two cells. In the first
-    # the success scores .2 under the failure's .8 (0 of 1); in the second a success and a failure tie at .5 (half
+    # the success's router score .2 is under the failure's .8 (0 of 1); in the second a success and a failure tie at .5 (half
     # of 1). Task t2 reads .5 / 2 = .25, and all three cells 4 / 8 = .5.
     tasks = ["t1"] * 5 + ["t2"] * 4
     scores = by_item([0.9, 0.6, 0.5, 0.7, 0.5, 0.2, 0.8, 0.5, 0.5])
@@ -96,7 +96,7 @@ def main() -> int:
     merged = within_task_concordance(dev, scores, labels, {**cells, "i7": "b", "i8": "b"})
     check(close(merged.per_task["t2"].value, 0.125) and merged.size["t2"] == 4,
           f"one cell for t2 counts the pairs across its two cells too: 0.5 of 4 = {merged.per_task['t2'].value}")  # fmt: skip
-    # Scores in the right order throughout, and in the wrong order throughout.
+    # Router scores in the right order throughout, and in the wrong order throughout.
     right = within_task_concordance(dev, by_item([.9, .8, .7, .1, .2, .9, .1, .9, .1]), labels,
                                     cells)  # fmt: skip
     wrong = within_task_concordance(dev, by_item([0.1, 0.2, 0.3, 0.9, 0.8, 0.1, 0.9, 0.1, 0.9]), labels, cells)
@@ -104,7 +104,7 @@ def main() -> int:
 
     print("\n-- the task-rates diagnostic and the leave-fold-out effect --")
     # One task in two folds of four. Fold 0 has 3 successes and fold 1 has 1, and each fold's rate comes from the
-    # other fold's labels: fold 0's items score 1/4, fold 1's 3/4. Within a fold every score is equal.
+    # other fold's labels: fold 0's items have router score 1/4, fold 1's 3/4. Within a fold every router score is equal.
     tasks = ["t1"] * 8
     labels = by_item([1, 1, 1, 0, 1, 0, 0, 0])
     rates = by_item([0.25] * 4 + [0.75] * 4)
@@ -112,12 +112,12 @@ def main() -> int:
     dev = draws_of(tasks, [[1] * 8, [2, 0, 1, 1, 0, 1, 1, 1]])
     got = within_task_concordance(dev, rates, labels, folds)
     check(got.pooled.value == 0.5 and got.per_task["t1"].value == 0.5 and got.size[None] == 6,
-          f"each fold's scores are equal, so every pair ties: exactly 0.5 over {got.size[None]} pairs "
+          f"each fold's router scores are equal, so every pair ties: exactly 0.5 over {got.size[None]} pairs "
           f"({got.pooled.value})")  # fmt: skip
     check(got.pooled.low == 0.5 and got.pooled.high == 0.5, "and exactly 0.5 in every resample too")
     # Across the folds: 4 successes, 4 failures, 16 pairs. Fold 0's successes (1/4, three of them) lose to fold 1's
     # failures (3/4, three) in 9 pairs; the one fold-1 success beats the one fold-0 failure in 1; the other 6 tie.
-    # (1 + 6 / 2) / 16 = 0.25: below 0.5 for scores that know only the task.
+    # (1 + 6 / 2) / 16 = 0.25: below 0.5 for router scores that know only the task.
     pooled = within_task_concordance(dev, rates, labels, {f"i{i}": "t1" for i in range(8)})
     check(close(pooled.pooled.value, 0.25) and (pooled.pooled.value or 1) < 0.5 and pooled.size[None] == 16,
           f"the same rates pooled across folds come out below 0.5, the known positive: {pooled.pooled.value}")  # fmt: skip
@@ -146,8 +146,8 @@ def main() -> int:
     print("\n-- the paired difference of two concordances --")
     flat = within_task_concordance(one_cell, by_item([0.5] * 4), labels, {f"i{i}": "t1|0" for i in range(4)})
     check(np.allclose(flat.resampled[None], [.5, .5, .5, .5, .5, .5, math.nan], equal_nan=True),
-          "scores that are all equal read 0.5 in every resample that has pairs")  # fmt: skip
-    # Resample by resample, scores less flat: .25, .5, 0, .5, -.5, .5 and n/a. Ranked -.5, 0, .25, .5, .5, .5.
+          "router scores that are all equal read 0.5 in every resample that has pairs")  # fmt: skip
+    # Resample by resample, router scores less flat: .25, .5, 0, .5, -.5, .5 and n/a. Ranked -.5, 0, .25, .5, .5, .5.
     paired = difference(got, flat)
     check(close(paired.pooled.value, .25) and close(paired.pooled.low, -.5 + .125 * .5) and close(paired.pooled.high, .5)
           and math.isclose(paired.pooled.undefined, 1 / 7),
@@ -301,7 +301,7 @@ def main() -> int:
     )
 
     print("\n-- the operating-points allowlist --")
-    rules, trained = NAMED_ROUTERS["E"], NAMED_ROUTERS["F"]
+    rules, trained = NAMED_ROUTERS[E], NAMED_ROUTERS[F]
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "operating_points.json"
         write_section(rules, {}, path)

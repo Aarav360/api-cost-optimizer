@@ -12,12 +12,14 @@ a test item, and no real settings file, fold weights or fit: this ticket fits no
   schema's key order changing nothing;
 - the window: a long text keeps the head and the tail of its content tokens, and is counted;
 - the settings and fold-weights files: their shapes, and a refusal for each bad case;
-- tamper refusal against the real loader: stand-in files with recorded sha256s, one changed byte refused whole;
+- tamper refusal against the real loader: stand-in files with recorded sha256s, one changed byte refused whole; a stray
+  file beside them passes that hash check, so a separate search for stray files must find it (known positive);
 - scoring through the fake backend: hand-worked router scores, `score` using the hash's fold and `score_with` the
   fold it is given, and nothing after the backend rounding its output back to float32;
 - the backend seam: the normal constructor loads the pinned snapshot through the file check, never the fake;
 - imports: the router's closure holds no scikit-learn, analysis or harness, and not the fake backend;
-- the hook only (it needs the model snapshot, which CI lacks, fetched by `analysis.fetch_model`): a text over the
+- the hook only (it needs the model snapshot, which CI lacks, fetched by `analysis.fetch_model`): the snapshot
+  directory holds exactly the five pinned files and nothing `from_pretrained` could also read; a text over the
   window, in the model's own tokens, keeps exactly half the window's content tokens at each end and comes to exactly
   the window.
 """
@@ -68,6 +70,12 @@ def imported_packages(tree: ast.AST) -> set[str]:
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             found.add(node.module.split(".")[0])
     return found
+
+
+def stray_files(snapshot: Path) -> list[str]:
+    """Everything in the snapshot directory but the five pinned files, hidden files and subdirectories included:
+    `from_pretrained` could read any of it, and `verify_snapshot` hashes only the five."""
+    return sorted(entry.name for entry in snapshot.iterdir() if entry.name not in FILE_NAMES)
 
 
 def passes(call: Callable[[], object]) -> bool:
@@ -315,9 +323,14 @@ def main() -> int:
         check(refused(SnapshotError, lambda: trained.verify_snapshot(stand_in, snapshot)), "a missing file is refused")
         (snapshot / "model.safetensors").write_bytes(b"stand-in for model.safetensors\n")
         check(passes(lambda: trained.verify_snapshot(stand_in, snapshot)), "restoring the bytes passes again")
+        check(stray_files(snapshot) == [], "known negative: a directory of exactly the five files holds no stray file")
+        # `verify_snapshot` hashes the five listed files only, and `from_pretrained` reads the whole directory, so a
+        # stray file would be loaded unhashed: the loader can't see it, and the real directory is checked for it.
         (snapshot / "pytorch_model.bin").write_bytes(b"a pickle the router never reads\n")
-        check(passes(lambda: trained.verify_snapshot(stand_in, snapshot)) and "pytorch_model.bin" not in stand_in.files,
-              "the repository's pickle is neither read nor listed among the five files")  # fmt: skip
+        (snapshot / "onnx").mkdir()
+        check(passes(lambda: trained.verify_snapshot(stand_in, snapshot)) and stray_files(snapshot) == ["onnx", "pytorch_model.bin"],
+              "known positive: the repository's pickle and a subdirectory pass the hash check, and the stray-file "
+              "search finds both")  # fmt: skip
 
     print("\n-- scoring through the fake backend --")
     # Hand-worked: (3, 4) has length 5, so (0.6, 0.8); standardized with mean (0.5, 0.25) and scale (0.25, 0.5) it is
@@ -426,6 +439,8 @@ def main() -> int:
 def real_snapshot_checks() -> None:
     print("\n-- the real snapshot (the hook only) --")
     recorded = {name: hashlib.sha256((trained.SNAPSHOT / name).read_bytes()).hexdigest() for name in FILE_NAMES}
+    check(sorted(entry.name for entry in trained.SNAPSHOT.iterdir()) == sorted(FILE_NAMES) and stray_files(trained.SNAPSHOT) == [],
+          "the snapshot directory holds exactly the five pinned files and nothing else the loader could read")  # fmt: skip
     real = parse_settings(
         settings_data(files=recorded)
     )  # hashes taken from the files: this check reads tokens, not hashes
