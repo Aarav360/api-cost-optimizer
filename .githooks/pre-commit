@@ -32,4 +32,6 @@ if [ -f results/dev_matrix.sqlite ]; then
   uv run python -m analysis.check_trained_dev | grep -E "^FAIL|checks"
   # The learning curve: synthetic sections anywhere, and on dev the 100% point against F's router scores (about 30 s).
   uv run python -m analysis.check_learning_curve | grep -E "^FAIL|checks"
+  # The diagnostics (A11 items 12, 13): task rates, concordance, same-target comparisons (about 10 s).
+  uv run python -m analysis.check_trained_diagnostics | grep -E "^FAIL|checks"
 fi
