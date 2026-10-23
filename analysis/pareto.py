@@ -71,6 +71,7 @@ from analysis.operating_points import OPERATING_POINTS_FILE, build_section, read
 from analysis.references import START, Curve, Oracle, envelope, oracle, quality_targets, task_oracles
 from analysis.router_panels import config_mcnemar, router_part_of_mix_panel, router_part_of_task_panel, step_outcomes
 from analysis.simulator import Outcome, Total, always, item_weights, load_mixes, simulate, task_totals, totals
+from analysis.task_warnings import task_warning
 from harness.client import PROJECT_ROOT, load_models
 from harness.run_pilot import print_table
 
@@ -79,8 +80,6 @@ FIGURE, FIGURE_DATA = FIGURES / "pareto.png", FIGURES / "pareto.json"  # the hea
 TASK_FIGURE, TASK_FIGURE_DATA = FIGURES / "pareto_tasks.png", FIGURES / "pareto_tasks.json"  # the per-task figure
 PANELS = ("realistic", "uniform")
 TASKS = {"ifeval": "IFEval", "banking77": "Banking77", "mmlu_pro": "MMLU-Pro", "mbppplus": "MBPP+"}  # in A5's order
-# Fewer items than the "few hundred" §5 asks for before a per-task claim, so their results carry a warning (A7 item 2).
-WARNED = ("ifeval", "mbppplus")
 LABELS = {"haiku": "B: haiku", "sonnet": "sonnet", "opus_low": "opus_low", "opus": "A: opus"}
 # Label offsets in points, so opus_low and opus, close together on both axes, don't collide, haiku's label sits
 # below the envelope, which leaves haiku's point rising to the right, and opus's sits above the 100% target line,
@@ -120,11 +119,6 @@ def require_parts(panels: dict[str, dict], routers: tuple[RouterEntry, ...]) -> 
     for name, panel in panels.items():
         if missing := [router.name for router in routers if router.name not in panel.get("routers", {})]:
             raise ChartError(f"panel {name!r} holds no part for the routers {missing}")
-
-
-def warning(items: int) -> str:
-    """A7 item 2's warning on a small task's per-task results."""
-    return f"Only {items} dev items, below the plan's minimum of a few hundred: indicative"
 
 
 def realistic_note(mix: dict[str, float], items: int) -> str:
@@ -195,7 +189,7 @@ def task_panels(dev: Matrix, draws: Bootstrap, outcomes: dict[str, list[Outcome]
     for task in TASKS:
         items = sum(item.task == task for item in dev.items.values())
         curve = envelope({config: by_task[config][task] for config in LADDER})
-        panels[task] = {"items": items, "warning": warning(items) if task in WARNED else None,
+        panels[task] = {"items": items, "warning": task_warning(task, items),
                         "configs": {config: asdict(spreads[config][task]) for config in LADDER},
                         **references(curve, oracles[task])}  # fmt: skip
     return panels
@@ -671,11 +665,10 @@ def main() -> int:
     crosses = f"Crosses are 95% intervals from {RESAMPLES:,} resamples of source groups within each task."
     whose = " and ".join(f"{router.short}'s" for router in ROUTERS)
     stepped = f"{whose} steps are joined by straight lines in linear cost, in walk order from A"
-    their = "its" if len(ROUTERS) == 1 else "their"
     draw_headline(panels, {"realistic": realistic_note(mixes["realistic"], per_task["mbppplus"]["items"])},
                   f"Dev split, {basis}. {crosses} Differences between policies are judged by the paired intervals "
                   f"in tables v0 and v1 ({FIGURE_DATA.relative_to(PROJECT_ROOT)}), not by whether crosses overlap. "
-                  f"{stepped}; {their} crosses mark {their} operating points, each labeled with its target.", FIGURE)  # fmt: skip
+                  f"{stepped}; their crosses mark their operating points, each labeled with its target.", FIGURE)  # fmt: skip
     counts = ", ".join(f"{TASKS[task]} {panel['items']}" for task, panel in per_task.items())
     draw_tasks(per_task, f"Dev split, {basis} ({counts}). Each task on its own, with its own envelope and oracle. "
                          f"{crosses} No quality targets: verdicts are given for the two mixes only (Amendment A7). "

@@ -25,6 +25,7 @@ from matplotlib.figure import Figure
 
 from analysis.chart_routers import F_STYLE, ROUTERS, RULES, TRAINED
 from analysis.pareto import FIGURE_DATA, TASK_FIGURE_DATA, ChartError, draw_headline, draw_tasks
+from analysis.router_names import LABELS, NAMED_ROUTERS, E, F
 
 NOTES = {"realistic": "a note"}  # the headline figure sizes its titles by its notes
 problems: list[str] = []
@@ -57,11 +58,11 @@ def main() -> int:
     per_task = json.loads(TASK_FIGURE_DATA.read_text())
 
     print("-- the router list --")
-    check([r.name for r in ROUTERS] == ["rules", "trained"],
+    check([r.name for r in ROUTERS] == ["rules", "trained"] == [NAMED_ROUTERS[E], NAMED_ROUTERS[F]],
           "the list holds E then F, under their names in the operating-points file")  # fmt: skip
-    check(TRAINED.label == headline["routers"]["trained"]["label"] == "F: trained router" and TRAINED.style == F_STYLE,
+    check(TRAINED.label == headline["routers"][TRAINED.name]["label"] == LABELS[F] and TRAINED.style == F_STYLE,
           "F's label is the committed one and its style is F's")  # fmt: skip
-    check(RULES.label == headline["routers"]["rules"]["label"] == "E: rules router",
+    check(RULES.label == headline["routers"][RULES.name]["label"] == LABELS[E],
           "E's label is the committed one")  # fmt: skip
     twin = replace(RULES, name="twin", label="F: twin", short="F", style=F_STYLE)
     styles = [r.style for r in ROUTERS]

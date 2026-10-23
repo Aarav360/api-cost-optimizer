@@ -22,13 +22,12 @@ import numpy as np
 from analysis import fit_trained_router as fit
 from analysis.benchmark import read_rows
 from analysis.folds import N_FOLDS, read_folds
-from analysis.router_table import ItemRouterScores, RouterScoreTable
+from analysis.router_table import LOCAL_OVERHEAD, ItemRouterScores, RouterScoreTable
 from routers import trained
 from routers.ladder import SCORED
 from routers.request import from_row
 from routers.trained import FoldWeights, TrainedRouter
 
-OVERHEAD = 0.0  # F runs locally: no API call, no dollars (item 11)
 QUANTILES = (0.0, 0.05, 0.25, 0.5, 0.75, 0.95, 1.0)  # the reported quantiles of a fold model's router scores
 
 
@@ -51,7 +50,7 @@ def _table(weights: FoldWeights, fold_of: Mapping[str, int] | None) -> RouterSco
     for row, embedding in zip(rows, cache.embeddings, strict=True):
         fold = 0 if fold_of is None else fold_of[row["item_id"]]
         features = router.features(embedding, from_row(row))
-        items.append(ItemRouterScores(row["item_id"], router.score_features(fold, features), OVERHEAD))
+        items.append(ItemRouterScores(row["item_id"], router.score_features(fold, features), LOCAL_OVERHEAD))
     return RouterScoreTable.build(items, [row["item_id"] for row in rows])
 
 

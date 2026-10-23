@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from analysis.bootstrap import Bootstrap
+from analysis.bootstrap import Bootstrap, Estimate, percentile_interval
 
 _EPSILON = float(np.finfo(np.float64).eps)  # scikit-learn's log loss clips router scores to [eps, 1 - eps]
 
@@ -40,6 +40,20 @@ class PairedEstimate:
     low: float | None  # the percentile 95% interval over the resamples that have a value; None if none has
     high: float | None
     undefined: float  # the share of resamples with no value
+
+
+def estimate_data(estimate: PairedEstimate | Estimate | None) -> dict[str, float | None] | None:
+    """An estimate as plain JSON-ready data: value, low, high and `undefined`, which a bootstrap `Estimate` (no resample
+    of it is ever n/a) reads 0. None stays None, as a same-target comparison where both sides fall back to A."""
+    if estimate is None:
+        return None
+    undefined = estimate.undefined if isinstance(estimate, PairedEstimate) else 0.0
+    return {"value": estimate.value, "low": estimate.low, "high": estimate.high, "undefined": undefined}
+
+
+def size_data(size: dict[str | None, int]) -> dict[str, int]:
+    """A reading's size by key, with the pooled count under "pooled" (JSON has no None key)."""
+    return {"pooled" if key is None else key: n for key, n in size.items()}
 
 
 @dataclass(frozen=True)
@@ -67,8 +81,8 @@ def _paired(value: float | None, resampled: np.ndarray) -> PairedEstimate:
     undefined = 1 - len(defined) / len(resampled)
     if len(defined) == 0:
         return PairedEstimate(value, None, None, undefined)
-    low, high = np.percentile(defined, [2.5, 97.5])
-    return PairedEstimate(value, float(low), float(high), undefined)
+    low, high = percentile_interval(defined)
+    return PairedEstimate(value, low, high, undefined)
 
 
 def _reading(draws: Bootstrap, value: dict[str | None, float | None], size: dict[str | None, int],
@@ -173,14 +187,21 @@ def difference(first: Reading, second: Reading) -> Difference:
     Refuses (MetricsError) readings from other resamples or of other tasks. A resample where either reading is n/a
     is n/a. A value is None where either is.
     """
-    a, b = first.draws, second.draws
-    if not (a is b or (a.item_ids == b.item_ids and a.tasks == b.tasks and np.array_equal(a.counts, b.counts))):
+    ours, theirs = first.draws, second.draws
+    if not (
+        ours is theirs
+        or (
+            ours.item_ids == theirs.item_ids
+            and ours.tasks == theirs.tasks
+            and np.array_equal(ours.counts, theirs.counts)
+        )
+    ):
         raise MetricsError("the readings must be over the same resamples, but they are over different ones")
     if first.resampled.keys() != second.resampled.keys():
         raise MetricsError("the readings must be of the same tasks")
     estimates = {}
     for key in first.resampled:
-        one, other = (first.pooled, second.pooled) if key is None else (first.per_task[key], second.per_task[key])
-        value = None if one.value is None or other.value is None else one.value - other.value
+        a, b = (first.pooled, second.pooled) if key is None else (first.per_task[key], second.per_task[key])
+        value = None if a.value is None or b.value is None else a.value - b.value
         estimates[key] = _paired(value, first.resampled[key] - second.resampled[key])
     return Difference(estimates[None], {key: estimate for key, estimate in estimates.items() if key is not None})

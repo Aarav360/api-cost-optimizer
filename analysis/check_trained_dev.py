@@ -34,7 +34,6 @@ from analysis.bootstrap import resample
 from analysis.folds import N_FOLDS, read_folds
 from analysis.measure_trained_router import drift_limit
 from analysis.operating_points import (
-    NAMED_ROUTERS,
     OPERATING_POINTS_FILE,
     OperatingPointsError,
     check_sections,
@@ -43,6 +42,7 @@ from analysis.operating_points import (
 )
 from analysis.plan import PLAN, amendment_item
 from analysis.references import ROUNDING, TARGETS
+from analysis.router_names import NAMED_ROUTERS, E, F
 from analysis.router_panels import router_part_of_mix_panel, step_outcomes
 from analysis.router_table import RouterScoreTable, TableError
 from analysis.rules_walk import MIXES, dev_walks
@@ -196,7 +196,7 @@ def certified_steps_clear(section: dict[str, Any]) -> bool:
 def walk_checks() -> None:
     print("\n-- the walk on dev and F's section of the operating-points file (Amendment A11, items 9, 13 and 15) --")
     name = trained_walk.ROUTER
-    check(name == NAMED_ROUTERS["F"] == "trained", f"F's section is {name!r}, the name the allowlist gives F")
+    check(name == NAMED_ROUTERS[F] == "trained", f"F's section is {name!r}, the name the allowlist gives F")
     section = read_section(name)
     check(list(section) == list(MIXES) and all(set(b) == {"100%", "99%", "97%"} for b in section.values()),
           "F's section holds both mixes and all three targets: six operating points")  # fmt: skip
@@ -208,17 +208,17 @@ def walk_checks() -> None:
     check(section_hash(nudged) != section_hash(section) and nudged != rebuilt,
           "known positive: a margin changed in the twelfth decimal changes the section's hash and fails the comparison")  # fmt: skip
     try:
-        check_sections(OPERATING_POINTS_FILE, required=(NAMED_ROUTERS["E"], name))
+        check_sections(OPERATING_POINTS_FILE, required=(NAMED_ROUTERS[E], name))
         allowed = True
     except OperatingPointsError:
         allowed = False
     check(allowed, "the allowlist passes with F's section present, and nothing else but E's")
-    check(NAMED_ROUTERS["E"] in json.loads(OPERATING_POINTS_FILE.read_text()),
+    check(NAMED_ROUTERS[E] in json.loads(OPERATING_POINTS_FILE.read_text()),
           "E's section is still in the file")  # fmt: skip
     item18 = amendment_item(PLAN.read_text(), "A9", 18)
     recorded = re.search(r"E's section of `routers/operating_points.json`, written with sorted keys, has the 64-digit "
                          r"sha256 `([0-9a-f]{64})`", item18)  # fmt: skip
-    check(recorded is not None and section_hash(read_section(NAMED_ROUTERS["E"])) == recorded[1],
+    check(recorded is not None and section_hash(read_section(NAMED_ROUTERS[E])) == recorded[1],
           "E's section is unchanged: its sha256 is still A9 item 18's")  # fmt: skip
 
     table = trained_table.dev_table()

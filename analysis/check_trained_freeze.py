@@ -31,7 +31,7 @@ from analysis import fit_trained_router as fit
 from analysis import measure_trained_router as measure
 from analysis.benchmark import read_rows
 from analysis.fake_backend import FakeBackend
-from analysis.freeze import closure
+from analysis.freeze import closure, sha256
 from analysis.plan import PLAN, amendment_item
 from harness.client import PROJECT_ROOT
 from routers import trained
@@ -253,14 +253,14 @@ def main() -> int:
     check(all(p in recorded for p in frozen) and len(frozen) == len(set(frozen)),
           f"item 19 records the closure and the {len(measure.FROZEN_OTHERS)} other frozen files, once each")  # fmt: skip
     for relative in frozen:
-        check(measure.sha256_file(PROJECT_ROOT / relative) == recorded.get(relative), f"{relative} hashes as recorded")
+        check(sha256(PROJECT_ROOT / relative) == recorded.get(relative), f"{relative} hashes as recorded")
     check(set(trained.MODEL_FILES) <= set(recorded), "the five model files' sha256 are recorded")
     with tempfile.TemporaryDirectory() as tmp:
         for relative in frozen:
             copy = Path(tmp) / Path(relative).name
             copy.write_bytes((PROJECT_ROOT / relative).read_bytes() + b" ")
             check(
-                measure.sha256_file(copy) != recorded.get(relative),
+                sha256(copy) != recorded.get(relative),
                 f"a byte added to a copy of {relative} changes its hash",
             )
     from analysis.freeze import closure as closure_of
@@ -350,7 +350,7 @@ def hook_only(record: str, settings: trained.Settings) -> None:
           "and the hashes the snapshot gives are the settings' and item 19's")  # fmt: skip
     for name in measure.CACHE_FILES:
         check(
-            measure.sha256_file(fit.CACHE_DIR / name) == recorded.get(name),
+            sha256(fit.CACHE_DIR / name) == recorded.get(name),
             f"the cache file {name} hashes as item 19 records",
         )
     caches = {split: fit.read_cache(split) for split in ("train", "dev")}

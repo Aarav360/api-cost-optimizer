@@ -19,10 +19,9 @@ from dataclasses import dataclass, field
 from analysis.bootstrap import Bootstrap
 from analysis.dev_diagnostic import dev_diagnostic
 from analysis.matrix import Matrix
-from analysis.operating_points import NAMED_ROUTERS
+from analysis.router_names import LABELS, NAMED_ROUTERS, E, F
 from analysis.router_table import RouterScoreTable
 from analysis.rules_table import dev_table
-from analysis.rules_walk import ROUTER as RULES_NAME
 from analysis.rules_walk import dev_walks
 from analysis.walk import Walk
 
@@ -83,9 +82,9 @@ class RouterEntry:
 
 
 RULES = RouterEntry(
-    name=RULES_NAME,
-    label="E: rules router",
-    short="E",
+    name=NAMED_ROUTERS[E],
+    label=LABELS[E],
+    short=E,
     style=E_STYLE,
     dev_table=dev_table,
     walks=dev_walks,
@@ -102,9 +101,9 @@ def _trained_dev_table() -> RouterScoreTable:
 
 
 TRAINED = RouterEntry(
-    name=NAMED_ROUTERS["F"],
-    label="F: trained router",
-    short="F",
+    name=NAMED_ROUTERS[F],
+    label=LABELS[F],
+    short=F,
     style=F_STYLE,
     dev_table=_trained_dev_table,
     walks=dev_walks,

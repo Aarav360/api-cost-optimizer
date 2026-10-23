@@ -19,6 +19,10 @@ from analysis.simulator import Trace
 from routers.decision import choose
 from routers.ladder import SCORED
 
+# A router that runs locally, or a table of rates, pays nothing: an explicit $0 overhead, not a missing one (A9 item 6,
+# A11 item 11). E's, F's and the diagnostics' tables all say so through this.
+LOCAL_OVERHEAD = 0.0
+
 
 class TableError(ValueError):
     """A router-score table that fails a check. Nothing is built."""

@@ -24,13 +24,13 @@ import numpy as np
 from analysis.bootstrap import Bootstrap, BootstrapError
 from analysis.check_comparisons import MATRIX, MIX
 from analysis.operating_points import (
-    NAMED_ROUTERS,
     OPERATING_POINTS_FILE,
     OperatingPointsError,
     check_sections,
     write_section,
 )
 from analysis.router_metrics import MetricsError, difference, log_loss, within_task_concordance
+from analysis.router_names import NAMED_ROUTERS, E, F
 from analysis.same_target import SameTargetError, compare_same_target
 from analysis.simulator import Trace, simulate
 from analysis.walk import Step, Walk
@@ -301,7 +301,7 @@ def main() -> int:
     )
 
     print("\n-- the operating-points allowlist --")
-    rules, trained = NAMED_ROUTERS["E"], NAMED_ROUTERS["F"]
+    rules, trained = NAMED_ROUTERS[E], NAMED_ROUTERS[F]
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "operating_points.json"
         write_section(rules, {}, path)

@@ -17,7 +17,6 @@ and for the cache; their router scores are never stored, printed or summarised.
 `drift_limit()` is what every later check that embeds a request again holds the result to.
 """
 
-import hashlib
 import importlib.metadata
 import json
 import platform
@@ -33,6 +32,7 @@ import numpy as np
 
 from analysis import fit_trained_router as fit
 from analysis.benchmark import read_rows
+from analysis.freeze import sha256
 from analysis.plan import PLAN, amendment_item
 from routers import trained
 from routers.ladder import SCORED
@@ -61,7 +61,7 @@ CACHE_FILES = ("train.npy", "train_items.json", "dev.npy", "dev_items.json")
 # Environment
 
 
-def sh(*command: str) -> str:
+def command_output(*command: str) -> str:
     return subprocess.run(command, capture_output=True, text=True, check=False).stdout.strip()
 
 
@@ -80,9 +80,9 @@ def math_library_line() -> str:
 def environment() -> dict[str, str]:
     """The macOS build, the chip and PyTorch's math-library line: recorded, not pinned (item 4)."""
     return {
-        "os": f"macOS {sh('sw_vers', '-productVersion')} (build {sh('sw_vers', '-buildVersion')})"
+        "os": f"macOS {command_output('sw_vers', '-productVersion')} (build {command_output('sw_vers', '-buildVersion')})"
         if platform.system() == "Darwin" else f"{platform.system()} {platform.release()}",
-        "chip": sh("sysctl", "-n", "machdep.cpu.brand_string") if platform.system() == "Darwin" else platform.machine(),
+        "chip": command_output("sysctl", "-n", "machdep.cpu.brand_string") if platform.system() == "Darwin" else platform.machine(),
         "math library": math_library_line(),
         "python": platform.python_version(),
     }  # fmt: skip
@@ -122,19 +122,19 @@ def drift() -> dict[str, Any]:
     settings = trained.read_settings()
     requests = [from_row(row) for row in read_rows(split="train")]
     base = trained.load_backend(settings)
-    _, s32 = score_all(f_train_router(settings, base), requests)
-    _, s64 = score_all(f_train_router(settings, base.upcast()), requests)
-    gap = np.abs(s32 - s64).max(axis=0)
+    _, float32_scores = score_all(f_train_router(settings, base), requests)
+    _, float64_scores = score_all(f_train_router(settings, base.upcast()), requests)
+    gap = np.abs(float32_scores - float64_scores).max(axis=0)
     overall = float(gap.max())
     # The rerun at one thread: loading sets PyTorch's thread count, so it is the last thing done.
     one = trained.load_backend(replace(settings, threads=1))
-    _, s1 = score_all(f_train_router(settings, one), requests)
+    _, one_thread_scores = score_all(f_train_router(settings, one), requests)
     result = {
-        "gap": {config: float(g) for config, g in zip(SCORED, gap, strict=True)},
+        "gap": {config: float(largest) for config, largest in zip(SCORED, gap, strict=True)},
         "overall": overall,
         "limit": DRIFT_FACTOR * overall,
-        "one thread matches bit for bit": bool(np.array_equal(s32, s1)),
-        "one thread largest gap": float(np.abs(s32 - s1).max()),
+        "one thread matches bit for bit": bool(np.array_equal(float32_scores, one_thread_scores)),
+        "one thread largest gap": float(np.abs(float32_scores - one_thread_scores).max()),
         "requests": len(requests),
     }
     store("drift", result)
@@ -247,10 +247,6 @@ def token_counts() -> dict[str, Any]:
 # Item 19
 
 
-def sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def drift_limit(plan: str | None = None) -> float:
     """The drift limit recorded in A11 item 19: what a check that embeds a request again holds router scores to."""
     record = amendment_item(plan if plan is not None else PLAN.read_text(), "A11", 19)
@@ -266,7 +262,7 @@ def frozen_files() -> list[str]:
     return [*closure("routers/trained.py"), *FROZEN_OTHERS]
 
 
-def g(value: float) -> str:
+def three_digits(value: float) -> str:
     return f"{value:.3g}"
 
 
@@ -296,21 +292,21 @@ def record_text(side: fit.TrainSide, measured: dict[str, Any]) -> str:
         f"    - **Drift measurement** (item 4), over the {drift_m['requests']} train requests, one at a time, "
         "float32 router against the real model upcast to float64, F-train's heads standing in for the fold models "
         "in both: largest gap in router scores "
-        + ", ".join(f"{c} {g(v)}" for c, v in drift_m["gap"].items())
-        + f"; overall {g(drift_m['overall'])}.",
-        f"    - **Drift limit**: `{g(drift_m['limit'])}`, {DRIFT_FACTOR} times the overall gap. Any check that embeds a "
+        + ", ".join(f"{c} {three_digits(v)}" for c, v in drift_m["gap"].items())
+        + f"; overall {three_digits(drift_m['overall'])}.",
+        f"    - **Drift limit**: `{three_digits(drift_m['limit'])}`, {DRIFT_FACTOR} times the overall gap. Any check that embeds a "
         "request again holds router scores to it.",
         "    - **Rerun at one thread**: the router scores "
         + (
             "matched the float32 router's bit for bit."
             if drift_m["one thread matches bit for bit"]
-            else f"did not match bit for bit; the largest gap was {g(drift_m['one thread largest gap'])}."
+            else f"did not match bit for bit; the largest gap was {three_digits(drift_m['one thread largest gap'])}."
         ),
         "    - **Frozen files**, F's import closure in `routers/`, the fit script, the fold builder, the settings, "
         "F-train's weights and both fold files (item 15):",
-        *(f"      - `{relative}`: `{sha256_file(root / relative)}`" for relative in frozen_files()),
+        *(f"      - `{relative}`: `{sha256(root / relative)}`" for relative in frozen_files()),
         "    - **Embedding caches**, kept under `results/trained_embeddings/`, not committed:",
-        *(f"      - `{name}`: `{sha256_file(fit.CACHE_DIR / name)}`" for name in CACHE_FILES),
+        *(f"      - `{name}`: `{sha256(fit.CACHE_DIR / name)}`" for name in CACHE_FILES),
         f"    - **Template lines** (item 5), from the {counts['n']} train prompts: {counts['template lines']} in all. "
         "By task: "
         + ", ".join(f"{t} {v['template lines']}" for t, v in counts["by task"].items())

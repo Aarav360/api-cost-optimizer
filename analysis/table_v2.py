@@ -30,6 +30,7 @@ from analysis.bootstrap import RESAMPLES, SEED
 from analysis.learning_figure import LEARNING_FIGURE, LEARNING_FIGURE_DATA, curve_data, draw_learning_curve
 from analysis.operating_points import OPERATING_POINTS_FILE
 from analysis.router_panels import router_part_of_mix_panel, step_outcomes
+from analysis.rules_walk import MIXES
 from analysis.simulator import always, load_mixes, simulate
 from harness.client import PROJECT_ROOT, load_models
 from routers.ladder import FRONTIER, LADDER, SCORED
@@ -39,7 +40,6 @@ TABLE_V2 = FIGURES / "table_v2.json"
 DIAGNOSTIC_LABEL = "diagnostic, dev only"
 DESCRIPTIVE = ("descriptive, with no multiplicity correction: at 95%, about one interval in twenty excludes 0 by "
                "chance")  # fmt: skip
-MIXES = ("realistic", "uniform")
 
 
 def diagnostic_operating_points(result: diagnostics.Diagnostics) -> dict[str, dict]:

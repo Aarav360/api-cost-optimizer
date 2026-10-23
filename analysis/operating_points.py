@@ -21,16 +21,12 @@ from typing import Any
 
 from analysis.bootstrap import RESAMPLES, SEED
 from analysis.references import TARGETS
+from analysis.router_names import NAMED_ROUTERS
 from analysis.walk import ALL_STEPS_UP_TO, QUANTILE_STEPS, Step, Walk
 from harness.client import PROJECT_ROOT
 
 # Data, not a module: routers/ holds Stage 5-7's files too, but the freeze (item 13) hashes modules, not this file.
 OPERATING_POINTS_FILE = PROJECT_ROOT / "routers" / "operating_points.json"
-
-# The routers an amendment names, by letter, and the name each has as a section of the file: E is the rules router
-# (A9), F the trained router (A11). A router joins when an amendment names it (G after Stage 6). F-train and the
-# diagnostics (A11, item 12) never do.
-NAMED_ROUTERS = {"E": "rules", "F": "trained"}
 
 SELECTION_METHOD = (
     f"Fixed-sequence walk from always-frontier (A) down the steps, from the highest threshold to the lowest "
@@ -127,7 +123,7 @@ def check_sections(path: Path = OPERATING_POINTS_FILE, required: Collection[str]
     (`NAMED_ROUTERS`), with F-train and every diagnostic among them, or a file that isn't there or isn't an object.
 
     `required` names sections that must also be present, each itself a named router: Stage 5 asks for F's once F is
-    walked (`required=(NAMED_ROUTERS["E"], NAMED_ROUTERS["F"])`). By default no section is required, so a file with
+    walked (`required=(NAMED_ROUTERS[E], NAMED_ROUTERS[F])`). By default no section is required, so a file with
     E's alone passes.
     """
     if not path.exists():

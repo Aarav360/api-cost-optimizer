@@ -215,7 +215,9 @@ def main() -> int:
         return {c: (x[:, 0] * (k + 1) + rng.normal(size=len(x)) + shift > 0).astype(int) for k, c in enumerate(SCORED)}
 
     train_y, dev_y = labels(train_x, 0.0), labels(dev_x, 0.0)
-    fitted = lc.refit_out_of_fold(settings, (train_x, train_y, train_units), (dev_x, dev_y, dev_units), dev_folds)
+    fitted = lc.refit_out_of_fold(
+        settings, lc.SplitRows(train_x, train_y, train_units), lc.SplitRows(dev_x, dev_y, dev_units), dev_folds
+    )
     # Fold k trains on train (a 40, b 20) and the dev rows outside k (a 16, b 8): 84 rows, of which a size keeps its
     # share of each stratum: 25% is a 10 + 5 of train and a 4 + 2 of dev.
     check(fitted.rows == {0.25: (21,) * 5, 0.5: (42,) * 5, 0.75: (63,) * 5, 1.0: (84,) * 5},
@@ -232,7 +234,9 @@ def main() -> int:
     check(all(float(np.abs(fitted.scores[0.25][c] - fitted.scores[1.0][c]).max()) > 1e-3 for c in SCORED),
           "known positive: 25% router scores differ from 100%")  # fmt: skip
     flipped = {c: np.where(dev_folds == 0, 1 - v, v) for c, v in dev_y.items()}
-    retrained = lc.refit_out_of_fold(settings, (train_x, train_y, train_units), (dev_x, flipped, dev_units), dev_folds)
+    retrained = lc.refit_out_of_fold(
+        settings, lc.SplitRows(train_x, train_y, train_units), lc.SplitRows(dev_x, flipped, dev_units), dev_folds
+    )
     own = dev_folds == 0
     check(all(np.array_equal(retrained.scores[s][c][own], fitted.scores[s][c][own]) for s in fitted.scores for c in SCORED),
           "a fold model never reads its own fold's labels: flipping them changes no router score it gives")  # fmt: skip
