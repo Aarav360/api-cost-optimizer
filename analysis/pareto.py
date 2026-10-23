@@ -1,4 +1,4 @@
-"""Pareto chart v1 on dev (PLAN_v4.md §12; Amendment A8, item 10; Amendment A9, items 14 and 15).
+"""Pareto chart v2 on dev (PLAN_v4.md §12; Amendment A8, item 10; Amendment A9, items 14 and 15; Amendment A11, item 16).
 
 Run from the project root:  uv run python -m analysis.pareto
 
@@ -42,8 +42,13 @@ and adding new keys:
 
 The script takes a list of routers (`analysis/chart_routers.py`, Amendment A11, item 16): each entry has its name in the
 operating-points file, its label, its style, its dev table and its walks, and its steps, operating points, McNemar rows
-and matched-cost comparison are drawn and computed per entry. With E alone every figure JSON and PNG is what chart v1
-committed. `analysis/check_chart_routers.py` checks the list and draws two routers from the committed numbers.
+and matched-cost comparison are drawn and computed per entry. Chart and table v2 put the trained router, F, in the list
+beside E: F's steps and crosses in the headline figure, F's steps per task, and F's rows under the key `trained`, as E's
+are under `rules`. E's part of every JSON and every v1 key and value are as chart v1 committed them, and the headline
+figure shows policies only (no diagnostic, no band). The rest of table v2, the same-target comparisons and the
+diagnostics, and the learning-curve figure come from `analysis/table_v2.py`; `analysis/check_chart_routers.py` checks the
+list and draws two routers from the committed numbers, and `analysis/check_stage5.py` checks chart and table v2 and
+Amendment A11's item 21.
 """
 
 import json
@@ -568,8 +573,9 @@ def main() -> int:
     }  # one pass over the dev requests, for the printout and the JSON
     where = OPERATING_POINTS_FILE.relative_to(PROJECT_ROOT)
     for router in ROUTERS:
-        print(f"\nTable v1: {router.label}, on dev. {'. '.join(facts[router.name].values())}. Its operating points are "
-              f"the cheapest certified steps of the walk (Amendment A9, items 9 and 10), written to {where}.")  # fmt: skip
+        said = "".join(f" {fact}." for fact in facts[router.name].values())
+        print(f"\nTable v1: {router.label}, on dev.{said} Its operating points are the cheapest certified steps of "
+              f"the walk (Amendment A9, items 9 and 10), written to {where}.")  # fmt: skip
         for mix in PANELS:
             print_router_mix(mix, panels[mix]["routers"][router.name], router)
     print("\nPer task, the fixed configs' and the routers' operating points' McNemar tests (Amendment A9, item 11). —: "
