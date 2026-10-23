@@ -6,11 +6,11 @@ router-score table, how to walk it, and any extra facts for its entry in the hea
 the order the figures draw and the legend lists them; E's and F's entries are built here. Steps, operating points, McNemar rows and the
 matched-cost comparison are drawn and computed per entry, in `analysis/pareto.py`.
 
-Each router has its own style, so that two read apart on one panel without relying on colour alone: a colour from the
-data-viz reference palette's family, a marker for its steps and another for its operating points' centres, and a
-line. E's is chart v1's, unchanged. F's is red, triangles and a dashed line, against E's purple, squares,
-diamonds and a solid line; the figures' other colours are the configs' blue, the envelope's orange and the oracle's
-green.
+Each router has its own style, so that two read apart on one panel without relying on colour alone: a colour, a marker
+for its steps and another for its operating points' centres, and a line. E's is chart v1's, unchanged. F's is maroon,
+triangles and a dashed line, against E's purple, squares, diamonds and a solid line; the figures' other colours are the
+configs' blue, the envelope's orange and the oracle's green. F's maroon is at least 15 apart in OKLab (x100) from each
+of those four, in normal vision and under simulated red-green colour blindness; `check_chart_routers` measures it.
 """
 
 from collections.abc import Callable
@@ -52,15 +52,15 @@ E_STYLE = RouterStyle(
     },
 )  # fmt: skip
 
-# F's: red, triangles and a dashed line, against E's purple, squares, diamonds and a solid line. Its label offsets are
+# F's: maroon, triangles and a dashed line, against E's purple, squares, diamonds and a solid line. Its label offsets are
 # placed by eye on the committed figure, as E's are.
 F_STYLE = RouterStyle(
-    color="#e34948", marker="^", point_marker="v", linestyle="--",
+    color="#9b1c31", marker="^", point_marker="v", linestyle="--",
     point_offsets={
         ("realistic", "97%"): (-6, -58, "right"),
         ("realistic", "99%"): (44, -24, "left"),
         ("realistic", "100%: falls back to A"): (74, -80, "right"),
-        ("uniform", "97%"): (-24, -44, "right"),
+        ("uniform", "97%"): (-84, 0, "right"),
         ("uniform", "100%, 99%: falls back to A"): (8, -92, "right"),
     },
 )  # fmt: skip
