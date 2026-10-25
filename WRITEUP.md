@@ -145,3 +145,33 @@ Topics to come back to for the write-up, newest last. Details are in PLAN_v4.md'
 - A probe found that changing the thread count changes no bit, so it can't size that risk. The float32 router is compared with float64 instead, and the drift limit is 100× that gap. Stage 8 reports drift above 1e-6 and refuses only above the limit, so an OS update can't block it.
 - Automatic macOS updates stay off until Stage 8.
 - Talking point: reproducing a model's outputs means recording the OS's math library as well as the Python lockfile.
+
+### 2026-10-22 · The trained router on dev costs more than the rules router at the same targets (Amendment A11, items 9 and 13)
+- F falls back to A at 100% under both mixes, and also at 99% uniform, where E saves 23%. Where both route, F costs more for the same target: +$2.67 per 1k at 97% realistic (+2.20 to +3.18) and +$0.84 at 97% uniform (+0.25 to +1.39). Every quality difference's interval includes 0.
+- F-train, fitted on train alone, is cheaper than F at every target where both route, by $1.16 to $1.94 per 1k. It's also cheaper than E at 99% realistic (−$0.88) and 97% uniform (−$1.09). The extra dev labels made the certified policy more expensive, not cheaper.
+- F doesn't clear the bar E missed either. At matched cost, its difference from the random-mixture envelope is −0.2 to −1.0 points at every operating point, and every interval includes 0. These comparisons are descriptive, with no multiplicity correction, so about one interval in twenty excludes 0 by chance.
+- Talking point: the router with the most labels and the richest features lost on cost to hand-written cues. Open question: does pooling the five fold models' router scores cost F steps on the walk? The pooling is deliberate, so that test runs the certified policy (A11 item 9). Table v2's per-fold quantiles are where to look.
+
+### 2026-10-22 · What the trained router knows beyond the task (Amendment A11, item 12)
+- Within-task concordance on dev is 0.57 for `haiku` and `sonnet` and 0.50 for `opus_low`. Only `haiku`'s lead over the task-rates diagnostic clears 0 (+0.07, 0.003 to 0.136), and F's log loss can't be told apart from the task rates' for any config.
+- F-train's concordance matches F's (every difference's interval includes 0), and the learning curve is flat. Going from 75% to 100% of the labels improves log loss by about 0.003, and concordance by an amount whose interval includes 0. More labels of this kind aren't what F lacks.
+- Counted within task and fold, as declared, the task-rates diagnostic sits at exactly 0.5. Pooled across folds, the same rates fall to 0.37–0.40, so counting within folds was necessary.
+- Talking point: on train the signal check looked weak but present (0.57–0.62), and on dev most of it is gone. The embeddings mostly recognise the task, which E already does.
+
+## Part 2
+
+Ideas for a follow-up study after Stage 8, newest last.
+
+### 2026-10-24 · A benchmark where the models are further apart
+- **Why:** on this benchmark `haiku` sits close to `opus`. On dev, `haiku` is 83.3% against `opus`'s 86.7% on the realistic mix and 84.5% against 89.5% on the uniform mix. Per task, `haiku` trails the best config by 10.2 points on IFEval, 5.4 on Banking77, 2.5 on MMLU-Pro and 3.8 on MBPP+. That leaves a router little to gain, and neither router beat the random-mixture envelope. Stage 0 already tried harder single-turn tasks and found them saturated or not separating the configs: MATH Level 5, LiveCodeBench, CRUXEval and IFBench (Amendments A3 and A4).
+- **Candidates:**
+
+  | Kind | Examples | Why it separates models | Cost for this design |
+  |---|---|---|---|
+  | Very hard questions | GPQA Diamond, Humanity's Last Exam | expert-level science and reasoning | small sets (GPQA Diamond is about 200 questions); some are so hard every model fails |
+  | Agentic coding | SWE-bench Verified, Terminal-Bench | real bug fixes in real repos, many steps | long multi-turn runs in a Docker sandbox, possibly dollars per item per model |
+  | Tool use | τ-bench | long conversations with tools and a simulated user | needs a simulated user and multi-turn grading |
+  | Human preference | LMArena, AlpacaEval | open-ended quality | no fixed answer: human votes or a model judge |
+
+- **The gap must be uneven and predictable, not just big.** A router helps only when some requests are fine on `haiku`, others need `opus`, and the prompt reveals which. If `opus` were better on every request by the same margin, no router could beat random mixing. So aim for a mix of easy and hard requests, like real traffic, and choose benchmarks for realism, not because routers win on them.
+- **How it could run:** short-list two or three candidates, then pilot 20 items per config as Stage 0 did, under a rule fixed in advance for what counts as separating the models (about $10). Reuse this project's pipeline unchanged: router-score tables, the walk, the envelope, the oracle and the freeze all work on any table of item × config outcomes. Freeze the new benchmark under its own amendment before any router sees it. Every config runs on every item, so each item has to cost cents per model, not dollars.
