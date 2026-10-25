@@ -99,6 +99,44 @@ A router's router scores and overhead for every item of a split, from which its 
 threshold are built.
 _Avoid_: predictions
 
+## The trained router
+
+**Template line**:
+A non-blank line that recurs verbatim in at least 2% of train prompts, such as a label list or a
+fixed instruction. The trained router removes template lines from a request before embedding it.
+_Avoid_: boilerplate, prefix
+
+**Cross-fitting**:
+Training the trained router on train plus every dev fold but one, scoring the held-out fold, and
+rotating, so every dev item's router scores come from a model that never saw its label.
+_Avoid_: cross-validation (which chooses settings within train)
+
+**Fold model**:
+One of the trained router's five models under cross-fitting: fitted on train and every dev fold but
+one, it gives the held-out fold's router scores. On test, a hash of the request picks the fold model
+that scores it.
+
+**Out-of-fold router score**:
+A router score for a dev item from the fold model that never saw its label. The trained router's dev
+router-score table holds only these.
+_Avoid_: out-of-fold prediction, cross-validated score
+
+**F-train**:
+The trained router refit on train alone with F's settings. A diagnostic that compares embeddings
+with E's cues on the same labels; it never gets test operating points.
+_Avoid_: train-only F
+
+**Task-rates diagnostic**:
+Each config's success rate on an item's task, from the trained router's labels, used as router
+scores and walked like a router. It reads the task, so it is a diagnostic, never a router.
+_Avoid_: task router, task-only router
+
+**Within-task concordance**:
+The share of (success, failure) pairs from the same task, and for cross-fitted router scores the
+same fold, whose router scores are in the right order, ties counting half. 0.5 means the scores
+carry nothing beyond the task.
+_Avoid_: AUC (which pools pairs across tasks)
+
 ## References and metrics
 
 **Reference**:
@@ -129,6 +167,12 @@ _Avoid_: buffer, cushion
 The share of the hindsight oracle's savings at a quality target that a policy meeting that target
 achieves.
 _Avoid_: % of oracle savings, efficiency
+
+**Diagnostic**:
+A number computed to explain a result, declared before the freeze, that never selects a setting or
+threshold and never becomes a policy with test operating points. It may read what a router can't,
+such as the task.
+_Avoid_: baseline (for F-train or the task-rates diagnostic)
 
 ## Selecting thresholds
 

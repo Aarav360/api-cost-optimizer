@@ -114,7 +114,7 @@ Topics to come back to for the write-up, newest last. Details are in PLAN_v4.md'
 
 ### 2026-10-20 · The rules router learns from train, not dev (Amendment A9, items 4, 5 and 13)
 - The plan's sketch had hand-set numbers. Instead, each bucket scores each config by its success rate on train. Hand-set numbers come from looking somewhere, and if that's dev, dev sets both the numbers and the thresholds, and test misses more often.
-- The rules router and the trained router now learn from the same train labels, so comparing them tests hand-written cues against embeddings.
+- The rules router learns from train labels only. (This note first said the trained router would learn from the same labels. It doesn't: cross-fitting also gives it four-fifths of dev's. Amendment A11 item 1 corrects A9 item 4, and F-train makes the like-for-like comparison; see the 2026-10-21 note below.)
 - The rules freeze by hash, in a commit made before any rules-router number on dev exists, so anyone can check the order in the git log.
 - Talking point: on this benchmark the rules will spot the task almost every time, because the prompts are templated. That says nothing about real traffic, and the write-up says so.
 
@@ -123,3 +123,25 @@ Topics to come back to for the write-up, newest last. Details are in PLAN_v4.md'
 - At matched cost, E's paired difference from the random-mixture envelope has an interval that includes 0 in every cell. The best is +1.0 points at 97% realistic (−1.4 to +3.0). Reading the prompt hasn't yet beaten ignoring it at the same spend.
 - The one-standard-error margin behaves as designed. At 97% realistic only 84% of resamples meet the target, which is roughly the one-in-six miss rate A8 item 9 accepts.
 - Talking point: a router that saves money can still fail to beat a coin-flip mix of configs at the same cost. The envelope comparison is what tells them apart, and it sets the bar for the trained and Jev routers.
+
+### 2026-10-21 · Embedding the part of the prompt that differs (Amendment A11, item 5)
+- Every Banking77 prompt is the same 77-label list plus a one-line query. Embedded whole, they all come out nearly the same, so the trained router could only recognise the task there, which the rules router already does. A longer token window doesn't help.
+- Decision: remove "template lines", any line found verbatim in at least 2% of train prompts, before embedding. The list is learned from train prompts, not written by hand, so a deployed router would learn its own traffic's templates the same way. On train the result doesn't depend on the exact cut.
+- Risks to name: the removed lines were themselves a cue to the task, and in real traffic a recurring instruction line can be a difficulty cue.
+- Talking point: an embedding router can quietly turn into a task classifier when prompts share long templates. Checking where the query sits in the tokens caught it before any score existed.
+
+### 2026-10-21 · Are the rules router and the trained router on equal labels? No: F-train (Amendment A11, items 1 and 12)
+- A9 claimed both routers learn from the same train labels. With cross-fitting, the trained router also learns from four-fifths of dev's labels, so a win over the rules router could come from better features or from more labels.
+- Decision, made before any trained-router number exists: also fit F-train on train alone, with the same settings, and walk it on dev as a diagnostic. Rules against F-train compares cues with embeddings on equal labels. F-train against F shows what the extra labels buy.
+- Talking point: deciding after the results whether to split the two effects would be a forking path. Declaring it beforehand makes it just another reported number.
+
+### 2026-10-21 · Test is scored by the model whose scores chose the thresholds (Amendment A11, item 9)
+- Cross-fitting gives every dev item a router score from one of five fold models that never saw it, so the thresholds are certified for that five-model policy, not for any single model.
+- The usual choices for test, a refit on all the data or the average of the fold models, are models no dev number describes. Instead, a hash of each test request picks one fold model, so test runs exactly the policy dev certified.
+- Talking point: the safety margin's "misses about one time in six" is a promise about a specific policy. Swapping in a better-looking model at test time quietly voids it.
+
+### 2026-10-22 · Pinned libraries don't pin the numbers (Amendment A11, items 4 and 17)
+- On this Mac PyTorch does its matrix math in Apple's Accelerate, which ships with macOS. An OS update could shift every embedding's last bits with every library pinned, and Stage 8 re-checks dev's router scores against dev's table.
+- A probe found that changing the thread count changes no bit, so it can't size that risk. The float32 router is compared with float64 instead, and the drift limit is 100× that gap. Stage 8 reports drift above 1e-6 and refuses only above the limit, so an OS update can't block it.
+- Automatic macOS updates stay off until Stage 8.
+- Talking point: reproducing a model's outputs means recording the OS's math library as well as the Python lockfile.

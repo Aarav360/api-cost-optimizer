@@ -90,7 +90,7 @@ class Bootstrap:
     def totals(self, outcomes: list[Outcome], mix: dict[str, float]) -> TotalEstimate:
         """A policy's totals under a mix (`simulator.totals`), each with its interval over the resamples."""
         (quality, cost), total = self.resampled(outcomes, mix), totals(outcomes, mix)
-        return TotalEstimate(_estimate(total.quality, quality), _estimate(total.cost_per_1k, cost))
+        return TotalEstimate(percentile_estimate(total.quality, quality), percentile_estimate(total.cost_per_1k, cost))
 
     def task_totals(self, outcomes: list[Outcome]) -> dict[str, TotalEstimate]:
         """Each task's totals on its own (`simulator.task_totals`), with intervals over the same resamples, in the
@@ -106,7 +106,7 @@ class Bootstrap:
         """The policy's quality less the frontier's, under a mix, each resample weighing both alike."""
         (success, _), (frontier_success, _) = self._columns(policy), self._columns(frontier)
         value = totals(policy, mix).quality - totals(frontier, mix).quality
-        return _estimate(value, self.weights(mix) @ (success - frontier_success))
+        return percentile_estimate(value, self.weights(mix) @ (success - frontier_success))
 
     def safety_margin(self, policy: list[Outcome], frontier: list[Outcome], mix: dict[str, float]) -> float:
         """How far the policy's dev quality must clear a quality target under the mix: one standard error of its
@@ -238,9 +238,16 @@ def resample(matrix: Matrix, resamples: int = RESAMPLES, seed: int = SEED) -> Bo
     return Bootstrap(item_ids, tuple(matrix.items[item_id].task for item_id in item_ids), counts)
 
 
-def _estimate(value: float, resampled: np.ndarray) -> Estimate:
+def percentile_interval(resampled: np.ndarray) -> tuple[float, float]:
+    """The percentile 95% interval of a resampled value (numpy's linear percentiles at 2.5 and 97.5)."""
     low, high = np.percentile(resampled, [2.5, 97.5])
-    return Estimate(value, float(low), float(high), float(np.std(resampled, ddof=1)))
+    return float(low), float(high)
+
+
+def percentile_estimate(value: float, resampled: np.ndarray) -> Estimate:
+    """A value on the dev set with its percentile 95% interval and standard error over its resamples."""
+    low, high = percentile_interval(resampled)
+    return Estimate(value, low, high, float(np.std(resampled, ddof=1)))
 
 
 def _ranked_interval(values: list[float | None]) -> tuple[float | None, float | None]:

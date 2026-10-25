@@ -13,12 +13,13 @@ from analysis.bootstrap import Bootstrap, resample
 from analysis.matrix import Matrix
 from analysis.operating_points import build_section, write_section
 from analysis.references import TARGETS
+from analysis.router_names import NAMED_ROUTERS, E
 from analysis.router_table import RouterScoreTable
 from analysis.rules_table import dev_table
 from analysis.simulator import load_mixes
 from analysis.walk import Walk, walk
 
-ROUTER = "rules"  # E's name in the operating-points file
+ROUTER = NAMED_ROUTERS[E]  # E's name in the operating-points file
 MIXES = ("realistic", "uniform")  # the walk's task mixes, in the figure's panel order
 
 

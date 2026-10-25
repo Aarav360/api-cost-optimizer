@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # The repo's fast checks, run before every commit and by hand from the project root:  .githooks/pre-commit
 # Turn the hook on once per clone:  git config core.hooksPath .githooks
-# CI (.github/workflows/check.yml) runs the same checks except check_simulator and check_stage4, which need the
-# dev results matrix in results/ (not committed). check_collect, check_sandbox and
-# check_evaluators need Docker and take minutes, so they stay manual (README, "Running it").
+# CI (.github/workflows/check.yml) runs the same checks except the ones in the results/ block at the end
+# (check_simulator, check_stage4, check_trained_dev, check_trained_diagnostics), which need the dev results matrix in
+# results/ (not committed); several others also have a section that runs only where results/ or the model snapshot is
+# present. check_collect, check_sandbox and check_evaluators need Docker and take minutes, so they stay manual (README,
+# "Running it").
 set -euo pipefail
 
 uv run ruff check
@@ -13,9 +15,28 @@ uv run python -m harness.check_sealed
 uv run python -m analysis.check_routers | grep -E "^FAIL|checks"
 uv run python -m analysis.check_comparisons | grep -E "^FAIL|checks"
 uv run python -m analysis.check_walk | grep -E "^FAIL|checks"
+uv run python -m analysis.check_folds | grep -E "^FAIL|checks"
+uv run python -m analysis.check_metrics | grep -E "^FAIL|checks"
+# With the model snapshot under .cache/ (analysis.fetch_model) it also runs its real-tokenizer window check, loading
+# the model; CI has no snapshot and skips that section.
+uv run python -m analysis.check_trained_router | grep -E "^FAIL|checks"
+# Its snapshot, cache and train-matrix section runs only where those are present (about 30 s with them).
+uv run python -m analysis.check_trained_freeze | grep -E "^FAIL|checks"
+# Item 20 against the fold weights; the git-history section needs the freeze commit and the refit needs results/.
+uv run python -m analysis.check_trained_fit | grep -E "^FAIL|checks"
 # Its refit against the train matrix runs only where results/ is present, like check_simulator below.
 uv run python -m analysis.check_rules_router | grep -E "^FAIL|checks"
+uv run python -m analysis.check_chart_routers | grep -E "^FAIL|checks"
+# Stage 5's chart and table v2, the learning-curve figure and A11 item 21, against the committed files; the hook adds
+# the rebuild from the dev matrix (about 60 s).
+uv run python -m analysis.check_stage5 | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
   uv run python -m analysis.check_simulator | grep -E "^FAIL|checks"
   uv run python -m analysis.check_stage4 | grep -E "^FAIL|checks"
+  # F and F-train on dev: the tables against score_with (about 30 s: it embeds the 744 dev requests again).
+  uv run python -m analysis.check_trained_dev | grep -E "^FAIL|checks"
+  # The learning curve: synthetic sections anywhere, and on dev the 100% point against F's router scores (about 30 s).
+  uv run python -m analysis.check_learning_curve | grep -E "^FAIL|checks"
+  # The diagnostics (A11 items 12, 13): task rates, concordance, same-target comparisons (about 10 s).
+  uv run python -m analysis.check_trained_diagnostics | grep -E "^FAIL|checks"
 fi
