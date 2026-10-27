@@ -158,6 +158,24 @@ Topics to come back to for the write-up, newest last. Details are in PLAN_v4.md'
 - Counted within task and fold, as declared, the task-rates diagnostic sits at exactly 0.5. Pooled across folds, the same rates fall to 0.37–0.40, so counting within folds was necessary.
 - Talking point: on train the signal check looked weak but present (0.57–0.62), and on dev most of it is gone. The embeddings mostly recognise the task, which E already does.
 
+### 2026-10-27 · One Jev call per request, not three (Amendment A15, item 10)
+- Jev isn't repeatable. Its answers are rounded to two decimals, and the same request's answers move by about ±0.01–0.03 (measured on made-up text).
+- Averaging three calls would cut that noise, but overhead is charged on every request. It would take the bolstered Jev router from about $0.32 to $0.95 per 1,000 requests, against always-`haiku`'s whole $0.29 on the realistic mix.
+- So the noise is part of the policy. Each dev item gets its own draw, the item bootstrap covers the variance, and test gets fresh draws from the same policy.
+- Talking point: for a router, the price that counts is the overhead per request, not what the experiment costs in total.
+
+### 2026-10-27 · Giving Jev our labels without letting dev choose (Amendment A15, items 1 and 5–7)
+- Two Jev routers. G asks Jev zero-shot. G+ names our models and their train success rates, shows 16 past train requests with their outcomes, and turns 18 answers into router scores with a logistic regression fitted on train alone.
+- G+ against G measures what our labels add to an off-the-shelf model. G+ against E and F-train compares three readers on equal labels.
+- The order is provable. Every question's wording is frozen before any Jev call on a benchmark request, and G+'s weights before any dev call. Nothing is tuned on dev.
+- Talking point: helping a general model with your own labels is a fair comparison only if the help is fixed before the evaluation data is seen.
+
+### 2026-10-27 · Checking a remote model that isn't repeatable (Amendment A15, item 17)
+- F's Stage 8 check re-embeds dev and expects matches to 1e-6. Jev can't pass that, since its answers move between calls.
+- Instead, 100 train requests are sent twice in Stage 6 to measure the noise, and once more in Stage 8. Stage 8 refuses if the gap is over 3× Stage 6's, or if scores shift one way by more than Stage 6's noise.
+- The shift check matters most. A uniform move barely changes the average gap, yet it pushes items across every threshold in the same direction.
+- Talking point: with a model behind someone else's API, "same version" isn't proof of the same behaviour, so you have to measure it.
+
 ## Part 2
 
 Ideas for a follow-up study after Stage 8, newest last.
