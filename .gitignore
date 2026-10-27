@@ -11,3 +11,6 @@ results/
 
 # Downloaded tool data (nltk punkt_tab for the IFEval checkers)
 .cache/
+
+# macOS folder metadata
+.DS_Store
