@@ -9,7 +9,8 @@ worked out by hand (each with a known positive), then compares A15 item 19 with 
   server `Date`, the body hashes and the truncation count;
 - item 19 against the committed files (also in CI): each recorded hash is its file's, the closure list is the one worked
   out from `routers/jev.py`'s imports, C per config is the weights file's, the noise sample is the settings file's,
-  Jev's identity is the settings', the library versions are the installed ones;
+  Jev's identity is the settings', the library versions are the installed pins (and Python's patch release this
+  machine's where the train responses are present);
 - the order in the git history (where the commits are present; CI's shallow clone lacks them): the settings commit is
   an ancestor of the freeze commit, which is the commit that added the weights file, and the files the settings commit
   froze are unchanged since it;
@@ -180,9 +181,18 @@ def committed_files(item: str) -> None:
     check(
         missing_lines(item, wanted) == [], "Jev's identity is the settings file's: endpoint, model, price and its date"
     )
-    versions = [f"numpy {importlib.metadata.version('numpy')}", f"scikit-learn {importlib.metadata.version('scikit-learn')}",
-                f"Python {platform.python_version()}"]  # fmt: skip
-    check(missing_lines(item, versions) == [], f"the versions are the installed ones: {', '.join(versions)}")
+    # The libraries are pyproject's exact pins, so every machine installs them; Python's patch release isn't pinned
+    # (.python-version names 3.13 only, and CI's runner moves), so the exact patch is checked only where the fit ran.
+    libraries = [f"{name} {importlib.metadata.version(name)}" for name in ("numpy", "scikit-learn")]
+    pins = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    check(missing_lines(item, libraries) == [] and all(f'"{lib.replace(" ", "==")}"' in pins for lib in libraries),
+          f"the library versions are the installed ones and pyproject's exact pins: {', '.join(libraries)}")  # fmt: skip
+    minor = (PROJECT_ROOT / ".python-version").read_text(encoding="utf-8").strip()
+    python = re.search(rf"Python ({re.escape(minor)}\.\d+)", item)
+    check(python is not None, f"item 19 records a Python {minor} patch release, as .python-version names")
+    if all((PROJECT_ROOT / path).exists() for path in STORED.values()):
+        check(python is not None and python[1] == platform.python_version(),
+              f"and it is this machine's, where the fit ran: Python {platform.python_version()}")  # fmt: skip
     sample = settings["noise_sample"]
     ids = ", ".join(f"`{i}`" for i in sample["item_ids"])
     check(len(sample["item_ids"]) == 100 and missing_lines(item, [f"seed {sample['seed']}, 100 item IDs: {ids}"]) == [],
