@@ -32,6 +32,9 @@ uv run python -m analysis.check_chart_routers | grep -E "^FAIL|checks"
 uv run python -m analysis.check_stage5 | grep -E "^FAIL|checks"
 # Stage 6's call building (A15 items 4 and 8): synthetic settings, no results/, no Jev call.
 uv run python -m analysis.check_jev_call | grep -E "^FAIL|checks"
+# Stage 6's client and G's scoring (A15 items 3, 4, 9 and 12), against the fake Jev server on a loopback port: no
+# results/, no network, no Jev call, retry waits injected.
+uv run python -m analysis.check_jev_client | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
   uv run python -m analysis.check_simulator | grep -E "^FAIL|checks"
   uv run python -m analysis.check_stage4 | grep -E "^FAIL|checks"
