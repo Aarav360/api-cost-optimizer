@@ -49,6 +49,10 @@ and cascades, is next. Every result so far is on dev, with the test split still 
 
 ![Pareto chart v3 on dev: the four fixed configs with their intervals, the random-mixture envelope, the hindsight oracle, the rules router E, the trained router F, the Jev router G and the bolstered Jev router G+, each with its steps as a line and a cross at each of its operating points, under the realistic and uniform task mixes](figures/pareto.png)
 
+For the same numbers as an interactive page, with routers and references to toggle, zoom and a readout for
+every point, open [`figures/pareto_explorer.html`](figures/pareto_explorer.html) in a browser (it loads Plotly
+from jsDelivr).
+
 ## Approach
 
 - **One results matrix, then offline evaluation.** Every benchmark item runs once through every
@@ -169,6 +173,7 @@ uv run python -m analysis.jev_table        # G's and G+'s dev router-score table
 uv run python -m analysis.jev_walk         # G's and G+'s walks on dev and their sections jev and jev_bolstered of routers/operating_points.json
 uv run python -m analysis.jev_comparisons  # G's and G+'s same-target comparisons, matched-cost rows, McNemar rows, within-task concordance and dev latency (nothing written)
 uv run python -m analysis.table_v3         # table v3: G's and G+'s operating points, the comparisons, the diagnostics and dev latency, into figures/table_v3.json
+uv run python -m analysis.explorer         # the interactive explorer: chart v3's two JSONs into figures/pareto_explorer.html (rerun after pareto)
 uv run python -m analysis.check_jev_settings  # the settings builder on a synthetic benchmark; the hook compares the committed file with a rebuild
 uv run python -m analysis.check_jev_call   # call bodies equal hand-written JSON, the byte budget's cut, malformed settings refused
 uv run python -m analysis.check_jev_client # the client's retries and G's scoring against a fake Jev server on a loopback port (no network)
@@ -180,6 +185,7 @@ uv run python -m analysis.check_jev_freeze # A15 item 19 against the committed f
 uv run python -m analysis.check_jev_dev    # G's and G+'s dev tables, quantiles and walks; the hook adds the stored dev responses and the freeze commit's order
 uv run python -m analysis.check_jev_comparisons  # the comparisons on a hand-worked synthetic matrix; the hook adds dev and the stored records
 uv run python -m analysis.check_stage6     # chart and table v3 and A15's record of G and G+ (item 20) against the committed files; the hook adds the rebuild from the dev matrix and the stored records
+uv run python -m analysis.check_explorer   # the explorer against chart v3's JSONs: the committed page is their build, and its numbers and words are theirs
 ```
 
 The matrix-reading commands need the dev results matrix in `results/`, so they need the collection
@@ -241,7 +247,8 @@ analysis/            the offline simulator (traces to outcomes and totals), the 
                      E's table, diagnostic and walk on dev, the trained router's fold builder, fit script and
                      freeze measurements, F's and F-train's tables and F's walk, the diagnostics and the
                      learning curve, G's and G+'s collection, fit, tables, walks and comparisons, chart v3,
-                     tables v2 and v3 and the check scripts (jev_*.py and collect_jev.py are Stage 6's;
+                     tables v2 and v3, the interactive explorer's build and template (explorer.py,
+                     explorer_template.html) and the check scripts (jev_*.py and collect_jev.py are Stage 6's;
                      fake_jev.py is the fake server the checks use)
 routers/             the deployable routers (imports nothing from analysis or harness): the config ladder,
                      the request, the decision rule (frozen, A10 item 1), the rules router E (frozen, A9
@@ -258,7 +265,8 @@ routers/             the deployable routers (imports nothing from analysis or ha
 figures/             chart v3 on dev: the headline and per-task figures, each a PNG with a JSON of every
                      number it plots, tables v0 and v1 included, E's, F's, G's and G+'s rows alike;
                      table_v2.json, the same-target comparisons and the diagnostics; learning_curve.png and
-                     .json; table_v3.json, G's and G+'s operating points, comparisons and diagnostics
+                     .json; table_v3.json, G's and G+'s operating points, comparisons and diagnostics;
+                     pareto_explorer.html, chart v3's numbers as an interactive page
 sandbox/             Dockerfile for the code sandbox image
 data/benchmark.jsonl the frozen benchmark: 2,478 items split 40/30/30, plus its hash manifest
 data/dev_folds.json  dev's five folds for cross-fitting F, and train_folds.json, train's five folds for choosing C
