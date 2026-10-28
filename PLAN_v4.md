@@ -948,7 +948,28 @@ A proposal for Stage 6, made before its design session and before any Jev call o
       - sonnet: intercept only 0.3781, 0.5000; task rates 0.3762, 0.5000; G 0.3964, 0.6815; G+ 0.3574, 0.6753.
       - opus_low: intercept only 0.2967, 0.5000; task rates 0.2939, 0.5000; G 0.3746, 0.7105; G+ 0.2786, 0.7072.
     - **The first train call**: server Date `Wed, 28 Oct 2026 03:04:01 GMT`, after the settings commit's commit time above (the Date is in GMT, so the commit was at 02:57:38 GMT on 2026-10-28).
-20. **Record.** G's and G+'s operating points on dev and the hashes of their sections, written when Stage 6 finishes, as A11 item 21 did for F. It includes the server `Date` of the first dev call, after the freeze commit.
+20. **Record.** G's and G+'s operating points on dev (run 0, n = 744, list prices of 2026-10-12, Jev's overhead at $0.042 per million input tokens), from `figures/pareto.json`, and the hash of each router's section of `routers/operating_points.json`, as A9 item 18 and A11 item 21 record E's and F's; the comparisons' and diagnostics' numbers are from `figures/table_v3.json`. Intervals are percentile 95% from 2,000 paired resamples, and `analysis/check_stage6.py` compares every number here with those files.
+
+    | | Realistic | Uniform |
+    |---|---|---|
+    | G: threshold at 100%, 99%, 97% of A's quality | 0.9300, 0.8800, 0.7600 | 0.9300, 0.8500, 0.7600 |
+    | G: quality there | 87.4%, 87.8%, 86.3% | 89.8%, 89.6%, 88.1% |
+    | G: $ per 1k there | $7.28, $5.78, $3.62 | $11.40, $8.47, $5.53 |
+    | G: savings against A there | 9.5%, 28.1%, 55.0% | 5.1%, 29.5%, 54.0% |
+    | G: captured fraction there | 0.10, 0.29, 0.57 | 0.05, 0.31, 0.56 |
+    | G: share of resamples meeting the target there | 100.0%, 95.6%, 94.8% | 100.0%, 92.3%, 90.5% |
+    | G+: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.9226, 0.8398 | 0.9739, 0.9226, 0.8398 |
+    | G+: quality there | 86.7%, 87.2%, 86.2% | 89.5%, 89.5%, 88.3% |
+    | G+: $ per 1k there | $8.04, $5.53, $2.81 | $11.87, $7.45, $3.44 |
+    | G+: savings against A there | 0.0%, 31.3%, 65.1% | 1.2%, 38.0%, 71.4% |
+    | G+: captured fraction there | 0.00, 0.33, 0.68 | 0.01, 0.40, 0.75 |
+    | G+: share of resamples meeting the target there | 100.0%, 91.8%, 92.2% | 100.0%, 90.0%, 92.3% |
+
+    - Where a target reads "falls back to A", the walk certified nothing cheaper than A (A9 item 10): the operating point is A itself, with no router call and no overhead, and its captured fraction is 0.00. Everywhere else the cost includes Jev's overhead on every request.
+    - G's section of `routers/operating_points.json`, written with sorted keys, has the 64-digit sha256 `863dc553ae6bc27ee2c050732a1735f33d02ec23ccc9aada4cb588e84572bbd5`.
+    - G+'s section of `routers/operating_points.json`, written with sorted keys, has the 64-digit sha256 `30cc0ef8dc392a3b56e4ba40e1dad9fc912ac3246be2e0e7ddc0214b8647ae6f`.
+    - The first dev call's server `Date` is `Wed, 28 Oct 2026 03:25:54 GMT`, after the freeze commit (item 19). It is in GMT.
+    - The comparisons in `figures/table_v3.json` are descriptive, with no multiplicity correction: at 95%, about one interval in twenty excludes 0 by chance, and its diagnostics are labeled "diagnostic, dev only".
 
 ---
 
