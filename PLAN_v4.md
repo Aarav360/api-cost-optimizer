@@ -914,30 +914,40 @@ A proposal for Stage 6, made before its design session and before any Jev call o
         - **Wave 3:** the train collection, the noise pass, the fit, the signal check and latency, then the freeze commit.
         - **Wave 4:** the dev collection, tables, quantiles, walks and sections.
         - **Wave 5, in parallel:** the comparisons; chart and table v3, item 20 and the README.
-19. **The freeze record** (item 13), written in the freeze commit, before any dev call:
-    - **Hashes:**
-        - the settings commit's hash
-        - the sha256s of `routers/jev.py`'s import closure, the settings builder, the fit script, `routers/jev_settings.json` and `routers/jev_weights.json`
-        - train's stored responses, per router
-    - **The fit:** C per config, and whether it sits at an end of the grid.
-    - **The noise sample:** its 100 item IDs and seed.
-    - **Jev's identity:** the endpoint, the model ID, and the price with the date it was checked.
-    - **Versions:** library and Python.
-    - **Calls:**
-        - every returned model ID equals `jev-1.14.0`
-        - every call body hashes to what the frozen code builds
-        - token usage per call (median and maximum), per router
-        - truncation and refusal counts
-    - **Noise:** D6 and the mean signed difference, per config.
-    - **Latency:** on train, with machine, network and dates.
-    - **The train signal check,** per config, log loss and within-task concordance (pairs within the same task and train fold) for:
-        - an intercept-only model
-        - the task-rates model
-        - G's raw router scores, with log loss clipped to [0.005, 0.995] for this diagnostic only, since a raw 1.00 on a failed item gives infinite log loss
-        - G+, cross-validated
-    - **Evidence of the order:** the server `Date` of the first stored call on a benchmark request, after the settings commit.
-
-    A check compares every entry with its source through the amendment-item reader.
+19. **The freeze record** (item 13), written in the freeze commit, before any dev call. Nothing here reads a dev outcome or sends a dev request. `analysis/check_jev_freeze.py` compares each entry with its source, and each hash with its file. sha256, as in A7 item 3. The measures come from `python -m analysis.jev_train_report` and `python -m analysis.fit_jev_router`:
+    - **The settings commit**: `0d08ac09a61dc562edd3c5443b93f227eb1c6a45`, committed 2026-10-27T19:57:38-07:00. Every file it froze is as that commit left it.
+    - **Frozen files**, `routers/jev.py`'s import closure, the settings builder, the fit script, the settings and the weights (item 13):
+      - `analysis/build_jev_settings.py`: `b69cfb3ca765aef4fc029bd52d1219de963cff9dde44a3bc3bce6a5959606191`
+      - `analysis/fit_jev_router.py`: `0e23746c26c48e4df74f1426e42eaa1d2ffdece1666c0092d3ddf28740eecee9`
+      - `routers/__init__.py`: `1c93dfb7989a0b24c0989368c751cc0b6fdab3d17a280ff68a1c31cb84136bf3`
+      - `routers/jev.py`: `a5df8af7d2d5a653e3b91ee331cb5096f79c85bef2e8eeb849a0649fd4749956`
+      - `routers/jev_call.py`: `ae51d3e2c4412a296f13e8c195380e7d8ca170b2bb770e5f991e462a2ae9942c`
+      - `routers/jev_settings.json`: `781fc9351431d0c7bdb69eb059e91f5942d74a8971a92b5bf68bfea7176bbf71`
+      - `routers/jev_weights.json`: `7842dbda3bc83d38d52202b307c6a84b4e070eea5aba6ded3a6d271a53214dfb`
+      - `routers/ladder.py`: `35448ba6ccf6b6d9a504d56127d40ad5e2f3b18c3ee0a562ad3b5bdbd299818d`
+      - `routers/request.py`: `15c809b5d422074f2c6a526d5ce2b542d0e8155930269a9b5763eb62463472e2`
+    - **Train's stored responses**, per router and with the noise pass, kept under `results/jev/`, not committed:
+      - `results/jev/jev_train.jsonl`: `cde890c41266ba0d87fce3452b26256fbb2850617907e3df53dc5f5a33855794`
+      - `results/jev/jev_bolstered_train.jsonl`: `fb145e10a101683060975fbdcfa8959e2a63b239a9ea118db430f9d890e3b72d`
+    - **Jev's identity** (items 3 and 10): endpoint `https://api.typesafe.ai/v1/systemone`, model `jev-1.14.0`, $0.042 per million input tokens, checked 2026-10-25.
+    - **Versions**: numpy 2.5.4, scikit-learn 1.9.1, Python 3.13.13.
+    - **The noise sample** (item 10), 100 train requests, 25 per task: seed 2026, 100 item IDs: `banking77:test-2307`, `banking77:test-0356`, `banking77:test-2315`, `banking77:test-0383`, `banking77:test-0366`, `banking77:test-1837`, `banking77:test-2040`, `banking77:test-1946`, `banking77:test-1417`, `banking77:test-1210`, `banking77:test-2956`, `banking77:test-2069`, `banking77:test-2830`, `banking77:test-2557`, `banking77:test-0689`, `banking77:test-1671`, `banking77:test-2921`, `banking77:test-1003`, `banking77:test-2359`, `banking77:test-2159`, `banking77:test-1584`, `banking77:test-2810`, `banking77:test-0765`, `banking77:test-2840`, `banking77:test-1321`, `ifeval:371`, `ifeval:2275`, `ifeval:1893`, `ifeval:3445`, `ifeval:3538`, `ifeval:1646`, `ifeval:321`, `ifeval:1094`, `ifeval:1477`, `ifeval:2432`, `ifeval:1645`, `ifeval:251`, `ifeval:1281`, `ifeval:3739`, `ifeval:13`, `ifeval:1300`, `ifeval:2034`, `ifeval:1593`, `ifeval:2857`, `ifeval:2305`, `ifeval:1834`, `ifeval:3479`, `ifeval:2628`, `ifeval:3380`, `ifeval:1418`, `mbppplus:309`, `mbppplus:286`, `mbppplus:128`, `mbppplus:247`, `mbppplus:775`, `mbppplus:471`, `mbppplus:760`, `mbppplus:20`, `mbppplus:64`, `mbppplus:278`, `mbppplus:578`, `mbppplus:581`, `mbppplus:406`, `mbppplus:723`, `mbppplus:67`, `mbppplus:97`, `mbppplus:797`, `mbppplus:397`, `mbppplus:558`, `mbppplus:787`, `mbppplus:171`, `mbppplus:474`, `mbppplus:614`, `mbppplus:435`, `mbppplus:599`, `mmlu_pro:5111`, `mmlu_pro:7895`, `mmlu_pro:8712`, `mmlu_pro:8235`, `mmlu_pro:7970`, `mmlu_pro:11735`, `mmlu_pro:594`, `mmlu_pro:9364`, `mmlu_pro:10384`, `mmlu_pro:4075`, `mmlu_pro:6078`, `mmlu_pro:6263`, `mmlu_pro:9660`, `mmlu_pro:10920`, `mmlu_pro:5242`, `mmlu_pro:9455`, `mmlu_pro:8634`, `mmlu_pro:10452`, `mmlu_pro:4928`, `mmlu_pro:12245`, `mmlu_pro:2807`, `mmlu_pro:1607`, `mmlu_pro:7782`, `mmlu_pro:2082`, `mmlu_pro:5490`.
+    - **The fit rows** (item 7): train items 991; in the past requests' groups 16; refused on G+'s call 0; fit rows 975 (refused on G's call among them 0).
+    - **C per config** (item 7), by five-fold cross-validation over train's folds, mean log loss: haiku 0.316228 (inside the grid), sonnet 0.1 (inside the grid), opus_low 0.0316228 (inside the grid). No C sits at an end of the grid.
+    - **Calls** (items 9 and 10), the train collection and the noise pass together. Retries are the attempts beyond each call's first; truncation is counted by building each call again with the frozen code, which is also how every body hash was compared. No call was retried or refused, no prompt was cut and no client code changed during the collection:
+      - G: 1091 calls (991 in pass 1, 100 in pass 2); returned model IDs `jev-1.14.0`; 0 stored body hashes differ from the frozen code; refused 0, cut 0, retries 0 (0 failed attempts), reconnects 1; input tokens 874979 in all, median 604 per call, largest 1736.
+      - G+: 1091 calls (991 in pass 1, 100 in pass 2); returned model IDs `jev-1.14.0`; 0 stored body hashes differ from the frozen code; refused 0, cut 0, retries 0 (0 failed attempts), reconnects 1; input tokens 9466604 in all, median 8479 per call, largest 9611.
+    - **Noise** (item 10), the sample's second send less its first, per config, as D6 (the mean absolute difference) and the shift (the mean signed difference), G+'s router scores through the fitted weights:
+      - G: haiku D6 0.0119 shift +0.0001, sonnet D6 0.0120 shift -0.0002, opus_low D6 0.0112 shift -0.0010
+      - G+: haiku D6 0.0118 shift +0.0018, sonnet D6 0.0075 shift +0.0007, opus_low D6 0.0046 shift +0.0003
+    - **Latency** (item 10), the successful attempt's time alone, over the train calls of both passes, one at a time and in the order stored, with the first call of each router's file and every call that opened a new connection left out of the median and p90 and listed beside them; the p90 is numpy's percentile with linear interpolation. On Apple M5 Pro, Darwin 27.0.0 arm64, Python 3.13.13, Wi-Fi (en0) behind a private gateway, no network name or address recorded; train calls collected from 2026-10-27T20:04:01-07:00 to 2026-10-27T20:07:44-07:00. It depends on the machine and the network, so it is quoted as measured and isn't re-checked.
+      - G: over 1089 calls, median 72.3 ms and p90 104.6 ms; the first call 119.3 ms; reconnects (ms): 106.6. Per task (median, p90 in ms, calls): banking77 75.5, 108.9, 344; ifeval 69.7, 116.7, 232; mbppplus 68.7, 94.6, 168; mmlu_pro 72.1, 103.2, 345.
+      - G+: over 1089 calls, median 111.7 ms and p90 132.4 ms; the first call 123.2 ms; reconnects (ms): 149.4. Per task (median, p90 in ms, calls): banking77 117.2, 135.4, 345; ifeval 107.5, 128.4, 231; mbppplus 107.9, 136.9, 168; mmlu_pro 105.9, 128.4, 345.
+    - **The train signal check** (item 7), cross-validated over train's folds on the fit rows, for the intercept-only model, the task-rates model, G's raw router scores (log loss clipped to [0.005, 0.995] for this diagnostic only) and G+: log loss, then within-task concordance (pairs within the same task and train fold):
+      - haiku: intercept only 0.3954, 0.5000; task rates 0.3953, 0.5000; G 0.3995, 0.7053; G+ 0.3539, 0.7548.
+      - sonnet: intercept only 0.3781, 0.5000; task rates 0.3762, 0.5000; G 0.3964, 0.6815; G+ 0.3574, 0.6753.
+      - opus_low: intercept only 0.2967, 0.5000; task rates 0.2939, 0.5000; G 0.3746, 0.7105; G+ 0.2786, 0.7072.
+    - **The first train call**: server Date `Wed, 28 Oct 2026 03:04:01 GMT`, after the settings commit's commit time above (the Date is in GMT, so the commit was at 02:57:38 GMT on 2026-10-28).
 20. **Record.** G's and G+'s operating points on dev and the hashes of their sections, written when Stage 6 finishes, as A11 item 21 did for F. It includes the server `Date` of the first dev call, after the freeze commit.
 
 ---
