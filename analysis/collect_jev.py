@@ -183,16 +183,20 @@ def records_path(router: str, split: str, results_dir: Path = RESULTS_DIR) -> Pa
 
 
 def read_records(router: str, split: str, results_dir: Path = RESULTS_DIR) -> list[dict]:
-    """A router's stored records for a split, in the order stored: the one reader of the stored records.
+    """A router's stored records for a split, in the order stored: the one reader of the stored records, which the
+    collection, the fit and the table builders share."""
+    return read_records_file(records_path(router, split, results_dir), router, split)
 
-    A last line with no newline is a write that was cut short and is dropped. Anything else wrong is refused whole:
-    a line that isn't a record of exactly `STORED_FIELDS`, a record of another router or split, or a repeated item
-    and pass (a stored response is never overwritten)."""
-    path = records_path(router, split, results_dir)
+
+def read_records_file(path: Path, router: str, split: str) -> list[dict]:
+    """The records of one JSON Lines file (none if it doesn't exist), refused whole unless each is a record of
+    exactly `STORED_FIELDS`, is `router`'s and `split`'s, has a pass of 1 or 2 and a refusal flag that is a bool, and
+    is the only record of its item and pass (a stored response is never overwritten).
+
+    A last line with no newline is a write that was cut short, and is dropped."""
     if not path.exists():
         return []
-    text = path.read_bytes().decode("utf-8")
-    lines = text.split("\n")[:-1]  # what follows the last newline is a torn write, or nothing
+    lines = path.read_bytes().decode("utf-8").split("\n")[:-1]  # what follows the last newline is a torn write
     records, seen = [], set()
     for number, line in enumerate(lines, start=1):
         try:
@@ -201,8 +205,14 @@ def read_records(router: str, split: str, results_dir: Path = RESULTS_DIR) -> li
             raise CollectError(f"{path.name} line {number} is not JSON") from error
         if not isinstance(record, dict) or tuple(record) != STORED_FIELDS:
             raise CollectError(f"{path.name} line {number} is not a stored record: its fields differ from #30's")
-        if record["router"] != router or record["split"] != split or record["pass"] not in PASSES:
-            raise CollectError(f"{path.name} line {number} belongs to another router, split or pass")
+        if record["router"] != router or record["split"] != split:
+            raise CollectError(
+                f"{path.name} line {number} is a {record['router']} {record['split']} record, not {router} {split}"
+            )
+        if record["pass"] not in PASSES or type(record["refused"]) is not bool:
+            raise CollectError(
+                f"{path.name} line {number} has a pass other than 1 or 2, or a refusal that isn't a bool"
+            )
         key = (record["item_id"], record["pass"])
         if key in seen:
             raise CollectError(f"{path.name} line {number} repeats {key[0]} pass {key[1]}")
