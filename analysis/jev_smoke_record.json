@@ -1,0 +1,1007 @@
+{
+ "purpose": "A15 item 13's smoke test: made-up requests only, before the settings commit",
+ "model": "jev-1.14.0",
+ "made_up_requests_sha256": "153d448997d5e915091fde915ed3756b8d0fb8e94b00cb26523f84c56685b696",
+ "calls": {
+  "smoke": 12,
+  "measurement": 7,
+  "all": 19
+ },
+ "tokens": {
+  "input": 62326,
+  "output": 3260
+ },
+ "fixed_overhead_tokens": 291,
+ "fixed_parts_tokens": {
+  "g_questions": 39,
+  "g_plus_questions": 608,
+  "g_plus_past_requests": 7306,
+  "longest_schema": 632
+ },
+ "longest_schema_bytes": 1922,
+ "budget_bytes": {
+  "jev": 29632,
+  "jev_bolstered": 5980
+ },
+ "measurements": {
+  "minimal_1": {
+   "body_bytes": 150,
+   "body_added_bytes": {},
+   "input_tokens": 291,
+   "output_tokens": 20,
+   "request_id": "req_01a18070c1407d538a46958e9d6d1c1a",
+   "server_date": "Wed, 28 Oct 2026 02:57:15 GMT",
+   "seconds": 0.07602858397876844,
+   "attempts": 1
+  },
+  "minimal_2": {
+   "body_bytes": 150,
+   "body_added_bytes": {},
+   "input_tokens": 291,
+   "output_tokens": 20,
+   "request_id": "req_01a18070c17879c9948393ddfdaf9fa5",
+   "server_date": "Wed, 28 Oct 2026 02:57:15 GMT",
+   "seconds": 0.06048095796722919,
+   "attempts": 1
+  },
+  "minimal_3": {
+   "body_bytes": 150,
+   "body_added_bytes": {},
+   "input_tokens": 291,
+   "output_tokens": 20,
+   "request_id": "req_01a18070c1b1713fb40e00336de63ab6",
+   "server_date": "Wed, 28 Oct 2026 02:57:15 GMT",
+   "seconds": 0.05900791700696573,
+   "attempts": 1
+  },
+  "g_questions": {
+   "body_bytes": 411,
+   "body_added_bytes": {
+    "questions": 263
+   },
+   "input_tokens": 330,
+   "output_tokens": 61,
+   "request_id": "req_01a18070c1ee7699969617f6193801b6",
+   "server_date": "Wed, 28 Oct 2026 02:57:15 GMT",
+   "seconds": 0.05932358303107321,
+   "attempts": 1
+  },
+  "g_plus_questions": {
+   "body_bytes": 3247,
+   "body_added_bytes": {
+    "questions": 3114
+   },
+   "input_tokens": 899,
+   "output_tokens": 391,
+   "request_id": "req_01a18070c2287c0b8b707276e0001080",
+   "server_date": "Wed, 28 Oct 2026 02:57:15 GMT",
+   "seconds": 0.06109054200351238,
+   "attempts": 1
+  },
+  "g_plus_past_requests": {
+   "body_bytes": 23668,
+   "body_added_bytes": {
+    "state": 23518
+   },
+   "input_tokens": 7597,
+   "output_tokens": 20,
+   "request_id": "req_01a18070c26d7d6890dc43a842a4a30a",
+   "server_date": "Wed, 28 Oct 2026 02:57:15 GMT",
+   "seconds": 0.09847099997568876,
+   "attempts": 1
+  },
+  "longest_schema": {
+   "body_bytes": 2068,
+   "body_added_bytes": {
+    "state": 1918
+   },
+   "input_tokens": 923,
+   "output_tokens": 20,
+   "request_id": "req_01a18070c2d379cea0db2b7d8fef2fcf",
+   "server_date": "Wed, 28 Oct 2026 02:57:16 GMT",
+   "seconds": 0.07296495797345415,
+   "attempts": 1
+  }
+ },
+ "smoke_records": {
+  "jev": [
+   {
+    "router": "jev",
+    "split": "smoke",
+    "item_id": "smoke-001",
+    "pass": 1,
+    "body_sha256": "ce2f1203f8b104e9a98327cc4c2e021af01bbe9d1552cdb76eb688249aca285d",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "success_haiku": {
+       "type": "noul",
+       "noul": 0.91
+      },
+      "success_sonnet": {
+       "type": "noul",
+       "noul": 0.83
+      },
+      "success_opus_low": {
+       "type": "noul",
+       "noul": 0.78
+      }
+     },
+     "usage": {
+      "input_tokens": 358,
+      "output_tokens": 61
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 358,
+     "output_tokens": 61
+    },
+    "request_id": "req_01a18070bd217e9398aa4d22714b6bec",
+    "server_date": "Wed, 28 Oct 2026 02:57:14 GMT",
+    "seconds": 0.10547591600334272,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": true,
+    "refused": false,
+    "collected_at": "2026-10-27T19:57:14-07:00"
+   },
+   {
+    "router": "jev",
+    "split": "smoke",
+    "item_id": "smoke-002",
+    "pass": 1,
+    "body_sha256": "b0603eec8880affba44d2b82cd52944813bf2ddd35dbd8cc3848e426878e6f2e",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "success_haiku": {
+       "type": "noul",
+       "noul": 0.94
+      },
+      "success_sonnet": {
+       "type": "noul",
+       "noul": 0.93
+      },
+      "success_opus_low": {
+       "type": "noul",
+       "noul": 0.92
+      }
+     },
+     "usage": {
+      "input_tokens": 421,
+      "output_tokens": 61
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 421,
+     "output_tokens": 61
+    },
+    "request_id": "req_01a18070bd6876e394c843301b52b20a",
+    "server_date": "Wed, 28 Oct 2026 02:57:14 GMT",
+    "seconds": 0.10418608301552013,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "collected_at": "2026-10-27T19:57:14-07:00"
+   },
+   {
+    "router": "jev",
+    "split": "smoke",
+    "item_id": "smoke-003",
+    "pass": 1,
+    "body_sha256": "accdfa3b32771e0be6b662b8ee68771c5574a8474fa70d05537f169d397a09c1",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "success_haiku": {
+       "type": "noul",
+       "noul": 0.96
+      },
+      "success_sonnet": {
+       "type": "noul",
+       "noul": 0.97
+      },
+      "success_opus_low": {
+       "type": "noul",
+       "noul": 0.97
+      }
+     },
+     "usage": {
+      "input_tokens": 358,
+      "output_tokens": 61
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 358,
+     "output_tokens": 61
+    },
+    "request_id": "req_01a18070bdd172b086e5ebb48723848a",
+    "server_date": "Wed, 28 Oct 2026 02:57:14 GMT",
+    "seconds": 0.05962104198988527,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "collected_at": "2026-10-27T19:57:14-07:00"
+   },
+   {
+    "router": "jev",
+    "split": "smoke",
+    "item_id": "smoke-004",
+    "pass": 1,
+    "body_sha256": "2a1ab178efd7173ab6cd6ac966dbc10faa5330afaa0bd10c15d437d96b5f5dfd",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "success_haiku": {
+       "type": "noul",
+       "noul": 0.96
+      },
+      "success_sonnet": {
+       "type": "noul",
+       "noul": 0.95
+      },
+      "success_opus_low": {
+       "type": "noul",
+       "noul": 0.96
+      }
+     },
+     "usage": {
+      "input_tokens": 351,
+      "output_tokens": 61
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 351,
+     "output_tokens": 61
+    },
+    "request_id": "req_01a18070be0c770fa32b731f00d8bdf1",
+    "server_date": "Wed, 28 Oct 2026 02:57:14 GMT",
+    "seconds": 0.06082654098281637,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "collected_at": "2026-10-27T19:57:14-07:00"
+   },
+   {
+    "router": "jev",
+    "split": "smoke",
+    "item_id": "smoke-005",
+    "pass": 1,
+    "body_sha256": "16adfc57ee21fed4f5b4341d27a85b42da082d7ee3d7386d6079f0629f627df9",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "success_haiku": {
+       "type": "noul",
+       "noul": 0.96
+      },
+      "success_sonnet": {
+       "type": "noul",
+       "noul": 0.95
+      },
+      "success_opus_low": {
+       "type": "noul",
+       "noul": 0.91
+      }
+     },
+     "usage": {
+      "input_tokens": 372,
+      "output_tokens": 61
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 372,
+     "output_tokens": 61
+    },
+    "request_id": "req_01a18070be4a74d48bbaea2849efdebe",
+    "server_date": "Wed, 28 Oct 2026 02:57:14 GMT",
+    "seconds": 0.060895292030181736,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "collected_at": "2026-10-27T19:57:14-07:00"
+   },
+   {
+    "router": "jev",
+    "split": "smoke",
+    "item_id": "smoke-006",
+    "pass": 1,
+    "body_sha256": "98211c18a797824cd878b80a66a4ddd7efc928a80bae5583f4b3c7815611282d",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "success_haiku": {
+       "type": "noul",
+       "noul": 0.85
+      },
+      "success_sonnet": {
+       "type": "noul",
+       "noul": 0.73
+      },
+      "success_opus_low": {
+       "type": "noul",
+       "noul": 0.73
+      }
+     },
+     "usage": {
+      "input_tokens": 367,
+      "output_tokens": 61
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 367,
+     "output_tokens": 61
+    },
+    "request_id": "req_01a18070be887b80b170f5861ce5bd25",
+    "server_date": "Wed, 28 Oct 2026 02:57:14 GMT",
+    "seconds": 0.07128700002795085,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "collected_at": "2026-10-27T19:57:14-07:00"
+   }
+  ],
+  "jev_bolstered": [
+   {
+    "router": "jev_bolstered",
+    "split": "smoke",
+    "item_id": "smoke-001",
+    "pass": 1,
+    "body_sha256": "ec4a56ada94761dad2df9e9e09b6a006d97cedffdb5d32697d2e0f1c55704526",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "success_haiku_a": {
+       "type": "noul",
+       "noul": 0.73
+      },
+      "success_haiku_b": {
+       "type": "noul",
+       "noul": 0.73
+      },
+      "success_haiku_c": {
+       "type": "noul",
+       "noul": 0.27
+      },
+      "success_sonnet_a": {
+       "type": "noul",
+       "noul": 0.84
+      },
+      "success_sonnet_b": {
+       "type": "noul",
+       "noul": 0.83
+      },
+      "success_sonnet_c": {
+       "type": "noul",
+       "noul": 0.18
+      },
+      "success_opus_low_a": {
+       "type": "noul",
+       "noul": 0.83
+      },
+      "success_opus_low_b": {
+       "type": "noul",
+       "noul": 0.81
+      },
+      "success_opus_low_c": {
+       "type": "noul",
+       "noul": 0.2
+      },
+      "difficulty_1": {
+       "type": "noul",
+       "noul": 0.31
+      },
+      "difficulty_2": {
+       "type": "noul",
+       "noul": 0.97
+      },
+      "difficulty_3": {
+       "type": "noul",
+       "noul": 0.05
+      },
+      "difficulty_4": {
+       "type": "noul",
+       "noul": 0.02
+      },
+      "difficulty_5": {
+       "type": "noul",
+       "noul": 0.14
+      },
+      "difficulty_6": {
+       "type": "noul",
+       "noul": 0.09
+      },
+      "difficulty_7": {
+       "type": "noul",
+       "noul": 0.92
+      },
+      "difficulty_8": {
+       "type": "noul",
+       "noul": 0.7
+      },
+      "request_type": {
+       "type": "choice",
+       "choice": "follow written instructions to produce text",
+       "confidence": 1.0,
+       "probabilities": {
+        "follow written instructions to produce text": 1.0,
+        "choose a label from a given list": 0.0,
+        "answer a multiple-choice question": 0.0,
+        "write code": 0.0
+       }
+      }
+     },
+     "usage": {
+      "input_tokens": 8233,
+      "output_tokens": 391
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 8233,
+     "output_tokens": 391
+    },
+    "request_id": "req_01a18070bedb762bbd029981ea9b363c",
+    "server_date": "Wed, 28 Oct 2026 02:57:15 GMT",
+    "seconds": 0.10268791700946167,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "collected_at": "2026-10-27T19:57:15-07:00"
+   },
+   {
+    "router": "jev_bolstered",
+    "split": "smoke",
+    "item_id": "smoke-002",
+    "pass": 1,
+    "body_sha256": "7c8efd3df7cb1804c010023657e3f1356e40315e05eb1dcd0dc21386586980f7",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "success_haiku_a": {
+       "type": "noul",
+       "noul": 0.77
+      },
+      "success_haiku_b": {
+       "type": "noul",
+       "noul": 0.75
+      },
+      "success_haiku_c": {
+       "type": "noul",
+       "noul": 0.21
+      },
+      "success_sonnet_a": {
+       "type": "noul",
+       "noul": 0.86
+      },
+      "success_sonnet_b": {
+       "type": "noul",
+       "noul": 0.85
+      },
+      "success_sonnet_c": {
+       "type": "noul",
+       "noul": 0.15
+      },
+      "success_opus_low_a": {
+       "type": "noul",
+       "noul": 0.85
+      },
+      "success_opus_low_b": {
+       "type": "noul",
+       "noul": 0.82
+      },
+      "success_opus_low_c": {
+       "type": "noul",
+       "noul": 0.17
+      },
+      "difficulty_1": {
+       "type": "noul",
+       "noul": 0.15
+      },
+      "difficulty_2": {
+       "type": "noul",
+       "noul": 0.9
+      },
+      "difficulty_3": {
+       "type": "noul",
+       "noul": 0.93
+      },
+      "difficulty_4": {
+       "type": "noul",
+       "noul": 0.04
+      },
+      "difficulty_5": {
+       "type": "noul",
+       "noul": 0.15
+      },
+      "difficulty_6": {
+       "type": "noul",
+       "noul": 0.09
+      },
+      "difficulty_7": {
+       "type": "noul",
+       "noul": 0.18
+      },
+      "difficulty_8": {
+       "type": "noul",
+       "noul": 0.2
+      },
+      "request_type": {
+       "type": "choice",
+       "choice": "choose a label from a given list",
+       "confidence": 1.0,
+       "probabilities": {
+        "follow written instructions to produce text": 0.0,
+        "choose a label from a given list": 1.0,
+        "answer a multiple-choice question": 0.0,
+        "write code": 0.0
+       }
+      }
+     },
+     "usage": {
+      "input_tokens": 8296,
+      "output_tokens": 392
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 8296,
+     "output_tokens": 392
+    },
+    "request_id": "req_01a18070bf3d7208bea9f7689b5618c9",
+    "server_date": "Wed, 28 Oct 2026 02:57:15 GMT",
+    "seconds": 0.0915905840229243,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "collected_at": "2026-10-27T19:57:15-07:00"
+   },
+   {
+    "router": "jev_bolstered",
+    "split": "smoke",
+    "item_id": "smoke-003",
+    "pass": 1,
+    "body_sha256": "8cd0064d1f9c9fbdb28f196da707d43441415e9680a6dda73a44af766ed6e42c",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "success_haiku_a": {
+       "type": "noul",
+       "noul": 0.83
+      },
+      "success_haiku_b": {
+       "type": "noul",
+       "noul": 0.76
+      },
+      "success_haiku_c": {
+       "type": "noul",
+       "noul": 0.17
+      },
+      "success_sonnet_a": {
+       "type": "noul",
+       "noul": 0.92
+      },
+      "success_sonnet_b": {
+       "type": "noul",
+       "noul": 0.89
+      },
+      "success_sonnet_c": {
+       "type": "noul",
+       "noul": 0.11
+      },
+      "success_opus_low_a": {
+       "type": "noul",
+       "noul": 0.9
+      },
+      "success_opus_low_b": {
+       "type": "noul",
+       "noul": 0.86
+      },
+      "success_opus_low_c": {
+       "type": "noul",
+       "noul": 0.12
+      },
+      "difficulty_1": {
+       "type": "noul",
+       "noul": 0.07
+      },
+      "difficulty_2": {
+       "type": "noul",
+       "noul": 0.89
+      },
+      "difficulty_3": {
+       "type": "noul",
+       "noul": 0.98
+      },
+      "difficulty_4": {
+       "type": "noul",
+       "noul": 0.02
+      },
+      "difficulty_5": {
+       "type": "noul",
+       "noul": 0.03
+      },
+      "difficulty_6": {
+       "type": "noul",
+       "noul": 0.06
+      },
+      "difficulty_7": {
+       "type": "noul",
+       "noul": 0.12
+      },
+      "difficulty_8": {
+       "type": "noul",
+       "noul": 0.08
+      },
+      "request_type": {
+       "type": "choice",
+       "choice": "answer a multiple-choice question",
+       "confidence": 0.99,
+       "probabilities": {
+        "follow written instructions to produce text": 0.0,
+        "choose a label from a given list": 0.01,
+        "answer a multiple-choice question": 0.99,
+        "write code": 0.0
+       }
+      }
+     },
+     "usage": {
+      "input_tokens": 8233,
+      "output_tokens": 390
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 8233,
+     "output_tokens": 390
+    },
+    "request_id": "req_01a18070bf9a7bbcbcb140516466608e",
+    "server_date": "Wed, 28 Oct 2026 02:57:15 GMT",
+    "seconds": 0.09895129199139774,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "collected_at": "2026-10-27T19:57:15-07:00"
+   },
+   {
+    "router": "jev_bolstered",
+    "split": "smoke",
+    "item_id": "smoke-004",
+    "pass": 1,
+    "body_sha256": "0b65b5ca8eb414f5e30234d8bb6be02e16cc96a1280cf4ed8147e1ff1ab65976",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "success_haiku_a": {
+       "type": "noul",
+       "noul": 0.79
+      },
+      "success_haiku_b": {
+       "type": "noul",
+       "noul": 0.79
+      },
+      "success_haiku_c": {
+       "type": "noul",
+       "noul": 0.19
+      },
+      "success_sonnet_a": {
+       "type": "noul",
+       "noul": 0.89
+      },
+      "success_sonnet_b": {
+       "type": "noul",
+       "noul": 0.88
+      },
+      "success_sonnet_c": {
+       "type": "noul",
+       "noul": 0.13
+      },
+      "success_opus_low_a": {
+       "type": "noul",
+       "noul": 0.88
+      },
+      "success_opus_low_b": {
+       "type": "noul",
+       "noul": 0.87
+      },
+      "success_opus_low_c": {
+       "type": "noul",
+       "noul": 0.14
+      },
+      "difficulty_1": {
+       "type": "noul",
+       "noul": 0.25
+      },
+      "difficulty_2": {
+       "type": "noul",
+       "noul": 0.56
+      },
+      "difficulty_3": {
+       "type": "noul",
+       "noul": 0.38
+      },
+      "difficulty_4": {
+       "type": "noul",
+       "noul": 0.93
+      },
+      "difficulty_5": {
+       "type": "noul",
+       "noul": 0.12
+      },
+      "difficulty_6": {
+       "type": "noul",
+       "noul": 0.11
+      },
+      "difficulty_7": {
+       "type": "noul",
+       "noul": 0.4
+      },
+      "difficulty_8": {
+       "type": "noul",
+       "noul": 0.21
+      },
+      "request_type": {
+       "type": "choice",
+       "choice": "write code",
+       "confidence": 1.0,
+       "probabilities": {
+        "follow written instructions to produce text": 0.0,
+        "choose a label from a given list": 0.0,
+        "answer a multiple-choice question": 0.0,
+        "write code": 1.0
+       }
+      }
+     },
+     "usage": {
+      "input_tokens": 8226,
+      "output_tokens": 387
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 8226,
+     "output_tokens": 387
+    },
+    "request_id": "req_01a18070bfff76cb8a3256ec49dbb23f",
+    "server_date": "Wed, 28 Oct 2026 02:57:15 GMT",
+    "seconds": 0.09594212501542643,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "collected_at": "2026-10-27T19:57:15-07:00"
+   },
+   {
+    "router": "jev_bolstered",
+    "split": "smoke",
+    "item_id": "smoke-005",
+    "pass": 1,
+    "body_sha256": "022467318e26ec9de249ae033707fd72a5880eddbcccccfdf0d369e31cc1f689",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "success_haiku_a": {
+       "type": "noul",
+       "noul": 0.83
+      },
+      "success_haiku_b": {
+       "type": "noul",
+       "noul": 0.78
+      },
+      "success_haiku_c": {
+       "type": "noul",
+       "noul": 0.18
+      },
+      "success_sonnet_a": {
+       "type": "noul",
+       "noul": 0.89
+      },
+      "success_sonnet_b": {
+       "type": "noul",
+       "noul": 0.87
+      },
+      "success_sonnet_c": {
+       "type": "noul",
+       "noul": 0.13
+      },
+      "success_opus_low_a": {
+       "type": "noul",
+       "noul": 0.88
+      },
+      "success_opus_low_b": {
+       "type": "noul",
+       "noul": 0.85
+      },
+      "success_opus_low_c": {
+       "type": "noul",
+       "noul": 0.15
+      },
+      "difficulty_1": {
+       "type": "noul",
+       "noul": 0.62
+      },
+      "difficulty_2": {
+       "type": "noul",
+       "noul": 0.74
+      },
+      "difficulty_3": {
+       "type": "noul",
+       "noul": 0.94
+      },
+      "difficulty_4": {
+       "type": "noul",
+       "noul": 0.03
+      },
+      "difficulty_5": {
+       "type": "noul",
+       "noul": 0.08
+      },
+      "difficulty_6": {
+       "type": "noul",
+       "noul": 0.08
+      },
+      "difficulty_7": {
+       "type": "noul",
+       "noul": 0.47
+      },
+      "difficulty_8": {
+       "type": "noul",
+       "noul": 0.17
+      },
+      "request_type": {
+       "type": "choice",
+       "choice": "follow written instructions to produce text",
+       "confidence": 0.83,
+       "probabilities": {
+        "follow written instructions to produce text": 0.87,
+        "choose a label from a given list": 0.01,
+        "answer a multiple-choice question": 0.12,
+        "write code": 0.0
+       }
+      }
+     },
+     "usage": {
+      "input_tokens": 8247,
+      "output_tokens": 391
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 8247,
+     "output_tokens": 391
+    },
+    "request_id": "req_01a18070c05f7016b18a85f0ef95cfae",
+    "server_date": "Wed, 28 Oct 2026 02:57:15 GMT",
+    "seconds": 0.09104912501061335,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "collected_at": "2026-10-27T19:57:15-07:00"
+   },
+   {
+    "router": "jev_bolstered",
+    "split": "smoke",
+    "item_id": "smoke-006",
+    "pass": 1,
+    "body_sha256": "3c8444eea30b3179f50a4a1db8dc0cffcb840e75b283f9a5d054964fc6ec1489",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "success_haiku_a": {
+       "type": "noul",
+       "noul": 0.7
+      },
+      "success_haiku_b": {
+       "type": "noul",
+       "noul": 0.72
+      },
+      "success_haiku_c": {
+       "type": "noul",
+       "noul": 0.3
+      },
+      "success_sonnet_a": {
+       "type": "noul",
+       "noul": 0.82
+      },
+      "success_sonnet_b": {
+       "type": "noul",
+       "noul": 0.81
+      },
+      "success_sonnet_c": {
+       "type": "noul",
+       "noul": 0.2
+      },
+      "success_opus_low_a": {
+       "type": "noul",
+       "noul": 0.79
+      },
+      "success_opus_low_b": {
+       "type": "noul",
+       "noul": 0.8
+      },
+      "success_opus_low_c": {
+       "type": "noul",
+       "noul": 0.25
+      },
+      "difficulty_1": {
+       "type": "noul",
+       "noul": 0.61
+      },
+      "difficulty_2": {
+       "type": "noul",
+       "noul": 0.97
+      },
+      "difficulty_3": {
+       "type": "noul",
+       "noul": 0.07
+      },
+      "difficulty_4": {
+       "type": "noul",
+       "noul": 0.02
+      },
+      "difficulty_5": {
+       "type": "noul",
+       "noul": 0.21
+      },
+      "difficulty_6": {
+       "type": "noul",
+       "noul": 0.1
+      },
+      "difficulty_7": {
+       "type": "noul",
+       "noul": 0.97
+      },
+      "difficulty_8": {
+       "type": "noul",
+       "noul": 0.57
+      },
+      "request_type": {
+       "type": "choice",
+       "choice": "follow written instructions to produce text",
+       "confidence": 1.0,
+       "probabilities": {
+        "follow written instructions to produce text": 1.0,
+        "choose a label from a given list": 0.0,
+        "answer a multiple-choice question": 0.0,
+        "write code": 0.0
+       }
+      }
+     },
+     "usage": {
+      "input_tokens": 8242,
+      "output_tokens": 391
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 8242,
+     "output_tokens": 391
+    },
+    "request_id": "req_01a18070c0bd75759cab736e10052f44",
+    "server_date": "Wed, 28 Oct 2026 02:57:15 GMT",
+    "seconds": 0.09724345902213827,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "collected_at": "2026-10-27T19:57:15-07:00"
+   }
+  ]
+ },
+ "fixes": []
+}

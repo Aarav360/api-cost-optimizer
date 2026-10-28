@@ -7,7 +7,8 @@ Print the record's numeric lines as the JSONs give them:  uv run python -m analy
 Reads the committed figure JSONs, `routers/operating_points.json` and PLAN_v4.md, so CI runs it; the sections that
 rebuild from the dev matrix run only where `results/` holds it, as `check_simulator` does. Never a test item.
 
-- table v2 keeps table v1: both figure JSONs hold E's part and F's, as the same keys, and nothing of a diagnostic; the
+- table v2 keeps table v1: both figure JSONs hold E's part and F's (then, since Stage 6, G's and G+'s), as the same keys,
+  and nothing of a diagnostic; the
   operating-points file holds E's section and F's, and no other, with the figure JSON's hash of F's;
 - F's rows, read from the JSON by hand as `check_stage4` reads E's: each cross sits on the step the file picked, the
   certified steps, the savings, the routing mix, the envelope's quality at F's cost along its corners, every captured
@@ -53,7 +54,7 @@ from analysis.operating_points import (
 from analysis.pareto import FIGURE_DATA, PANELS, TASK_FIGURE_DATA
 from analysis.plan import PLAN, amendment_item
 from analysis.references import ROUNDING
-from analysis.router_names import F_TRAIN, LABELS, NAMED_ROUTERS, TASK_RATES, E, F
+from analysis.router_names import F_TRAIN, G_PLUS, LABELS, NAMED_ROUTERS, TASK_RATES, E, F, G
 from analysis.rules_walk import MIXES
 from analysis.table_v2 import DESCRIPTIVE, DIAGNOSTIC_LABEL, TABLE_V2
 from harness.client import PROJECT_ROOT
@@ -63,6 +64,8 @@ E_SECTION, F_SECTION = (
     NAMED_ROUTERS[E],
     NAMED_ROUTERS[F],
 )  # the routers' names in the operating-points file and the JSONs
+# Stage 6 added G's and G+'s sections to the same file (A15 item 14); E's and F's are checked below as they were.
+JEV_SECTIONS = (NAMED_ROUTERS[G], NAMED_ROUTERS[G_PLUS])
 TARGETS = ("100%", "99%", "97%")
 DEV_TASKS = ("ifeval", "banking77", "mmlu_pro", "mbppplus")
 PAIRS = ((F, E), (F_TRAIN, E), (F, F_TRAIN))  # item 13's comparisons, first less second
@@ -244,11 +247,13 @@ def record_checks(headline: dict, table: dict, section: dict[str, Any]) -> None:
 
 def v1_kept(headline: dict, per_task: dict) -> None:
     print("\n-- table v2 keeps table v1, and the figures show policies only (Amendment A11, items 13 and 16) --")
-    named = [E_SECTION, F_SECTION]
+    # Chart v3 (Stage 6 · 12) adds G's and G+'s entries after E's and F's; E's and F's, in this order, are what v2 pinned.
+    named = [E_SECTION, F_SECTION, *JEV_SECTIONS]
     check(list(headline["routers"]) == named and all(list(p["routers"]) == named for p in headline["panels"].values()),
-          "figures/pareto.json holds E's entry and F's, in that order, under their names in the operating-points file")  # fmt: skip
+          "figures/pareto.json holds E's entry and F's and, since Stage 6, G's and G+'s, in that order, under their "
+          "names in the operating-points file")  # fmt: skip
     check(all(list(p["routers"]) == named for p in per_task["panels"].values()),
-          "figures/pareto_tasks.json holds E's part and F's in each task")  # fmt: skip
+          "figures/pareto_tasks.json holds E's part and F's, then G's and G+'s, in each task")  # fmt: skip
     check(headline["routers"][F_SECTION]["label"] == LABELS[F], f"F's label is the chart's: {LABELS[F]}")
     for panel in headline["panels"].values():
         check(list(panel["routers"][F_SECTION]) == list(panel["routers"][E_SECTION]) == ["steps", "operating_points"],
@@ -259,9 +264,9 @@ def v1_kept(headline: dict, per_task: dict) -> None:
     check(F_TRAIN not in text and TASK_RATES not in text and "diagnostic, dev only" not in text,
           "neither figure JSON holds a diagnostic: F-train and the task-rates diagnostic are not policies")  # fmt: skip
     check(not any("band" in key for key in headline), "no band")
-    check(set(json.loads(OPERATING_POINTS_FILE.read_text())) == {E_SECTION, F_SECTION},
-          "the operating-points file holds E's section and F's, and no other")  # fmt: skip
-    check_sections(required=(E_SECTION, F_SECTION))
+    check(set(json.loads(OPERATING_POINTS_FILE.read_text())) == {E_SECTION, F_SECTION, *JEV_SECTIONS},
+          "the operating-points file holds E's section and F's and, since Stage 6, G's and G+'s, and no other")  # fmt: skip
+    check_sections(required=(E_SECTION, F_SECTION, *JEV_SECTIONS))
     check(refused(lambda: check_sections(required=(F_TRAIN,))), f"known positive: the allowlist refuses {F_TRAIN}")
 
 
@@ -369,8 +374,8 @@ def table_v2_file(headline: dict, table: dict, curve: dict) -> None:
         check(set(rows) == set(MIXES) and all(set(by) == set(TARGETS) for by in rows.values()),
               f"{name}'s operating points: both mixes and all three targets, none in the operating-points file")  # fmt: skip
     check(
-        set(json.loads(OPERATING_POINTS_FILE.read_text())) == {E_SECTION, F_SECTION},
-        "and the file still holds E's and F's only",
+        set(json.loads(OPERATING_POINTS_FILE.read_text())) == {E_SECTION, F_SECTION, *JEV_SECTIONS},
+        "and the file still holds the routers an amendment names only (E, F, G and G+), no diagnostic",
     )
     concordance = table["diagnostics"]["within_task_concordance"]
     check(all(concordance[TASK_RATES][c]["pooled"][k] == 0.5 for c in SCORED for k in ("value", "low", "high")),

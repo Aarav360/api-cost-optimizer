@@ -5,7 +5,7 @@
 | Version | v4 |
 | Status | Final — frozen before Stage 0, then changed only by the amendments below |
 | Date | 2026-10-12 |
-| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed, and A8, Stage 3 decisions; 2026-10-20: Amendment A9, Stage 4 decisions, and A10, the Stage 4 review's records; 2026-10-21: Amendment A11, Stage 5 decisions; 2026-10-23: Amendment A12, the Stage 5 review's records; 2026-10-25: Amendment A13, Jev pinned to 1.14.0; 2026-10-27: Amendment A14, a bolstered Jev router proposed |
+| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed, and A8, Stage 3 decisions; 2026-10-20: Amendment A9, Stage 4 decisions, and A10, the Stage 4 review's records; 2026-10-21: Amendment A11, Stage 5 decisions; 2026-10-23: Amendment A12, the Stage 5 review's records; 2026-10-25: Amendment A13, Jev pinned to 1.14.0; 2026-10-27: Amendment A14, a bolstered Jev router proposed, A15, Stage 6 decisions, and A16, the Stage 6 review's records |
 | Supersedes | [PLAN_v3.md](docs/history/PLAN_v3.md) — earlier versions in [docs/history/](docs/history/) |
 
 ## What changed from v3
@@ -41,6 +41,8 @@
 | v4-A12 | 2026-10-23 | Amendment A12: Stage 5 review: the results matrix loaded whole before the freeze; the snapshot directory checked; how the frozen loader and fit script read A11's |
 | v4-A13 | 2026-10-25 | Amendment A13: Jev pinned to its newest release, `jev-1.14.0`; a fallback must serve the same version |
 | v4-A14 | 2026-10-27 | Amendment A14: a bolstered Jev router (G+) proposed for Stage 6: concrete model descriptions, worked examples from train, three phrasings, difficulty statements, a calibration fitted on train |
+| v4-A15 | 2026-10-27 | Amendment A15: Stage 6 decisions: G (zero-shot Noul) and G+ (bolstered, calibrated on train) on dev; one Jev call per request; a settings commit before any benchmark call and a freeze commit before any dev call; Stage 8's noise check; chart v3 |
+| v4-A16 | 2026-10-27 | Amendment A16: Stage 6 review: the files the two freezes hash; findings in them recorded, not fixed; dev latency's machine, network and times; the split of `routers/jev.py`; client behaviour and the refusal rule; the byte budgets and their margin |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -666,6 +668,340 @@ A proposal for Stage 6, made before its design session and before any Jev call o
     §8 3c+ gives each upgrade in full, with the order, the freeze and the cost.
 2. **Nothing in it is fixed yet.** Stage 6's design session settles G+ along with G, and its amendment records what is kept, changed or dropped. Until then, no Jev call is made on a train, dev or test request.
 
+## Amendment A15 — Stage 6 decisions: the Jev routers (2026-10-27)
+
+**Provenance.** Stage 6's decisions come from a design review held after A14's proposal and before any Jev call on a benchmark request. The only Jev calls so far were a key check and about 92 calls measuring the API, all on made-up text (2026-10-27); item 3 gives what they found. No dev or test outcome was computed for these decisions.
+
+**What stands.** They change no frozen file, threshold or operating point of E or F, so A9 items 17 and 18, A10, A11 items 19 to 21 and A12 stand.
+
+**Scope.** They settle A14's proposal and replace it where they differ (item 2), and they answer A13 item 2 (item 11). Applied in §8, §10, §12, §13, §14 and `GLOSSARY.md`.
+
+**Records filled in later.** Item 19, the freeze record, in the freeze commit; item 20, G's and G+'s operating points, when Stage 6 finishes.
+
+1. **Two Jev routers on dev: G and G+** (§8 3c; A14).
+    - **G** is the plan's Noul variant, zero-shot (item 4). **G+** is A14's bolstered router as items 5 to 8 settle it. Dev sees only these two.
+    - **Both call `jev-1.14.0`** (A13), once per request each.
+    - **Rejected: the Choice variant.** G+ is built from Noul statements. With G also Noul, comparing G+ with G shows what our descriptions, examples and train calibration add, without also changing the question's format. Each extra router on dev is one more comparison, and Stage 7 picks among them.
+    - **Rejected: G+ alone.** Without zero-shot G, nothing separates what Jev does on its own from what our labels add.
+2. **Where this differs from A14.** A14's proposal is settled with these changes:
+    - **Past requests:** shown whole, not stripped of template lines and cut (item 5).
+    - **Exclusions:** the past requests' source groups, not only their 16 items, are left out of the fit, the cross-validation, the signal check, the rates and the noise sample (item 5).
+    - **Clipping:** at [0.005, 0.995], not 1e-4 (item 7).
+    - **Noise sample:** 100 train requests sent twice, not 20 (item 10).
+    - **§8 3c+ now follows this amendment.** A14's full proposal is in the commit that added it (`3147cea`).
+    - **The rest is settled here, not in A14:**
+        - **Jev state layout and field names:** item 5.
+        - **G's third statement:** item 4.
+        - **Serialization:** item 8.
+        - **The settings commit before any benchmark call:** item 13.
+        - **Stage 8's noise check:** item 17.
+3. **What Jev does, measured on made-up text** (2026-10-27, about 92 calls; [TypeSafe's docs](https://docs.typesafe.ai)):
+    - **Rounded and not repeatable.** Answers come rounded to two decimals, and the same request's answers move by about ±0.01 to 0.03 across repeats. The docs mention no seed or temperature.
+    - **Questions are independent.** They are answered regardless of their order or companions.
+    - **Token costs.** A call carries about 270 input tokens of fixed overhead, plus about 14 per question. The state is billed once.
+    - **Limits.** The 32K limit on the state plus any one question is enforced: a state of about 33K tokens was refused. Jev reports tokens only after a call, and there is no counting endpoint.
+    - **Errors and retries.** Malformed bodies return 422, an unknown model or an oversized state 400, a bad key 401. No refusals were seen. Raw HTTP calls aren't retried.
+    - **What a response carries:** the model ID, token usage, a request ID and a `Date` header, but no server-side timing. Small calls took about 0.10 s.
+4. **G** (§8 3c).
+    - **The Jev state:** `{"request": {"prompt": …, "output_schema": …}}`.
+    - **Three success statements,** generic, with no model names, efforts or rates:
+        - `haiku`: "A small, inexpensive model will answer this request correctly."
+        - `sonnet`: "A mid-sized model will answer this request correctly."
+        - `opus_low`: "A large model will answer this request correctly."
+    - **Raw answers are the router scores.** Each answer is that config's router score, unchanged, and 0 and 1 are valid router scores.
+    - **G has no fitted part,** so it is fully frozen at the settings commit (item 13).
+    - **Rejected: naming effort for `opus_low` alone,** e.g. "answering with little deliberation". `haiku` and `sonnet` also run at an effort their statements don't name. Singling out `opus_low` reads as a warning, and could rank it below the mid-sized model for reasons unrelated to the request. Describing models concretely is G+'s upgrade.
+5. **G+'s Jev state: 16 past requests with their outcomes, then the request** (A14 item 2).
+    - **Layout:** `{"past_requests_with_outcomes": [{"past_request": {"prompt": …, "output_schema": …}, "outcomes": {…}}, …], "request": {"prompt": …, "output_schema": …}}`. The past requests' field is named apart from the request's, so "this request" in every statement has one referent. `request` matches G's.
+    - **Selection:** seeded with 2026, from train's item IDs and run-0 outcomes. Within each task, 2 items `haiku` failed and 2 it passed, drawn at random within each stratum. They are placed in one order shuffled with the same seed, not grouped by task, so no task always sits next to the request.
+    - **Shown whole:** each past request is its full prompt and output schema, as the request is. An outcome line only means something attached to the request that produced it.
+    - **Outcomes** are keyed by the success statements' model names: `"Claude Haiku 5.5 (high effort)"`, `"Claude Sonnet 5.5 (high effort)"` and `"Claude Opus 5.5 (low effort)"`. Each is `"correct"` or `"incorrect"` by run-0 success, with refusals and `max_tokens` stops incorrect (A11 item 6).
+    - **Never shown:** an expected answer, a model's output, or a benchmark or task name.
+    - **Exclusions:** the past requests' source groups, not only their 16 items, are left out of G+'s fit, its cross-validation, the train signal check, item 6's rates and the noise sample (item 10). That way no near-duplicate is scored with a past request's outcome in view, the same grouping A11 item 8 gave the folds.
+    - **Size** is measured in the smoke test (item 13), before the settings commit. The prompts alone come to about 5,500–6,500 tokens. The schemas add to that, since Banking77's lists its labels again.
+6. **G+'s questions: 18 in one call** (A14 items 1, 3 and 4).
+    - **Nine success statements,** three phrasings per config:
+        - (a) "Claude Haiku 5.5, a small, fast model running at high effort, which answered {r} of comparable requests correctly, will answer this request correctly." `sonnet`'s describes "Claude Sonnet 5.5, a mid-sized model running at high effort", and `opus_low`'s "Claude Opus 5.5, a large model running at low effort".
+        - (b) The same description, rate included, then "will give a fully correct answer that follows every instruction in the request."
+        - (c) The same description, then "will make at least one mistake on this request."
+    - **The rate `{r}`** is the config's run-0 success rate over train items outside the past requests' source groups, as a whole percent. The settings builder computes it and it is frozen with G+'s settings.
+        - **Overall rates only.** A per-task rate would hand the router its task (A9 item 1).
+        - **No statement for `opus`.** It is the fallback (A1 item 3).
+    - **Eight difficulty statements,** worded as in A14:
+        1. "Answering this request correctly requires several steps of reasoning or calculation."
+        2. "The request sets strict, checkable rules for the answer's format, length or wording."
+        3. "The request has exactly one correct answer."
+        4. "The request asks for working code."
+        5. "The request is ambiguous: careful experts could reasonably give different answers."
+        6. "Answering correctly needs specialised expert knowledge."
+        7. "The request contains several separate instructions, all of which must be met."
+        8. "The request contains a detail that is easy to overlook and that changes the right answer."
+    - **The request-type question,** a Choice question: "What kind of request is this?", with the options "follow written instructions to produce text", "choose a label from a given list", "answer a multiple-choice question" and "write code". `criteria` is an object mapping each option to null, and Jev's four answers sum to 1. No option names a task.
+    - **Frozen at the settings commit:** the exact texts and question IDs, which live in G+'s settings file.
+7. **G+'s features and calibration** (A14 item 5).
+    - **Clipping:** every Jev answer used as a feature is clipped to [0.005, 0.995], half Jev's rounding step from each end, then turned into log-odds. 1.00 lands at 5.3 and 0.99 at 4.6, so one rounding step stays one step; clipping at 1e-4 would turn every 1.00 into a 9.2 outlier. This is G+ only: G's router scores stay raw.
+    - **Success feature,** per config: the mean of its three success statements on the log-odds scale, with (c) read as 1 − p.
+    - **Features (16):** the three success features, the eight difficulty statements on the log-odds scale, the four request-type answers, and the output-schema flag (A11 item 5). They are standardized with means and standard deviations fitted on the fit rows.
+    - **The model:** one logistic regression per config, with A11 item 7's settings. That means an L2 penalty, an unpenalized intercept and no class weights; scikit-learn's `newton-cholesky` at tolerance 1e-10 and at most 100 iterations; and a fit that doesn't converge is refused.
+    - **Choosing C,** per config, by five-fold cross-validation over train's committed folds (`data/train_folds.json`, A11 item 8), by mean log loss, from A11's 13 values from 1e-4 to 1e2. A C at either end is kept and reported.
+    - **Fit rows:** every train item outside the past requests' source groups, less any request Jev refused (item 9). Labels are run-0 success, with refusals and `max_tokens` stops as failures (A11 item 6). The fit script loads only train's cells (A12 item 1).
+    - **Train only, not cross-fitted with dev:**
+        - G+ is on equal labels with E and F-train (A11 item 1).
+        - Sixteen features on about 975 rows leaves about 60 rows per feature, so dev's labels would add little, unlike for F's 769 features.
+        - Nothing reads a dev label, so one freeze commit before any dev call is enough, and one model scores dev and test, with no hash rule.
+    - **The deployable G+** computes its three heads in numpy from a plain JSON weights file holding C, the standardizer and the coefficients, as F does.
+8. **Serialization and truncation.**
+    - **Missing schemas:** a request without an output schema carries `"output_schema": null`, both as the request and as a past request.
+    - **The call body:** `json.dumps` with separators `(",", ":")` and `ensure_ascii=False`, encoded as UTF-8.
+    - **Key order, fixed by the code, not sorted:**
+        - the past requests, then the request
+        - within a past request, `past_request`, then `outcomes`
+        - within a request, `prompt`, then `output_schema`
+        - a schema's own keys in the benchmark file's order
+
+      Sorting would put each past request's outcomes before the request they belong to.
+    - **The body's sha256** is stored with each response.
+    - **Truncation cuts only the request's prompt.** Its schema stays whole, and for G+ so do the past requests.
+    - **The budget is in bytes.** It is counted in UTF-8 bytes of the serialized prompt at one byte per token, since byte-level tokenizers never give more tokens than bytes and Jev offers no count before a call. From the tighter of Jev's two limits, subtract:
+        - the measured fixed overhead
+        - the past requests
+        - the request's serialized schema
+        - the longest question, for the 32K limit on the state plus any one question
+        - every question, for the 64K limit on the state plus all questions
+    - **The cut:** a prompt over budget keeps its head and its tail, half the budget each, and the cut is counted. On train the longest request is about 4,300 bytes against roughly 25,000 of room, so it should never fire.
+9. **Calls, retries, refusals and storage.**
+    - **One call at a time.** `routers/jev.py` makes one call at a time, over one kept-open `http.client` connection, with a 30 s timeout.
+    - **Retries:**
+        - up to 8 attempts
+        - 408, 429, 5xx and timeouts are retried, with exponential backoff from 1 s doubling to a 60 s cap, with jitter
+        - `Retry-After` is honoured up to 10 minutes; a longer wait stops the run
+        - any other 4xx (400, 401, 403, 422) stops the run at once
+        - at the cap, the run stops and names the request
+    - **Closed connections.** A kept-open connection the server closed is reopened and the call resent at once, without backoff and without using an attempt. That call is marked as including a new connection.
+    - **Resumable.** The collection script never calls a stored request again on a rerun. That's how an outage is waited out (item 11).
+    - **Refusals** are read from the stored responses, not from router scores, since Jev can itself answer 0.00. A request Jev refuses for good gets router score 0 for every config, counted and reported, so it goes to `opus` at any threshold above 0. A walk step at exactly 0 would send everything to `haiku` and can't clear a target on dev. G+ leaves refused train items out of its fit, counted.
+    - **Stored under `results/jev/`,** uncommitted, per call:
+        - the whole response, with its model ID, usage, request ID and `Date` header
+        - the successful attempt's time, on a monotonic clock
+        - the attempt count and failed attempts
+        - whether it opened a new connection
+        - the call body's sha256
+
+      The key comes from the environment and is never stored.
+10. **Overhead, latency and noise.**
+    - **Overhead per trace** is the call's input tokens at Jev's price, $0.042 per million (checked 2026-10-25 against TypeSafe's model docs). Output tokens are free. Every table uses this price, as the configs use 2026-10-12's list prices.
+    - **Cost:**
+        - **Per call:** G+'s about 8,000–10,000 tokens, about $0.32–0.40 per 1,000 requests; G's under 1,000 tokens.
+        - **In total:** about 3,700 calls and about $0.80 in Stage 6, and about $0.35 in Stage 8. That's well inside the $150 ceiling (A3 item 4).
+    - **Latency** is the successful attempt's time alone.
+        - **Headline:** the median and p90 of dev's calls, overall and per task, with retries and failed attempts reported as counts beside it. Train's are stored too.
+        - **Reported separately:** the first call and every reconnect, as E's and F's warm-up was excluded.
+        - **Recorded:** machine, network, dates and times, since a remote service's latency changes with load.
+        - **Where it lives:** outside the router-score table (A8 item 4). Stage 7 reads it from the stored responses.
+        - **Rejected: the time to a usable answer including retries.** A retried request would then include up to two minutes of the offline collector's waiting, which a live router would never sit through: it would send the request to `opus`.
+    - **One call per request; Jev's noise is part of the policy.** Each dev item gets its own draw, so dev quality estimates the noisy policy's quality, and the item bootstrap covers its variance. Test gets fresh draws from the same policy.
+        - **Rejected: three calls averaged.** That would triple overhead per request, taking G+ from about $0.32 to about $0.95 per 1,000 requests against always-`haiku`'s whole $0.29 on the realistic mix. G+ already averages three phrasings within its one call.
+    - **The noise sample** is 100 train requests, 25 per task, seeded with 2026, drawn outside the past requests' source groups, at the settings commit.
+        - **Second pass:** after the train collection finishes, the sample is sent through G and G+ again, so the gap between passes includes some change over time as well as jitter.
+        - **D6,** per router and config, is the mean absolute difference between the two passes' router scores. G+'s are computed through its weights after the fit.
+11. **No fallback provider** (answers A13 item 2).
+    - **Outages are waited out.** The collection runs offline, so it simply waits (item 9's resumable collection).
+    - **Retirement is the real risk.** If TypeSafe retires `jev-1.14.0` before Stage 8, the substitution is documented and the affected dev steps are re-run under a new amendment.
+    - **The candidate for that case:** Vercel's AI Gateway, which serves `typesafe-ai/jev-1.14.0` at $0.042 per million input tokens with a 32,000-token context ([its model page](https://vercel.com/ai-gateway/models/jev-1.14.0), checked 2026-10-27). It isn't used.
+12. **Code layout** (§13; A9 item 8).
+    - **`routers/jev.py`, deployable.** It builds a call body, makes one call with retries, and parses the response: into router scores for G, or into features and then router scores through numpy heads for G+. It imports only the standard library and numpy, never scikit-learn, the analysis package or the harness.
+    - **Beside it, two plain JSON files:**
+        - **`routers/jev_settings.json`:** G's and G+'s question texts and IDs, and the 16 past requests whole with their outcomes, so the deployable router never reads the benchmark.
+        - **`routers/jev_weights.json`:** G+'s C, standardizer and three heads.
+    - **In `analysis/`:**
+        - **the settings builder:** the past requests, rates, noise sample and texts
+        - **the collection script:** the loop, storage and resuming. It reads requests through the benchmark reader, which refuses test.
+        - **the fit script:** G+'s fit, the cross-validation and the train signal check
+        - **table building:** through `routers/jev.py`'s own parser on the stored responses, as F's dev table goes through `score_with`, so table and router can't drift apart
+    - **mypy covers the new modules.**
+13. **The order: a settings commit, then a freeze commit** (the role A11 item 15 gave F's two commits).
+    1. **The smoke test, before the settings commit.** It uses made-up requests only, though they may carry the real past requests so item 8's budget can be measured. Only a mechanical failure, such as a question rejected or a limit hit, may change anything, and each fix is recorded. Nothing changes because of an answer.
+    2. **The settings commit, before any Jev call on a benchmark request.** It holds:
+        - G's statements
+        - G+'s question texts and IDs
+        - the past requests, their order and outcomes
+        - the rates
+        - the noise sample's item IDs and seed
+        - the code that builds each call (`routers/jev.py`'s import closure)
+        - the settings builder
+
+      Their sha256s go in item 19. G is fully frozen here.
+    3. **The train work, in order:**
+        - the train collection for G and G+, whose first call is timed by the server's `Date` after the settings commit
+        - the noise pass's second send, after the collection finishes
+        - G+'s fit, with C chosen by cross-validation
+        - the train signal check
+        - latency on train
+    4. **The freeze commit, before any dev call:** G+'s weights file, the fit script, and item 19 with every hash.
+    5. **The dev work, in order:**
+        1. the dev collection, whose first call comes after the freeze commit
+        2. dev's router-score tables, through the parser
+        3. the router-score quantiles
+        4. the walks, and the sections `jev` and `jev_bolstered`
+        5. the comparisons (item 14)
+        6. chart and table v3 (item 15)
+        7. item 20
+    6. **After the freeze,** an edit to a hashed file means re-selecting G's and G+'s operating points under a new amendment.
+14. **Comparisons on dev** (A11 item 13). They are descriptive, with no multiplicity correction.
+    - **For G and G+:** six operating points each; the matched-cost difference from the envelope; per-task McNemar rows against A.
+    - **Same-target comparisons:** G against E and against F; G+ against E, F-train, F and G.
+        - **Rejected: G against F-train.** G uses no labels, so the equal-labels comparison doesn't apply.
+    - **Within-task concordance** per config for G and G+, counted within task only, since each is a single model as F-train is, plus the difference G+ − G.
+    - **Router-score quantiles** per config on dev, which read no outcome. They stand in for F's per-fold quantiles and show whether Jev's scores bunch near 0.99, which shapes the walk's steps.
+    - **Not carried over:** the learning curve and the per-fold quantiles, which are about fold models.
+    - **The operating-points file** gains the sections `jev` and `jev_bolstered`, and the allowlist (A11 item 13) adds both.
+15. **Chart v3 and table v3** (§12).
+    - **The router list** adds G and G+, with colorblind-safe styles that the existing check holds at least 15 apart from every other series.
+    - **The figures:** the headline and per-task figures show E, F, G and G+, with no diagnostics and no bands. A caption line says that G's and G+'s costs include Jev's overhead per request, and that E's and F's have none.
+    - **Layout:** the layout and label offsets are placed after the walks. That's presentation, not selection.
+    - **Table v3:** Stage 6's numbers go in `figures/table_v3.json`, so v1's and v2's keys stay pinned and Stage 4's and Stage 5's record checks keep passing.
+16. **Vocabulary.** `GLOSSARY.md` adds:
+    - **Jev router** (G) and **bolstered Jev router** (G+)
+    - **Jev state**
+    - **success statement** and **success feature**
+    - **difficulty statement**
+    - **request-type question**
+
+    A note under router score says G's router scores are Jev's answers, used unchanged. "Tier" (A8 item 3) and "probability" stay avoided, and commit names stay in the amendments.
+17. **Stage 8, specified now and built then** (as A11 item 17 did for F).
+    1. **The unlock** also verifies item 19's hashes and the model ID.
+    2. **The noise check, before any test call.** The noise sample is re-sent once through the frozen G and G+. Per config:
+        - **D8:** the mean absolute difference from Stage 6's first pass.
+        - **The mean signed difference.**
+    3. **The rule:** refuse if any model ID isn't `jev-1.14.0`, if D8 > 3 × D6, or if a config's mean signed difference exceeds D6 in size. With 100 items, that last limit is about 8 standard errors from zero. Otherwise report D6, D8, the shifts and the decisions that flip at each operating threshold, and go on. A refusal leads to item 11's path.
+        - **Why a fixed factor and not a test:** a permutation test answers "did anything change?", and with hundreds of paired values it would refuse for harmless changes. The question is whether the change voids the certification, which is how F's check works too: it refuses only at 100 times its gap.
+        - **Why a shift check too:** the mean absolute difference barely notices a uniform move, yet that's what hurts a threshold policy most, pushing items across every threshold in one direction.
+    4. **Then test** is collected once with the frozen code, test's tables are built through the parser, and the truncation and refusal counts are reported.
+18. **Checks and build order.**
+    - **CI** (synthetic, no network):
+        - call bodies equal hand-written JSON exactly
+        - hand-made responses parse to hand-worked router scores, including the phrasing average with (c) inverted, and the clip
+        - retries, against a fake local HTTP server:
+            - 429 then 200 is retried
+            - repeated 500s stop at the cap, naming the request
+            - 400, 401, 403 and 422 stop at once
+            - a closed connection reconnects without using an attempt
+        - the byte budget's cut, at a hand-worked boundary
+        - numpy heads against scikit-learn's `predict_proba` to 1e-9
+        - `routers/jev.py` imports only the standard library and numpy
+        - the past-request selection on a synthetic matrix, including the source-group exclusion
+        - the allowlist accepts `jev` and `jev_bolstered`
+        - a call through the fake server with a dummy key leaves the key nowhere in storage
+    - **Hook only** (needs `results/`):
+        - the past requests, rates and noise sample rebuild from their seed
+        - tables rebuild from the stored responses through the parser
+        - every stored body hash matches the frozen code
+        - every model ID is `jev-1.14.0`
+        - G+'s refit reproduces its weights to 1e-9
+        - the walks reproduce their sections
+        - items 19 and 20 equal their sources
+        - the settings commit is an ancestor of the freeze commit, and the files it hashes are unchanged
+        - `results/jev/` holds no copy of the real key
+    - **No check calls Jev.**
+    - **Waves,** in parallel worktrees branched from `stage6-jev-router`, as in Stage 5. Each parallel ticket owns its check script and wires it into the hook, and into CI where it needs neither `results/` nor the network.
+        - **Wave 0:** this amendment, the glossary, the write-up notes and the spec.
+        - **Wave 1, in parallel:**
+            - `routers/jev.py`
+            - the settings builder
+            - the collection script, tested against the fake server
+            - G+'s fit and signal-check code, tested on synthetic data
+            - the router names: `analysis/router_names.py`, the sections, labels and allowlist entries
+        - **Wave 2:** the smoke test, then the settings commit.
+        - **Wave 3:** the train collection, the noise pass, the fit, the signal check and latency, then the freeze commit.
+        - **Wave 4:** the dev collection, tables, quantiles, walks and sections.
+        - **Wave 5, in parallel:** the comparisons; chart and table v3, item 20 and the README.
+19. **The freeze record** (item 13), written in the freeze commit, before any dev call. Nothing here reads a dev outcome or sends a dev request. `analysis/check_jev_freeze.py` compares each entry with its source, and each hash with its file. sha256, as in A7 item 3. The measures come from `python -m analysis.jev_train_report` and `python -m analysis.fit_jev_router`:
+    - **The settings commit**: `0d08ac09a61dc562edd3c5443b93f227eb1c6a45`, committed 2026-10-27T19:57:38-07:00. Every file it froze is as that commit left it.
+    - **Frozen files**, `routers/jev.py`'s import closure, the settings builder, the fit script, the settings and the weights (item 13):
+      - `analysis/build_jev_settings.py`: `b69cfb3ca765aef4fc029bd52d1219de963cff9dde44a3bc3bce6a5959606191`
+      - `analysis/fit_jev_router.py`: `0e23746c26c48e4df74f1426e42eaa1d2ffdece1666c0092d3ddf28740eecee9`
+      - `routers/__init__.py`: `1c93dfb7989a0b24c0989368c751cc0b6fdab3d17a280ff68a1c31cb84136bf3`
+      - `routers/jev.py`: `a5df8af7d2d5a653e3b91ee331cb5096f79c85bef2e8eeb849a0649fd4749956`
+      - `routers/jev_call.py`: `ae51d3e2c4412a296f13e8c195380e7d8ca170b2bb770e5f991e462a2ae9942c`
+      - `routers/jev_settings.json`: `781fc9351431d0c7bdb69eb059e91f5942d74a8971a92b5bf68bfea7176bbf71`
+      - `routers/jev_weights.json`: `7842dbda3bc83d38d52202b307c6a84b4e070eea5aba6ded3a6d271a53214dfb`
+      - `routers/ladder.py`: `35448ba6ccf6b6d9a504d56127d40ad5e2f3b18c3ee0a562ad3b5bdbd299818d`
+      - `routers/request.py`: `15c809b5d422074f2c6a526d5ce2b542d0e8155930269a9b5763eb62463472e2`
+    - **Train's stored responses**, per router and with the noise pass, kept under `results/jev/`, not committed:
+      - `results/jev/jev_train.jsonl`: `cde890c41266ba0d87fce3452b26256fbb2850617907e3df53dc5f5a33855794`
+      - `results/jev/jev_bolstered_train.jsonl`: `fb145e10a101683060975fbdcfa8959e2a63b239a9ea118db430f9d890e3b72d`
+    - **Jev's identity** (items 3 and 10): endpoint `https://api.typesafe.ai/v1/systemone`, model `jev-1.14.0`, $0.042 per million input tokens, checked 2026-10-25.
+    - **Versions**: numpy 2.5.4, scikit-learn 1.9.1, Python 3.13.13.
+    - **The noise sample** (item 10), 100 train requests, 25 per task: seed 2026, 100 item IDs: `banking77:test-2307`, `banking77:test-0356`, `banking77:test-2315`, `banking77:test-0383`, `banking77:test-0366`, `banking77:test-1837`, `banking77:test-2040`, `banking77:test-1946`, `banking77:test-1417`, `banking77:test-1210`, `banking77:test-2956`, `banking77:test-2069`, `banking77:test-2830`, `banking77:test-2557`, `banking77:test-0689`, `banking77:test-1671`, `banking77:test-2921`, `banking77:test-1003`, `banking77:test-2359`, `banking77:test-2159`, `banking77:test-1584`, `banking77:test-2810`, `banking77:test-0765`, `banking77:test-2840`, `banking77:test-1321`, `ifeval:371`, `ifeval:2275`, `ifeval:1893`, `ifeval:3445`, `ifeval:3538`, `ifeval:1646`, `ifeval:321`, `ifeval:1094`, `ifeval:1477`, `ifeval:2432`, `ifeval:1645`, `ifeval:251`, `ifeval:1281`, `ifeval:3739`, `ifeval:13`, `ifeval:1300`, `ifeval:2034`, `ifeval:1593`, `ifeval:2857`, `ifeval:2305`, `ifeval:1834`, `ifeval:3479`, `ifeval:2628`, `ifeval:3380`, `ifeval:1418`, `mbppplus:309`, `mbppplus:286`, `mbppplus:128`, `mbppplus:247`, `mbppplus:775`, `mbppplus:471`, `mbppplus:760`, `mbppplus:20`, `mbppplus:64`, `mbppplus:278`, `mbppplus:578`, `mbppplus:581`, `mbppplus:406`, `mbppplus:723`, `mbppplus:67`, `mbppplus:97`, `mbppplus:797`, `mbppplus:397`, `mbppplus:558`, `mbppplus:787`, `mbppplus:171`, `mbppplus:474`, `mbppplus:614`, `mbppplus:435`, `mbppplus:599`, `mmlu_pro:5111`, `mmlu_pro:7895`, `mmlu_pro:8712`, `mmlu_pro:8235`, `mmlu_pro:7970`, `mmlu_pro:11735`, `mmlu_pro:594`, `mmlu_pro:9364`, `mmlu_pro:10384`, `mmlu_pro:4075`, `mmlu_pro:6078`, `mmlu_pro:6263`, `mmlu_pro:9660`, `mmlu_pro:10920`, `mmlu_pro:5242`, `mmlu_pro:9455`, `mmlu_pro:8634`, `mmlu_pro:10452`, `mmlu_pro:4928`, `mmlu_pro:12245`, `mmlu_pro:2807`, `mmlu_pro:1607`, `mmlu_pro:7782`, `mmlu_pro:2082`, `mmlu_pro:5490`.
+    - **The fit rows** (item 7): train items 991; in the past requests' groups 16; refused on G+'s call 0; fit rows 975 (refused on G's call among them 0).
+    - **C per config** (item 7), by five-fold cross-validation over train's folds, mean log loss: haiku 0.316228 (inside the grid), sonnet 0.1 (inside the grid), opus_low 0.0316228 (inside the grid). No C sits at an end of the grid.
+    - **Calls** (items 9 and 10), the train collection and the noise pass together. Retries are the attempts beyond each call's first; truncation is counted by building each call again with the frozen code, which is also how every body hash was compared. No call was retried or refused, no prompt was cut and no client code changed during the collection:
+      - G: 1091 calls (991 in pass 1, 100 in pass 2); returned model IDs `jev-1.14.0`; 0 stored body hashes differ from the frozen code; refused 0, cut 0, retries 0 (0 failed attempts), reconnects 1; input tokens 874979 in all, median 604 per call, largest 1736.
+      - G+: 1091 calls (991 in pass 1, 100 in pass 2); returned model IDs `jev-1.14.0`; 0 stored body hashes differ from the frozen code; refused 0, cut 0, retries 0 (0 failed attempts), reconnects 1; input tokens 9466604 in all, median 8479 per call, largest 9611.
+    - **Noise** (item 10), the sample's second send less its first, per config, as D6 (the mean absolute difference) and the shift (the mean signed difference), G+'s router scores through the fitted weights:
+      - G: haiku D6 0.0119 shift +0.0001, sonnet D6 0.0120 shift -0.0002, opus_low D6 0.0112 shift -0.0010
+      - G+: haiku D6 0.0118 shift +0.0018, sonnet D6 0.0075 shift +0.0007, opus_low D6 0.0046 shift +0.0003
+    - **Latency** (item 10), the successful attempt's time alone, over the train calls of both passes, one at a time and in the order stored, with the first call of each router's file and every call that opened a new connection left out of the median and p90 and listed beside them; the p90 is numpy's percentile with linear interpolation. On Apple M5 Pro, Darwin 27.0.0 arm64, Python 3.13.13, Wi-Fi (en0) behind a private gateway, no network name or address recorded; train calls collected from 2026-10-27T20:04:01-07:00 to 2026-10-27T20:07:44-07:00. It depends on the machine and the network, so it is quoted as measured and isn't re-checked.
+      - G: over 1089 calls, median 72.3 ms and p90 104.6 ms; the first call 119.3 ms; reconnects (ms): 106.6. Per task (median, p90 in ms, calls): banking77 75.5, 108.9, 344; ifeval 69.7, 116.7, 232; mbppplus 68.7, 94.6, 168; mmlu_pro 72.1, 103.2, 345.
+      - G+: over 1089 calls, median 111.7 ms and p90 132.4 ms; the first call 123.2 ms; reconnects (ms): 149.4. Per task (median, p90 in ms, calls): banking77 117.2, 135.4, 345; ifeval 107.5, 128.4, 231; mbppplus 107.9, 136.9, 168; mmlu_pro 105.9, 128.4, 345.
+    - **The train signal check** (item 7), cross-validated over train's folds on the fit rows, for the intercept-only model, the task-rates model, G's raw router scores (log loss clipped to [0.005, 0.995] for this diagnostic only) and G+: log loss, then within-task concordance (pairs within the same task and train fold):
+      - haiku: intercept only 0.3954, 0.5000; task rates 0.3953, 0.5000; G 0.3995, 0.7053; G+ 0.3539, 0.7548.
+      - sonnet: intercept only 0.3781, 0.5000; task rates 0.3762, 0.5000; G 0.3964, 0.6815; G+ 0.3574, 0.6753.
+      - opus_low: intercept only 0.2967, 0.5000; task rates 0.2939, 0.5000; G 0.3746, 0.7105; G+ 0.2786, 0.7072.
+    - **The first train call**: server Date `Wed, 28 Oct 2026 03:04:01 GMT`, after the settings commit's commit time above (the Date is in GMT, so the commit was at 02:57:38 GMT on 2026-10-28).
+20. **Record.** G's and G+'s operating points on dev (run 0, n = 744, list prices of 2026-10-12, Jev's overhead at $0.042 per million input tokens), from `figures/pareto.json`, and the hash of each router's section of `routers/operating_points.json`, as A9 item 18 and A11 item 21 record E's and F's; the comparisons' and diagnostics' numbers are from `figures/table_v3.json`. Intervals are percentile 95% from 2,000 paired resamples, and `analysis/check_stage6.py` compares every number here with those files.
+
+    | | Realistic | Uniform |
+    |---|---|---|
+    | G: threshold at 100%, 99%, 97% of A's quality | 0.9300, 0.8800, 0.7600 | 0.9300, 0.8500, 0.7600 |
+    | G: quality there | 87.4%, 87.8%, 86.3% | 89.8%, 89.6%, 88.1% |
+    | G: $ per 1k there | $7.28, $5.78, $3.62 | $11.40, $8.47, $5.53 |
+    | G: savings against A there | 9.5%, 28.1%, 55.0% | 5.1%, 29.5%, 54.0% |
+    | G: captured fraction there | 0.10, 0.29, 0.57 | 0.05, 0.31, 0.56 |
+    | G: share of resamples meeting the target there | 100.0%, 95.6%, 94.8% | 100.0%, 92.3%, 90.5% |
+    | G+: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.9226, 0.8398 | 0.9739, 0.9226, 0.8398 |
+    | G+: quality there | 86.7%, 87.2%, 86.2% | 89.5%, 89.5%, 88.3% |
+    | G+: $ per 1k there | $8.04, $5.53, $2.81 | $11.87, $7.45, $3.44 |
+    | G+: savings against A there | 0.0%, 31.3%, 65.1% | 1.2%, 38.0%, 71.4% |
+    | G+: captured fraction there | 0.00, 0.33, 0.68 | 0.01, 0.40, 0.75 |
+    | G+: share of resamples meeting the target there | 100.0%, 91.8%, 92.2% | 100.0%, 90.0%, 92.3% |
+
+    - Where a target reads "falls back to A", the walk certified nothing cheaper than A (A9 item 10): the operating point is A itself, with no router call and no overhead, and its captured fraction is 0.00. Everywhere else the cost includes Jev's overhead on every request.
+    - G's section of `routers/operating_points.json`, written with sorted keys, has the 64-digit sha256 `863dc553ae6bc27ee2c050732a1735f33d02ec23ccc9aada4cb588e84572bbd5`.
+    - G+'s section of `routers/operating_points.json`, written with sorted keys, has the 64-digit sha256 `30cc0ef8dc392a3b56e4ba40e1dad9fc912ac3246be2e0e7ddc0214b8647ae6f`.
+    - The first dev call's server `Date` is `Wed, 28 Oct 2026 03:25:54 GMT`, after the freeze commit (item 19). It is in GMT.
+    - The comparisons in `figures/table_v3.json` are descriptive, with no multiplicity correction: at 95%, about one interval in twenty excludes 0 by chance, and its diagnostics are labeled "diagnostic, dev only".
+
+## Amendment A16 — Stage 6 review: what the freezes hash, and records of what the code does (2026-10-27)
+
+Nine records from Stage 6's branch review, made after G's and G+'s record (A15 item 20). None changes a file A15 item 19 hashes, a setting, a weight, a threshold or an operating point, so A15 items 19 and 20 stand. An edit to a hashed file would mean re-selecting G's and G+'s operating points under a new amendment (A15 item 13.6), so a review finding in a hashed file is recorded here and not fixed (items 1 and 2). `analysis/check_jev_review.py` compares what this amendment says about the files and the numbers with their sources.
+
+1. **What the two freezes hash, and what the review fixed outside them.**
+    - **The settings commit's files** (`COMMIT_FILES` in `analysis/check_jev_settings_commit.py`, which `analysis/check_jev_freeze.py` also reads): `routers/jev_settings.json`, `routers/jev_call.py`, `routers/ladder.py`, `routers/request.py`, `analysis/build_jev_settings.py`, `analysis/smoke_jev.py`, `analysis/jev_smoke_requests.json`, `analysis/jev_smoke_record.json`.
+    - **The freeze commit's files** (A15 item 19; `frozen_paths` in `analysis/check_jev_freeze.py`): `analysis/build_jev_settings.py`, `analysis/fit_jev_router.py`, `routers/__init__.py`, `routers/jev.py`, `routers/jev_call.py`, `routers/jev_settings.json`, `routers/jev_weights.json`, `routers/ladder.py`, `routers/request.py`, and train's two stored responses under `results/jev/`.
+    - **Fixed in code neither hashes:**
+        - G's and G+'s names come from `analysis/router_names.py` in the collection script, the table and comparison builders, the train report, the chart and the checks, and `analysis/check_jev_names.py` fails if a new module spells `"jev_bolstered"` or `"G+"` out.
+        - One table in the collection script holds what differs between G's calls and G+'s (the call builder, the questions, the scoring, whether it needs weights), where five functions in three files each switched on the name.
+        - Checks print FAIL, and do not raise, for a missing key in the settings file or smoke record, a failed git call and a missing line in the record they guard (`analysis/check_jev_settings_commit.py`, `analysis/check_stage6.py`).
+        - `refused(error, call)` and a `git` that never raises are in one module, `analysis/checking.py`, where ten check scripts each had their own `refused` and three their own `git`.
+        - The collection script's `budget` command and its `measured_overhead_tokens` and `measured_budget_bytes` are removed with their checks. They took the largest stored input tokens as the fixed overhead, which for G+ counts the past requests and questions twice; the budgets were fixed by `analysis/smoke_jev.py` from minimal calls (item 8).
+        - The README's account of G's statements no longer calls a config a model (`GLOSSARY.md`, _Avoid_), and `check_stage6`'s commit constant is named for the commit it holds.
+2. **Review findings in hashed files, recorded and not fixed.**
+    - **Names typed again.** `analysis/fit_jev_router.py` spells `G = "G"`, `G_PLUS = "G+"` and the records' router names, where A9 item 13 names a router "here and only here" (`analysis/router_names.py`). `analysis/smoke_jev.py` and `analysis/build_jev_settings.py` spell the settings file's budget keys, and `routers/jev_call.py` does too, since a deployable module can't import the analysis package.
+    - **Duplicated code.** `analysis/fit_jev_router.py` repeats F's `concordance`, `fit_model`, `mean_fold_loss`, `choose_c` and `ChosenC`, so as not to import torch.
+    - **Shared bodies.** In `routers/jev.py`, `GRouter` and `GPlusRouter` have near-identical `ask` bodies, differing in the call builder and the scoring, `GScores` holds G+'s router scores too, and the file holds the collector's `Counts`, `Asked` and `Exchange` bookkeeping.
+3. **Dev latency's conditions** (A15 item 10 asks for the machine, network, dates and times; item 19 gives train's, and dev's were not recorded). Dev's latency was timed on Apple M5 Pro, Darwin 27.0.0 arm64, Python 3.13.13, over Wi-Fi (en0) behind a private gateway, no network name or address recorded; both routers' dev calls were collected from 2026-10-27T20:25:54-07:00 to 2026-10-27T20:28:16-07:00. The times are the stored records' own stamps. The machine and network are not stored with the records: `analysis/jev_comparisons.py` reads them from the machine that holds `results/`, and `figures/table_v3.json` keeps them as `latency_conditions`, so they describe that machine as the table was built. `analysis/check_stage6.py` compares this item with the table.
+4. **The settings commit holds some of its files by ancestry** (A15 item 13.2). `routers/jev_call.py`, `routers/ladder.py`, `routers/request.py` and `analysis/build_jev_settings.py` were committed before it, last by `41e264a`, `e69067d`, `e69067d` and `42fa2ab`, and the settings commit's own change adds the other four files. It holds the four in its tree, unchanged from those commits. The check, `changed_since` in `analysis/check_jev_settings_commit.py`, proves what matters: each of the eight files is byte for byte what the settings commit's tree holds, in the working tree, the index and every later commit. It does not prove when a file was committed.
+5. **A15 items 12 and 13 say one `routers/jev.py`; the code is two modules, split along the freeze line** (issue #30, "Departures from A15 item 18"). `routers/jev_call.py` builds the bodies, the byte budget and the cut, and reads the settings: it is frozen at the settings commit with `routers/ladder.py` and `routers/request.py` (item 13.2's "the code that builds each call"). `routers/jev.py` holds the client, the parser, G's router scores and G+'s features and heads, and imports `routers/jev_call.py`: it is frozen at the freeze commit with its import closure (item 19). Splitting them means a client bug found in the real run does not edit a file the settings commit froze.
+6. **The client does four things item 9 does not say.** A `retry-after-ms` header is honoured beside `Retry-After`. Plain http is refused except to a loopback host, so the key can't travel in the clear. The key is struck out of the start of a reply that a stop quotes. A 200 that isn't JSON is a failed attempt, retried like a 5xx. `routers/jev.py`'s docstring and `analysis/check_jev_client.py` hold each.
+7. **The refusal rule is not in the plan.** A15 item 9 sends any 4xx the client does not retry to a run stop, so a refusal Jev can give for good is a 200 whose answers don't answer what was asked: `answers` is not an object, lacks an asked question ID, or gives an answer of the wrong form for its question, or a number that isn't finite and in [0, 1] (a bool is no number). The rule is read from the response alone, never from a router score, and it is in `routers/jev.py`'s docstring. A refused request gets router score 0 for every config and a refusal flag (item 9). No real refusal has been seen: A15 item 19 records 0 refused on train, and none of dev's 744 requests was refused by either router.
+8. **The byte budget** (A15 item 8, set in the smoke test, fixed in the settings file's `budget_bytes`):
+    - **The budgets.** Item 8's "roughly 25,000 of room" is stale. The smoke test gave G 29,632 bytes and G+ 5,980. G+'s is small because its 16 past requests are 23,518 bytes of state, which Jev billed as 7,306 input tokens beyond the fixed overhead: the budget counts a byte as a token, and these prompts run at about 3.2 bytes a token, so the count is safe and conservative. The fixed overhead measured from minimal calls is 291 tokens (item 3's "about 270" came from earlier calls).
+    - **Conservative twice.** Every request reserves room for the longest output schema over train and dev, 1,922 bytes, however short its own.
+    - **Not in item 19.** The budgets are part of the settings file, which item 19 hashes, but item 19 does not list them.
+    - **The margin on test.** The longest train prompt is 2,953 serialized bytes and the longest dev prompt 2,690, so G+'s margin over train's longest is 3,027 bytes (G's is 26,679) and no train or dev prompt was cut. A test prompt over 5,980 serialized bytes would be cut for G+, so Stage 8 could cut a long test prompt. The truncation count is reported (item 17.4).
+9. **Item 19 says the latency "isn't re-checked", and the hook's comment said it is.** Both are true of different things. The measurement is not repeated: it depends on the machine and the network. Every latency figure in item 19, though, is recomputed from train's stored responses by `analysis/check_jev_freeze.py` and compared with the record, as dev's are by `analysis/check_jev_comparisons.py` and `analysis/check_stage6.py`. The hook's comment now says "recomputed from the stored records".
+
 ---
 
 # 1. Goal
@@ -1027,99 +1363,46 @@ This is Jev's real competition: Jev has no training on your data, while this rou
 **About Jev** (checked 2026-10-12 against [TypeSafe's model docs](https://docs.typesafe.ai/models) and [OpenRouter's Jev page](https://openrouter.ai/blog/insights/what-is-jev/); TypeSafe's re-checked 2026-10-25 for Amendment A13):
 
 - **Primary access — TypeSafe's API:** `POST /v1/systemone` with the pinned model ID `jev-1.14.0` (Amendment A13). The aliases `jev-latest` and `jev-preview` currently point to the same model; don't use aliases in experiments.
-- **Fallback — OpenRouter's Decisions API:** `https://openrouter.ai/api/alpha/decisions` (alpha), listed with a 32K context. Use only if TypeSafe's API is unavailable and it serves `jev-1.14.0` (A13 item 2; it listed `typesafe/jev-1.13` on 2026-10-12), and log the snapshot ID each response returns.
+- **No fallback** (Amendment A15 item 11). An outage is waited out. If TypeSafe retires `jev-1.14.0`, the substitution is documented and the affected dev steps are re-run under a new amendment, with Vercel's AI Gateway (`typesafe-ai/jev-1.14.0`) as the candidate. OpenRouter's Decisions API, which is alpha, listed only `typesafe/jev-1.13` on 2026-10-12.
 - **Output:** structured decisions, not prose. Answer types: **Choice** (named options), **Score** (ordered rubric), **Noul** (probability a yes/no statement is true), each with probabilities. Multiple questions are evaluated in parallel in one call.
 - **Limits:** 64K tokens per request for `state` plus all questions; 32K for `state` plus the longest question. Published rate limits are 100K tokens/s and 80 requests/s, subject to change.
 - **Price:** $0.042 per million input tokens; output tokens free. Measure latency yourself; don't rely on published claims.
 
-Two formulations to test:
+G's formulation (Amendment A15 items 1 and 4):
 
 ```text
-Variant 1 — Choice
-  State:    the request
-  Question: "What is the minimum model tier likely to answer this correctly?"
-  Options:  cheap | medium | frontier
-  → probability per option → cumulative P(tier sufficient)
-
-Variant 2 — Noul per tier (one call, parallel questions)
-  "A small, inexpensive model will answer this request correctly."   → P(yes)
-  "A mid-sized model will answer this request correctly."            → P(yes)
-  → frontier assumed sufficient
+G — Noul per config (one call, parallel questions)
+  Jev state: the request
+  "A small, inexpensive model will answer this request correctly."  → haiku's router score
+  "A mid-sized model will answer this request correctly."           → sonnet's router score
+  "A large model will answer this request correctly."               → opus_low's router score
+  → the frontier is assumed sufficient; Jev's answers are the router scores, unchanged
 ```
 
-Variant 2 maps directly onto the shared decision rule. Requests over the 32K state limit need a documented truncation policy (e.g., keep the head, the tail, and the final instruction).
+- **The Noul form** maps directly onto the shared decision rule.
+- **A Choice form was dropped** (Amendment A15 item 1). It asked "What is the minimum model tier likely to answer this correctly?" with the options cheap, medium or frontier, and used cumulative answers as router scores.
+- **Long requests:** a request too long for Jev's limits keeps the head and tail of its prompt (Amendment A15 item 8).
 
-## 3c+ — Bolstered Jev router (G+), proposed (Amendment A14)
+## 3c+ — Bolstered Jev router (G+)
 
-G asks Jev zero-shot. G+ asks Jev better-informed questions, then learns from train's labels alone how its answers relate to success on this workload. It joins G as a second Jev router and doesn't replace it. Comparing G+ with G shows what our labels add to Jev; comparing G+ with E and F-train shows which reader works best on equal labels (A11 item 1).
+G asks Jev zero-shot. G+ asks better-informed questions, then learns from train's labels alone how Jev's answers relate to success on this workload (Amendment A15 items 5–7):
 
-The rules that keep the comparison honest:
-- **Two routers on dev.** G and G+ are both fixed before any Jev response on a dev request exists, and dev sees only these two.
-- **Choices are made on train.** Any upgrade below may be tried, tuned or dropped only on train, by cross-validation over train's committed folds (`data/train_folds.json`, A11 item 8). Dev never chooses a setting (A11 item 7).
+```text
+Jev state: 16 past train requests, shown whole, each with every config's run-0 outcome; then the request
+18 questions in one call:
+  9 success statements: each config named, with its effort and train success rate, in three phrasings
+  8 difficulty statements: reasoning steps, strict format rules, one correct answer, code, ambiguity, …
+  1 request-type question (Choice, four generic options)
+→ 16 features: 3 success features (each config's phrasings averaged on the log-odds scale),
+  8 difficulty statements (log-odds, clipped to [0.005, 0.995]), 4 request-type answers, the output-schema flag
+→ one logistic regression per config, fitted on train alone, with C chosen by cross-validation within train
+→ router scores for haiku, sonnet and opus_low
+```
 
-**One call per request.** The JSON `state` holds item 2's examples, then the request (its prompt and output schema). Every question below goes in the same `POST /v1/systemone` to `jev-1.14.0`, which answers them in parallel. Calls go one request at a time. Each response is stored whole, with the model ID and token usage it returns. Every question has a fixed ID, and its text is part of G+'s frozen settings.
-
-1. **Our models, described concretely.** The per-config statements name the model, its effort and its measured train success rate, instead of "a small, inexpensive model":
-    - `haiku`: "Claude Haiku 5.5, a small, fast model running at high effort, which answered {r} of comparable requests correctly, will answer this request correctly."
-    - `sonnet`: "Claude Sonnet 5.5, a mid-sized model running at high effort, which answered {r} of comparable requests correctly, will answer this request correctly."
-    - `opus_low`: "Claude Opus 5.5, a large model running at low effort, which answered {r} of comparable requests correctly, will answer this request correctly."
-    - `{r}` is that config's run-0 success rate over every train item except item 2's examples, rounded to a whole percent. The fit script computes it once, and it is frozen with G+'s settings.
-    - Overall rates only. A per-task rate would hand the router its task, which it must infer from the request (A9 item 1).
-    - `opus` gets no statement, because it is the fallback (A1 item 3).
-2. **Worked examples from train, in the state.** Sixteen fixed train requests, each followed by its outcomes:
-    - **Selection,** seeded with 2026, from train's item IDs and run-0 outcomes: within each task, 2 items `haiku` failed and 2 it passed, drawn at random within each stratum.
-    - **What each example shows:**
-        - the prompt with template lines removed, using F's frozen list (A11 item 5), cut to its first 1,200 characters
-        - whether it carries an output schema
-        - one line of outcomes, e.g. `haiku: incorrect · sonnet: correct · opus_low: correct`
-    - **What examples never show:** the expected answer, any model's output, or a benchmark or task name.
-    - **No item sees its own outcome.** The 16 example items are left out of G+'s fit, its cross-validation, its train signal check and item 1's rates.
-    - **Size:** about 6,000 Jev tokens of examples, with the request placed last. The state plus any one question stays under Jev's 32K limit, since the longest stripped request is under 1,000 tokens (A11 item 19).
-3. **Three phrasings per config, averaged.** Each config gets three statements:
-    - (a) item 1's statement
-    - (b) the same model "will give a fully correct answer that follows every instruction in the request"
-    - (c) the same model "will make at least one mistake on this request"
-
-    The config's success feature is the mean of the three on the log-odds scale, with (c) read as 1 − p. That's 9 questions in all.
-4. **Difficulty features, worded now, before any Jev output.**
-    - **Eight Noul statements:**
-        1. "Answering this request correctly requires several steps of reasoning or calculation."
-        2. "The request sets strict, checkable rules for the answer's format, length or wording."
-        3. "The request has exactly one correct answer."
-        4. "The request asks for working code."
-        5. "The request is ambiguous: careful experts could reasonably give different answers."
-        6. "Answering correctly needs specialised expert knowledge."
-        7. "The request contains several separate instructions, all of which must be met."
-        8. "The request contains a detail that is easy to overlook and that changes the right answer."
-    - **One Choice question:** "What kind of request is this?" Options: "follow written instructions to produce text", "choose a label from a given list", "answer a multiple-choice question", "write code". Its four probabilities are features.
-    - **Generic wording.** Nothing names a benchmark, so G+ still reads only the request.
-5. **Calibration on train: a small model turns Jev's answers into router scores.** One logistic regression per config, on train's run-0 success labels, with refusals and `max_tokens` stops counted as failures (as for F, A11 item 6):
-    - **Features (16):** the three configs' success features (item 3), the eight difficulty features, the four request-type probabilities, and the output-schema flag (A11 item 5).
-    - **Transform:** every Jev probability is clipped to [1e-4, 1 − 1e-4], then turned into log-odds, because Jev returns values like 0.99. The features are standardised with means and standard deviations fitted on train.
-    - **Fit:** A11 item 7's settings. L2 penalty, an unpenalised intercept and no class weights; scikit-learn's `newton-cholesky` at tolerance 1e-10 and at most 100 iterations; a fit that doesn't converge is refused.
-    - **Choosing C:** per config, by five-fold cross-validation over train's committed folds, by mean log loss, over A11's 13 values from 1e-4 to 1e2. A C at either end of the grid is kept and reported.
-    - **Train alone, not cross-fitted with dev.** G+ is on equal labels with E and F-train, and has no fold models to pool.
-    - **Deployment:** the deployable G+ computes its three heads in numpy from a plain JSON weights file, as F does. Its overhead per trace is the call's input tokens at Jev's price; output tokens are free.
-
-**Order, as A11 item 15 set it for F**
-1. **Train side, before any dev call:**
-    - Jev is called on every train request, for G and for G+, and every response is stored.
-    - **Repeatability:** 20 train requests are sent twice, and how often the answers match is reported.
-    - **The train signal check,** as A11 item 7 set it for F: each config's cross-validated log loss and within-task concordance (pairs within the same task and train fold) for an intercept-only model, the task-rates model, G's zero-shot router scores and G+.
-2. **The freeze commit:** G+'s question texts, examples, rates, settings and weights, with their sha256s recorded.
-3. **Only then is dev called.** Dev's router-score tables for G and G+ are built from the stored responses. The walks follow, then same-target comparisons with E, F, F-train and each other, and the envelope at matched cost.
-
-**Cost**
-- **G+:** about 7,000 input tokens per call (examples about 6,000, request under 1,000, questions and Jev's own overhead about 300). Train and dev come to about 12 million tokens, about $0.53. Test in Stage 8 is about $0.22.
-- **G:** about 1,300 tokens per call, about $0.10 across all three splits.
-- **Total:** well inside the $150 ceiling (A3 item 4).
-
-**Left to Stage 6's design session**
-- **G's variants:** whether G is Variant 1, Variant 2 or both. Each extra router on dev is one more comparison.
-- **The examples:** how many, and the selection rule.
-- **The difficulty list:** whether it's right. Any change is tried on train only.
-- **A check for a remote model:** Jev runs on TypeSafe's servers, so Stage 8 can't rebuild dev's table bit for bit as F's drift check does. Something must replace that check, for example re-calling 50 dev requests and comparing the router scores.
-- **Truncation:** the policy for any request over the limit, though none on this benchmark comes close.
+- **G+ joins G** as a second Jev router. G+ against G shows what our labels add to Jev. G+ against E and F-train shows which reader does best on equal labels (Amendment A11 item 1).
+- **Two freezes.** Every question's wording, the past requests and the code that builds a call are frozen in a settings commit, before any Jev call on a benchmark request. G+'s weights are frozen in a freeze commit, before any dev call (Amendment A15 item 13). Dev chooses no setting.
+- **One call per request per router.** Jev's answers aren't repeatable to the second decimal, and that noise is part of the policy. Averaging calls would triple the overhead charged on every request (Amendment A15 item 10).
+- **Jev's overhead per trace** is the call's input tokens at $0.042 per million: about $0.32–0.40 per 1,000 requests for G+, and far less for G.
 
 ## 3d — Commercial router (optional)
 
@@ -1188,8 +1471,8 @@ Development experiments run offline from the dev matrix and stored gate verdicts
 | D | Hindsight oracle | upper-bound curve |
 | E | Rules router | few points |
 | F | Trained router | curve |
-| G | Jev router (Choice, Noul variants) | curves |
-| G+ | Bolstered Jev router, calibrated on train *(proposed, Amendment A14)* | curve |
+| G | Jev router, zero-shot Noul (Amendment A15) | curve |
+| G+ | Bolstered Jev router, calibrated on train (Amendment A15) | curve |
 | H | Commercial router *(live, optional)* | point |
 | I | Best router + cascade, per core gate | curves |
 | J | I + provider caching/batch *(stretch S1, modeled)* | curves |
@@ -1247,6 +1530,7 @@ Quality
 - Chart v0's contents, its table and where its files go: Amendment A8 item 10
 - Chart v1 and table v1, which add the rules router: Amendment A9 items 14 and 15
 - Chart v2 and table v2, which add the trained router, and the learning-curve figure: Amendment A11 item 16
+- Chart v3 and table v3, which add the two Jev routers: Amendment A15 item 15
 
 > For a given budget, what's the highest quality obtainable? For a required quality, what's the lowest cost?
 
@@ -1263,7 +1547,7 @@ Quality
 | Layer | Choice |
 |---|---|
 | Language | Python |
-| Model access | Anthropic API directly for all model tiers, with the Message Batches API for bulk runs (Amendment A1); Jev via TypeSafe's API (`POST /v1/systemone`) |
+| Model access | Anthropic API directly for all model tiers, with the Message Batches API for bulk runs (Amendment A1); Jev via TypeSafe's API (`POST /v1/systemone`, `jev-1.14.0`), called with the standard library's `http.client` (Amendment A15) |
 | Storage | SQLite: dev matrix, sealed test store, gate verdicts |
 | Analysis | scripts with numpy + matplotlib (Amendment A8; was pandas + notebooks) |
 | Trained router | `gte-modernbert-base` embeddings, run locally with PyTorch and `transformers`; scikit-learn for fitting only (Amendment A11) |
@@ -1276,11 +1560,13 @@ data/benchmark.jsonl          frozen, hashed
 configs/models.yaml           pinned model versions + dated price snapshot
 harness/                      runner, evaluators
 routers/                      request, ladder, decision rule; rules.py, trained.py, jev.py (Amendment A9);
-                              trained.py's settings and fold weights (Amendment A11)
+                              trained.py's settings and fold weights (Amendment A11);
+                              jev.py's settings and G+'s weights (Amendment A15)
 gates/                        schema.py, code_exec.py, jev_gate.py, verifier.py
 analysis/                     offline simulator, oracle LP, bootstrap, plots
 figures/                      charts on dev, each with a JSON of its numbers (Amendment A8)
 results/dev_matrix.sqlite
+results/jev/                  stored Jev responses, one per call (Amendment A15); not committed
 results/test_sealed.sqlite    no analysis-code access until Stage 8
 ```
 
@@ -1300,7 +1586,7 @@ Run experiments at **every** stage on dev and update the Pareto chart each time.
 | 3 | Offline simulator + references A–D | Pareto chart v0 on dev with the oracle curve (LP) and random-mixture envelope |
 | 4 | Rules router (E) | on chart |
 | 5 | Trained router (F) | curve and operating points on chart v2; frozen in two commits, settings before any dev label is read, then the fold weights; diagnostics reported (Amendment A11) |
-| 6 | Jev router (G), both variants; bolstered Jev router (G+, proposed in Amendment A14) | curves on chart; measured Jev latency and cost logged |
+| 6 | Jev routers: G (zero-shot) and G+ (bolstered) | curves and operating points on chart v3; settings frozen before any Jev call on a benchmark request, G+'s weights before any dev call; Jev latency and cost logged; diagnostics reported (Amendment A15) |
 | 7 | Gates + cascades (I) | gate verdicts stored (Jev, schema, code: train/dev; Sonnet verifier: dev); calibration plots; policies, thresholds, and margins selected and frozen |
 | 8 | **Final evaluation** + write-up | sealed-store hash verified; test answers scored; router and gate calls on test run once; frozen policies evaluated with CIs under both mixes; small live replay checks cost and latency; README |
 

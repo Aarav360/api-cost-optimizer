@@ -6,8 +6,8 @@ Reads only the committed figure JSONs, no results matrix, so CI runs it. It draw
 folder and never rewrites a figure. That a rebuild with E alone equals the committed JSONs is `check_stage4`'s, which
 needs `results/`.
 
-- the router list holds E first and F second, under their names in the operating-points file, and each router has a
-  style of its own: a colour, a marker and a line that no other router's shares, and F's colour at least 15 apart
+- the router list holds E, F, G and G+ in that order, under their names in the operating-points file, and each router
+  has a style of its own: a colour, a marker and a line that no other router's shares, and F's colour at least 15 apart
   (OKLab x100, in normal vision and under simulated protan, deutan and tritan vision) from every other colour the
   figures draw: the configs' blue, the envelope's orange, the oracle's green and E's purple (known positive: F's
   earlier red was 5 from the envelope's orange);
@@ -27,7 +27,7 @@ from pathlib import Path
 
 from matplotlib.figure import Figure
 
-from analysis.chart_routers import F_STYLE, ROUTERS, RULES, TRAINED
+from analysis.chart_routers import F_STYLE, G_PLUS_STYLE, G_STYLE, ROUTERS, RULES, TRAINED
 from analysis.pareto import (
     FIGURE_DATA,
     SERIES_1,
@@ -38,7 +38,7 @@ from analysis.pareto import (
     draw_headline,
     draw_tasks,
 )
-from analysis.router_names import LABELS, NAMED_ROUTERS, E, F
+from analysis.router_names import G_PLUS, LABELS, NAMED_ROUTERS, E, F, G
 
 # Machado, Oliveira and Fernandes (2009) simulations of protan, deutan and tritan vision at severity 1, on linear RGB.
 SIMULATIONS = {
@@ -105,8 +105,12 @@ def main() -> int:
     per_task = json.loads(TASK_FIGURE_DATA.read_text())
 
     print("-- the router list --")
-    check([r.name for r in ROUTERS] == ["rules", "trained"] == [NAMED_ROUTERS[E], NAMED_ROUTERS[F]],
-          "the list holds E then F, under their names in the operating-points file")  # fmt: skip
+    check([r.name for r in ROUTERS] == ["rules", "trained", "jev", "jev_bolstered"]
+          == [NAMED_ROUTERS[E], NAMED_ROUTERS[F], NAMED_ROUTERS[G], NAMED_ROUTERS[G_PLUS]],
+          "the list holds E, F, G and G+ in that order, under their names in the operating-points file")  # fmt: skip
+    for entry, letter, style in ((ROUTERS[2], G, G_STYLE), (ROUTERS[3], G_PLUS, G_PLUS_STYLE)):
+        check(entry.label == headline["routers"][entry.name]["label"] == LABELS[letter] and entry.style == style,
+              f"{letter}'s label is the committed one and its style is {letter}'s")  # fmt: skip
     check(TRAINED.label == headline["routers"][TRAINED.name]["label"] == LABELS[F] and TRAINED.style == F_STYLE,
           "F's label is the committed one and its style is F's")  # fmt: skip
     check(RULES.label == headline["routers"][RULES.name]["label"] == LABELS[E],
@@ -114,7 +118,9 @@ def main() -> int:
     twin = replace(RULES, name="twin", label="F: twin", short="F", style=F_STYLE)
     styles = [r.style for r in ROUTERS]
     for field in ("color", "marker", "linestyle"):
-        check(len({getattr(s, field) for s in styles}) == len(styles), f"E's and F's styles differ in their {field}")
+        check(
+            len({getattr(s, field) for s in styles}) == len(styles), f"the four routers' styles differ in their {field}"
+        )
     check(all(len(s.color) == 7 and s.color.startswith("#") for s in styles), "each style's colour is a hex colour")
     check(RULES.style.color == "#8e5bd0", "E's style is the one chart v1 drew it in")
     check(abs(gap("#000000", "#ffffff") - 100) < 1e-3 and gap("#2a78d6", "#2a78d6") == 0,

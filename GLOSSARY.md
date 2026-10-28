@@ -81,7 +81,8 @@ _Avoid_: router cost (when gates are included)
 
 **Router score**:
 A router's estimate, for one request and one config below the frontier, that the config would
-succeed.
+succeed. The Jev router's router scores are Jev's answers to its success statements, used
+unchanged; they are still router scores.
 _Avoid_: score (alone), confidence, probability
 
 **Threshold**:
@@ -136,6 +137,45 @@ The share of (success, failure) pairs from the same task, and for cross-fitted r
 same fold, whose router scores are in the right order, ties counting half. 0.5 means the scores
 carry nothing beyond the task.
 _Avoid_: AUC (which pools pairs across tasks)
+
+## The Jev routers
+
+**Jev router**:
+G: the router that asks Jev, zero-shot, one success statement per config below the frontier and
+uses its answers as router scores.
+_Avoid_: Jev classifier, Choice variant (dropped)
+
+**Bolstered Jev router**:
+G+: the router that asks Jev success statements naming our configs and their train success rates,
+difficulty statements and the request-type question, with past train requests and their outcomes
+in its Jev state, then turns the answers into router scores with one logistic regression per
+config fitted on train.
+_Avoid_: Jev+, fine-tuned Jev (nothing in Jev is trained)
+
+**Jev state**:
+The `state` of a Jev call: what Jev reads when it answers the questions. The Jev router's holds the
+request; the bolstered Jev router's holds 16 past requests with their outcomes, then the request.
+_Avoid_: state (alone), context
+
+**Success statement**:
+A yes/no statement put to Jev that a config will answer the request correctly. The Jev router asks
+one per config; the bolstered Jev router asks three phrasings per config.
+_Avoid_: tier statement
+
+**Success feature**:
+The bolstered Jev router's mean of one config's three success statements on the log-odds scale, the
+negated phrasing inverted.
+_Avoid_: success statement (the question asked), success probability
+
+**Difficulty statement**:
+One of the bolstered Jev router's eight yes/no statements about the request itself, such as whether
+it needs several reasoning steps, whose answers are features.
+_Avoid_: difficulty score, feature question
+
+**Request-type question**:
+The bolstered Jev router's Choice question asking what kind of request it is, from four generic
+options that never name a task; its answers are features.
+_Avoid_: task question, task classifier
 
 ## References and metrics
 

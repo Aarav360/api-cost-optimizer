@@ -2,7 +2,7 @@
 # The repo's fast checks, run before every commit and by hand from the project root:  .githooks/pre-commit
 # Turn the hook on once per clone:  git config core.hooksPath .githooks
 # CI (.github/workflows/check.yml) runs the same checks except the ones in the results/ block at the end
-# (check_simulator, check_stage4, check_trained_dev, check_trained_diagnostics), which need the dev results matrix in
+# (check_jev_dev, check_jev_comparisons, check_simulator, check_stage4, check_trained_dev, check_trained_diagnostics), which need the dev results matrix in
 # results/ (not committed); several others also have a section that runs only where results/ or the model snapshot is
 # present. check_collect, check_sandbox and check_evaluators need Docker and take minutes, so they stay manual (README,
 # "Running it").
@@ -27,10 +27,49 @@ uv run python -m analysis.check_trained_fit | grep -E "^FAIL|checks"
 # Its refit against the train matrix runs only where results/ is present, like check_simulator below.
 uv run python -m analysis.check_rules_router | grep -E "^FAIL|checks"
 uv run python -m analysis.check_chart_routers | grep -E "^FAIL|checks"
+# Stage 6's prefactor (A15 items 14, 15): G's and G+'s names, the allowlist and their reserved chart styles.
+uv run python -m analysis.check_jev_names | grep -E "^FAIL|checks"
 # Stage 5's chart and table v2, the learning-curve figure and A11 item 21, against the committed files; the hook adds
 # the rebuild from the dev matrix (about 60 s).
 uv run python -m analysis.check_stage5 | grep -E "^FAIL|checks"
+# Stage 6's chart and table v3 and A15 item 20 (G's and G+'s record) against the committed files; where results/ holds the
+# dev matrix and the stored dev responses the hook also rebuilds G's and G+'s parts and table v3 and compares the first
+# dev call's Date (about 90 s). No Jev call.
+uv run python -m analysis.check_stage6 | grep -E "^FAIL|checks"
+# The Jev settings builder (A15 items 4-6, 10, 12) on a synthetic benchmark and store; where results/ is present it
+# also builds from the real train data and compares a committed routers/jev_settings.json with the build.
+uv run python -m analysis.check_jev_settings | grep -E "^FAIL|checks"
+# Stage 6's call building (A15 items 4 to 6 and 8, G's and G+'s bodies): synthetic settings, no results/, no Jev call.
+uv run python -m analysis.check_jev_call | grep -E "^FAIL|checks"
+# Stage 6's client and G's scoring (A15 items 3, 4, 9 and 12), against the fake Jev server on a loopback port: no
+# results/, no network, no Jev call, retry waits injected.
+uv run python -m analysis.check_jev_client | grep -E "^FAIL|checks"
+# G+'s scoring (A15 items 7 and 9): answers to features to router scores, on synthetic answers and weights.
+uv run python -m analysis.check_jev_plus | grep -E "^FAIL|checks"
+# G+ end to end and the collection script (A15 items 9, 10, 12, 13), against the fake Jev server and a temporary
+# results folder: no results/, no network, no Jev call, no key.
+uv run python -m analysis.check_jev_collect | grep -E "^FAIL|checks"
+# G+'s fit, the train signal check and D6 (A15 items 7, 10 and 19): synthetic benchmark, store and stored records.
+uv run python -m analysis.check_jev_fit | grep -E "^FAIL|checks"
+# The settings commit's promises (A15 item 13): budgets set, the file rebuilt from its seed and train's outcomes (where
+# results/ is present), the commit's files unchanged since it, the made-up requests none a train or dev request.
+uv run python -m analysis.check_jev_settings_commit | grep -E "^FAIL|checks"
+# The freeze record (A15 items 13 and 19): item 19 against the committed files and git history, and where results/jev
+# holds train's stored responses, against those (hashes, model IDs, body hashes, counts, latency recomputed from the
+# stored records, the first call's Date) and a refit of G+'s weights to 1e-9. No Jev call. CI skips the history and the
+# stored-response sections.
+uv run python -m analysis.check_jev_freeze | grep -E "^FAIL|checks"
+# Amendment A16's records (the Stage 6 review): the hashed-file lists, the recorded findings, item 4's commits and item 8's
+# numbers against their sources; dev's refusal count where results/jev holds dev's responses. No Jev call.
+uv run python -m analysis.check_jev_review | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
+  # G's and G+'s dev tables, quantiles and walks (A15 items 13, 14): the pieces anywhere, and with results/jev's dev
+  # responses and the freeze commit the stored records, the tables rebuilt, the sections reproduced (about 60 s). No Jev call.
+  uv run python -m analysis.check_jev_dev | grep -E "^FAIL|checks"
+  # G's and G+'s comparisons and diagnostics (A15 item 14): the hand-worked synthetic sections anywhere, and here the
+  # same-target cells against the committed operating points, McNemar, concordance and dev latency against the raw
+  # stored lines, and nothing written to the operating-points file (about 90 s). No Jev call.
+  uv run python -m analysis.check_jev_comparisons | grep -E "^FAIL|checks"
   uv run python -m analysis.check_simulator | grep -E "^FAIL|checks"
   uv run python -m analysis.check_stage4 | grep -E "^FAIL|checks"
   # F and F-train on dev: the tables against score_with (about 30 s: it embeds the 744 dev requests again).

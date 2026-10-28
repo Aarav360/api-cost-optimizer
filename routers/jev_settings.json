@@ -1,0 +1,889 @@
+{
+ "jev": {
+  "endpoint": "https://api.typesafe.ai/v1/systemone",
+  "model": "jev-1.14.0",
+  "price_per_million_input_tokens": 0.042,
+  "price_checked": "2026-10-25"
+ },
+ "display_names": {
+  "haiku": "Claude Haiku 5.5 (high effort)",
+  "sonnet": "Claude Sonnet 5.5 (high effort)",
+  "opus_low": "Claude Opus 5.5 (low effort)"
+ },
+ "g": {
+  "success_statements": [
+   {
+    "id": "success_haiku",
+    "config": "haiku",
+    "text": "A small, inexpensive model will answer this request correctly."
+   },
+   {
+    "id": "success_sonnet",
+    "config": "sonnet",
+    "text": "A mid-sized model will answer this request correctly."
+   },
+   {
+    "id": "success_opus_low",
+    "config": "opus_low",
+    "text": "A large model will answer this request correctly."
+   }
+  ]
+ },
+ "g_plus": {
+  "success_statements": [
+   {
+    "id": "success_haiku_a",
+    "config": "haiku",
+    "phrasing": "a",
+    "text": "Claude Haiku 5.5, a small, fast model running at high effort, which answered 87% of comparable requests correctly, will answer this request correctly."
+   },
+   {
+    "id": "success_haiku_b",
+    "config": "haiku",
+    "phrasing": "b",
+    "text": "Claude Haiku 5.5, a small, fast model running at high effort, which answered 87% of comparable requests correctly, will give a fully correct answer that follows every instruction in the request."
+   },
+   {
+    "id": "success_haiku_c",
+    "config": "haiku",
+    "phrasing": "c",
+    "text": "Claude Haiku 5.5, a small, fast model running at high effort, which answered 87% of comparable requests correctly, will make at least one mistake on this request."
+   },
+   {
+    "id": "success_sonnet_a",
+    "config": "sonnet",
+    "phrasing": "a",
+    "text": "Claude Sonnet 5.5, a mid-sized model running at high effort, which answered 87% of comparable requests correctly, will answer this request correctly."
+   },
+   {
+    "id": "success_sonnet_b",
+    "config": "sonnet",
+    "phrasing": "b",
+    "text": "Claude Sonnet 5.5, a mid-sized model running at high effort, which answered 87% of comparable requests correctly, will give a fully correct answer that follows every instruction in the request."
+   },
+   {
+    "id": "success_sonnet_c",
+    "config": "sonnet",
+    "phrasing": "c",
+    "text": "Claude Sonnet 5.5, a mid-sized model running at high effort, which answered 87% of comparable requests correctly, will make at least one mistake on this request."
+   },
+   {
+    "id": "success_opus_low_a",
+    "config": "opus_low",
+    "phrasing": "a",
+    "text": "Claude Opus 5.5, a large model running at low effort, which answered 91% of comparable requests correctly, will answer this request correctly."
+   },
+   {
+    "id": "success_opus_low_b",
+    "config": "opus_low",
+    "phrasing": "b",
+    "text": "Claude Opus 5.5, a large model running at low effort, which answered 91% of comparable requests correctly, will give a fully correct answer that follows every instruction in the request."
+   },
+   {
+    "id": "success_opus_low_c",
+    "config": "opus_low",
+    "phrasing": "c",
+    "text": "Claude Opus 5.5, a large model running at low effort, which answered 91% of comparable requests correctly, will make at least one mistake on this request."
+   }
+  ],
+  "difficulty_statements": [
+   {
+    "id": "difficulty_1",
+    "text": "Answering this request correctly requires several steps of reasoning or calculation."
+   },
+   {
+    "id": "difficulty_2",
+    "text": "The request sets strict, checkable rules for the answer's format, length or wording."
+   },
+   {
+    "id": "difficulty_3",
+    "text": "The request has exactly one correct answer."
+   },
+   {
+    "id": "difficulty_4",
+    "text": "The request asks for working code."
+   },
+   {
+    "id": "difficulty_5",
+    "text": "The request is ambiguous: careful experts could reasonably give different answers."
+   },
+   {
+    "id": "difficulty_6",
+    "text": "Answering correctly needs specialised expert knowledge."
+   },
+   {
+    "id": "difficulty_7",
+    "text": "The request contains several separate instructions, all of which must be met."
+   },
+   {
+    "id": "difficulty_8",
+    "text": "The request contains a detail that is easy to overlook and that changes the right answer."
+   }
+  ],
+  "request_type": {
+   "id": "request_type",
+   "text": "What kind of request is this?",
+   "options": [
+    "follow written instructions to produce text",
+    "choose a label from a given list",
+    "answer a multiple-choice question",
+    "write code"
+   ]
+  },
+  "rates": {
+   "haiku": 87,
+   "sonnet": 87,
+   "opus_low": 91
+  },
+  "past_requests": [
+   {
+    "item_id": "mmlu_pro:7471",
+    "prompt": "Answer the following multiple-choice question.\n\nWhat is the relationship between Net National Product and Gross National Product?\n\nA. GNP and NNP are always equal\nB. NNP = GNP + (Depreciation * 2)\nC. GNP = NNP + Depreciation\nD. NNP = GNP - Depreciation\nE. NNP and GNP are unrelated financial indicators\nF. NNP = GNP + Depreciation\nG. GNP = NNP - (Depreciation / 2)\nH. NNP = GNP / Depreciation\nI. GNP = NNP - Depreciation\nJ. GNP = NNP * Depreciation\n\nGive a short explanation, then the letter of the correct option as the answer.",
+    "output_schema": {
+     "additionalProperties": false,
+     "properties": {
+      "answer": {
+       "enum": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J"
+       ],
+       "type": "string"
+      },
+      "explanation": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "explanation",
+      "answer"
+     ],
+     "type": "object"
+    },
+    "outcomes": {
+     "haiku": false,
+     "sonnet": false,
+     "opus_low": false
+    }
+   },
+   {
+    "item_id": "banking77:test-0008",
+    "prompt": "Classify the customer's banking query into exactly one of these intents:\n\nactivate_my_card\nage_limit\napple_pay_or_google_pay\natm_support\nautomatic_top_up\nbalance_not_updated_after_bank_transfer\nbalance_not_updated_after_cheque_or_cash_deposit\nbeneficiary_not_allowed\ncancel_transfer\ncard_about_to_expire\ncard_acceptance\ncard_arrival\ncard_delivery_estimate\ncard_linking\ncard_not_working\ncard_payment_fee_charged\ncard_payment_not_recognised\ncard_payment_wrong_exchange_rate\ncard_swallowed\ncash_withdrawal_charge\ncash_withdrawal_not_recognised\nchange_pin\ncompromised_card\ncontactless_not_working\ncountry_support\ndeclined_card_payment\ndeclined_cash_withdrawal\ndeclined_transfer\ndirect_debit_payment_not_recognised\ndisposable_card_limits\nedit_personal_details\nexchange_charge\nexchange_rate\nexchange_via_app\nextra_charge_on_statement\nfailed_transfer\nfiat_currency_support\nget_disposable_virtual_card\nget_physical_card\ngetting_spare_card\ngetting_virtual_card\nlost_or_stolen_card\nlost_or_stolen_phone\norder_physical_card\npasscode_forgotten\npending_card_payment\npending_cash_withdrawal\npending_top_up\npending_transfer\npin_blocked\nreceiving_money\nRefund_not_showing_up\nrequest_refund\nreverted_card_payment?\nsupported_cards_and_currencies\nterminate_account\ntop_up_by_bank_transfer_charge\ntop_up_by_card_charge\ntop_up_by_cash_or_cheque\ntop_up_failed\ntop_up_limits\ntop_up_reverted\ntopping_up_by_card\ntransaction_charged_twice\ntransfer_fee_charged\ntransfer_into_account\ntransfer_not_received_by_recipient\ntransfer_timing\nunable_to_verify_identity\nverify_my_identity\nverify_source_of_funds\nverify_top_up\nvirtual_card_not_working\nvisa_or_mastercard\nwhy_verify_identity\nwrong_amount_of_cash_received\nwrong_exchange_rate_for_cash_withdrawal\n\nQuery: still waiting on that card\n\nGive the intent name as the answer.",
+    "output_schema": {
+     "additionalProperties": false,
+     "properties": {
+      "answer": {
+       "enum": [
+        "activate_my_card",
+        "age_limit",
+        "apple_pay_or_google_pay",
+        "atm_support",
+        "automatic_top_up",
+        "balance_not_updated_after_bank_transfer",
+        "balance_not_updated_after_cheque_or_cash_deposit",
+        "beneficiary_not_allowed",
+        "cancel_transfer",
+        "card_about_to_expire",
+        "card_acceptance",
+        "card_arrival",
+        "card_delivery_estimate",
+        "card_linking",
+        "card_not_working",
+        "card_payment_fee_charged",
+        "card_payment_not_recognised",
+        "card_payment_wrong_exchange_rate",
+        "card_swallowed",
+        "cash_withdrawal_charge",
+        "cash_withdrawal_not_recognised",
+        "change_pin",
+        "compromised_card",
+        "contactless_not_working",
+        "country_support",
+        "declined_card_payment",
+        "declined_cash_withdrawal",
+        "declined_transfer",
+        "direct_debit_payment_not_recognised",
+        "disposable_card_limits",
+        "edit_personal_details",
+        "exchange_charge",
+        "exchange_rate",
+        "exchange_via_app",
+        "extra_charge_on_statement",
+        "failed_transfer",
+        "fiat_currency_support",
+        "get_disposable_virtual_card",
+        "get_physical_card",
+        "getting_spare_card",
+        "getting_virtual_card",
+        "lost_or_stolen_card",
+        "lost_or_stolen_phone",
+        "order_physical_card",
+        "passcode_forgotten",
+        "pending_card_payment",
+        "pending_cash_withdrawal",
+        "pending_top_up",
+        "pending_transfer",
+        "pin_blocked",
+        "receiving_money",
+        "Refund_not_showing_up",
+        "request_refund",
+        "reverted_card_payment?",
+        "supported_cards_and_currencies",
+        "terminate_account",
+        "top_up_by_bank_transfer_charge",
+        "top_up_by_card_charge",
+        "top_up_by_cash_or_cheque",
+        "top_up_failed",
+        "top_up_limits",
+        "top_up_reverted",
+        "topping_up_by_card",
+        "transaction_charged_twice",
+        "transfer_fee_charged",
+        "transfer_into_account",
+        "transfer_not_received_by_recipient",
+        "transfer_timing",
+        "unable_to_verify_identity",
+        "verify_my_identity",
+        "verify_source_of_funds",
+        "verify_top_up",
+        "virtual_card_not_working",
+        "visa_or_mastercard",
+        "why_verify_identity",
+        "wrong_amount_of_cash_received",
+        "wrong_exchange_rate_for_cash_withdrawal"
+       ],
+       "type": "string"
+      }
+     },
+     "required": [
+      "answer"
+     ],
+     "type": "object"
+    },
+    "outcomes": {
+     "haiku": true,
+     "sonnet": true,
+     "opus_low": true
+    }
+   },
+   {
+    "item_id": "ifeval:3362",
+    "prompt": "Create an ad copy by expanding \"Get 40 miles per gallon on the highway\" in the form of a QA with a weird style. Your response should contain less than 8 sentences. Do not include keywords 'mileage' or 'fuel' in your response.",
+    "output_schema": null,
+    "outcomes": {
+     "haiku": true,
+     "sonnet": true,
+     "opus_low": true
+    }
+   },
+   {
+    "item_id": "banking77:test-2704",
+    "prompt": "Classify the customer's banking query into exactly one of these intents:\n\nactivate_my_card\nage_limit\napple_pay_or_google_pay\natm_support\nautomatic_top_up\nbalance_not_updated_after_bank_transfer\nbalance_not_updated_after_cheque_or_cash_deposit\nbeneficiary_not_allowed\ncancel_transfer\ncard_about_to_expire\ncard_acceptance\ncard_arrival\ncard_delivery_estimate\ncard_linking\ncard_not_working\ncard_payment_fee_charged\ncard_payment_not_recognised\ncard_payment_wrong_exchange_rate\ncard_swallowed\ncash_withdrawal_charge\ncash_withdrawal_not_recognised\nchange_pin\ncompromised_card\ncontactless_not_working\ncountry_support\ndeclined_card_payment\ndeclined_cash_withdrawal\ndeclined_transfer\ndirect_debit_payment_not_recognised\ndisposable_card_limits\nedit_personal_details\nexchange_charge\nexchange_rate\nexchange_via_app\nextra_charge_on_statement\nfailed_transfer\nfiat_currency_support\nget_disposable_virtual_card\nget_physical_card\ngetting_spare_card\ngetting_virtual_card\nlost_or_stolen_card\nlost_or_stolen_phone\norder_physical_card\npasscode_forgotten\npending_card_payment\npending_cash_withdrawal\npending_top_up\npending_transfer\npin_blocked\nreceiving_money\nRefund_not_showing_up\nrequest_refund\nreverted_card_payment?\nsupported_cards_and_currencies\nterminate_account\ntop_up_by_bank_transfer_charge\ntop_up_by_card_charge\ntop_up_by_cash_or_cheque\ntop_up_failed\ntop_up_limits\ntop_up_reverted\ntopping_up_by_card\ntransaction_charged_twice\ntransfer_fee_charged\ntransfer_into_account\ntransfer_not_received_by_recipient\ntransfer_timing\nunable_to_verify_identity\nverify_my_identity\nverify_source_of_funds\nverify_top_up\nvirtual_card_not_working\nvisa_or_mastercard\nwhy_verify_identity\nwrong_amount_of_cash_received\nwrong_exchange_rate_for_cash_withdrawal\n\nQuery: How long until my transfer will be available to me\n\nGive the intent name as the answer.",
+    "output_schema": {
+     "additionalProperties": false,
+     "properties": {
+      "answer": {
+       "enum": [
+        "activate_my_card",
+        "age_limit",
+        "apple_pay_or_google_pay",
+        "atm_support",
+        "automatic_top_up",
+        "balance_not_updated_after_bank_transfer",
+        "balance_not_updated_after_cheque_or_cash_deposit",
+        "beneficiary_not_allowed",
+        "cancel_transfer",
+        "card_about_to_expire",
+        "card_acceptance",
+        "card_arrival",
+        "card_delivery_estimate",
+        "card_linking",
+        "card_not_working",
+        "card_payment_fee_charged",
+        "card_payment_not_recognised",
+        "card_payment_wrong_exchange_rate",
+        "card_swallowed",
+        "cash_withdrawal_charge",
+        "cash_withdrawal_not_recognised",
+        "change_pin",
+        "compromised_card",
+        "contactless_not_working",
+        "country_support",
+        "declined_card_payment",
+        "declined_cash_withdrawal",
+        "declined_transfer",
+        "direct_debit_payment_not_recognised",
+        "disposable_card_limits",
+        "edit_personal_details",
+        "exchange_charge",
+        "exchange_rate",
+        "exchange_via_app",
+        "extra_charge_on_statement",
+        "failed_transfer",
+        "fiat_currency_support",
+        "get_disposable_virtual_card",
+        "get_physical_card",
+        "getting_spare_card",
+        "getting_virtual_card",
+        "lost_or_stolen_card",
+        "lost_or_stolen_phone",
+        "order_physical_card",
+        "passcode_forgotten",
+        "pending_card_payment",
+        "pending_cash_withdrawal",
+        "pending_top_up",
+        "pending_transfer",
+        "pin_blocked",
+        "receiving_money",
+        "Refund_not_showing_up",
+        "request_refund",
+        "reverted_card_payment?",
+        "supported_cards_and_currencies",
+        "terminate_account",
+        "top_up_by_bank_transfer_charge",
+        "top_up_by_card_charge",
+        "top_up_by_cash_or_cheque",
+        "top_up_failed",
+        "top_up_limits",
+        "top_up_reverted",
+        "topping_up_by_card",
+        "transaction_charged_twice",
+        "transfer_fee_charged",
+        "transfer_into_account",
+        "transfer_not_received_by_recipient",
+        "transfer_timing",
+        "unable_to_verify_identity",
+        "verify_my_identity",
+        "verify_source_of_funds",
+        "verify_top_up",
+        "virtual_card_not_working",
+        "visa_or_mastercard",
+        "why_verify_identity",
+        "wrong_amount_of_cash_received",
+        "wrong_exchange_rate_for_cash_withdrawal"
+       ],
+       "type": "string"
+      }
+     },
+     "required": [
+      "answer"
+     ],
+     "type": "object"
+    },
+    "outcomes": {
+     "haiku": false,
+     "sonnet": false,
+     "opus_low": false
+    }
+   },
+   {
+    "item_id": "mbppplus:748",
+    "prompt": "Write a Python function for the task below. It must pass this example test:\n\nassert capital_words_spaces(\"Python\") == 'Python'\n\nTask: Write a function to put spaces between words starting with capital letters in a given string.\n\nReturn the complete function, with any imports it needs, in a single ```python code block.",
+    "output_schema": null,
+    "outcomes": {
+     "haiku": false,
+     "sonnet": true,
+     "opus_low": true
+    }
+   },
+   {
+    "item_id": "banking77:test-2258",
+    "prompt": "Classify the customer's banking query into exactly one of these intents:\n\nactivate_my_card\nage_limit\napple_pay_or_google_pay\natm_support\nautomatic_top_up\nbalance_not_updated_after_bank_transfer\nbalance_not_updated_after_cheque_or_cash_deposit\nbeneficiary_not_allowed\ncancel_transfer\ncard_about_to_expire\ncard_acceptance\ncard_arrival\ncard_delivery_estimate\ncard_linking\ncard_not_working\ncard_payment_fee_charged\ncard_payment_not_recognised\ncard_payment_wrong_exchange_rate\ncard_swallowed\ncash_withdrawal_charge\ncash_withdrawal_not_recognised\nchange_pin\ncompromised_card\ncontactless_not_working\ncountry_support\ndeclined_card_payment\ndeclined_cash_withdrawal\ndeclined_transfer\ndirect_debit_payment_not_recognised\ndisposable_card_limits\nedit_personal_details\nexchange_charge\nexchange_rate\nexchange_via_app\nextra_charge_on_statement\nfailed_transfer\nfiat_currency_support\nget_disposable_virtual_card\nget_physical_card\ngetting_spare_card\ngetting_virtual_card\nlost_or_stolen_card\nlost_or_stolen_phone\norder_physical_card\npasscode_forgotten\npending_card_payment\npending_cash_withdrawal\npending_top_up\npending_transfer\npin_blocked\nreceiving_money\nRefund_not_showing_up\nrequest_refund\nreverted_card_payment?\nsupported_cards_and_currencies\nterminate_account\ntop_up_by_bank_transfer_charge\ntop_up_by_card_charge\ntop_up_by_cash_or_cheque\ntop_up_failed\ntop_up_limits\ntop_up_reverted\ntopping_up_by_card\ntransaction_charged_twice\ntransfer_fee_charged\ntransfer_into_account\ntransfer_not_received_by_recipient\ntransfer_timing\nunable_to_verify_identity\nverify_my_identity\nverify_source_of_funds\nverify_top_up\nvirtual_card_not_working\nvisa_or_mastercard\nwhy_verify_identity\nwrong_amount_of_cash_received\nwrong_exchange_rate_for_cash_withdrawal\n\nQuery: Is it possible to deposit money in GBP?\n\nGive the intent name as the answer.",
+    "output_schema": {
+     "additionalProperties": false,
+     "properties": {
+      "answer": {
+       "enum": [
+        "activate_my_card",
+        "age_limit",
+        "apple_pay_or_google_pay",
+        "atm_support",
+        "automatic_top_up",
+        "balance_not_updated_after_bank_transfer",
+        "balance_not_updated_after_cheque_or_cash_deposit",
+        "beneficiary_not_allowed",
+        "cancel_transfer",
+        "card_about_to_expire",
+        "card_acceptance",
+        "card_arrival",
+        "card_delivery_estimate",
+        "card_linking",
+        "card_not_working",
+        "card_payment_fee_charged",
+        "card_payment_not_recognised",
+        "card_payment_wrong_exchange_rate",
+        "card_swallowed",
+        "cash_withdrawal_charge",
+        "cash_withdrawal_not_recognised",
+        "change_pin",
+        "compromised_card",
+        "contactless_not_working",
+        "country_support",
+        "declined_card_payment",
+        "declined_cash_withdrawal",
+        "declined_transfer",
+        "direct_debit_payment_not_recognised",
+        "disposable_card_limits",
+        "edit_personal_details",
+        "exchange_charge",
+        "exchange_rate",
+        "exchange_via_app",
+        "extra_charge_on_statement",
+        "failed_transfer",
+        "fiat_currency_support",
+        "get_disposable_virtual_card",
+        "get_physical_card",
+        "getting_spare_card",
+        "getting_virtual_card",
+        "lost_or_stolen_card",
+        "lost_or_stolen_phone",
+        "order_physical_card",
+        "passcode_forgotten",
+        "pending_card_payment",
+        "pending_cash_withdrawal",
+        "pending_top_up",
+        "pending_transfer",
+        "pin_blocked",
+        "receiving_money",
+        "Refund_not_showing_up",
+        "request_refund",
+        "reverted_card_payment?",
+        "supported_cards_and_currencies",
+        "terminate_account",
+        "top_up_by_bank_transfer_charge",
+        "top_up_by_card_charge",
+        "top_up_by_cash_or_cheque",
+        "top_up_failed",
+        "top_up_limits",
+        "top_up_reverted",
+        "topping_up_by_card",
+        "transaction_charged_twice",
+        "transfer_fee_charged",
+        "transfer_into_account",
+        "transfer_not_received_by_recipient",
+        "transfer_timing",
+        "unable_to_verify_identity",
+        "verify_my_identity",
+        "verify_source_of_funds",
+        "verify_top_up",
+        "virtual_card_not_working",
+        "visa_or_mastercard",
+        "why_verify_identity",
+        "wrong_amount_of_cash_received",
+        "wrong_exchange_rate_for_cash_withdrawal"
+       ],
+       "type": "string"
+      }
+     },
+     "required": [
+      "answer"
+     ],
+     "type": "object"
+    },
+    "outcomes": {
+     "haiku": false,
+     "sonnet": false,
+     "opus_low": false
+    }
+   },
+   {
+    "item_id": "ifeval:3732",
+    "prompt": "What are the best things to do in Rochester, New York? Can you write them as a song and use music notation in your response? Make sure to include the keywords 'festival' and 'river'.",
+    "output_schema": null,
+    "outcomes": {
+     "haiku": true,
+     "sonnet": true,
+     "opus_low": true
+    }
+   },
+   {
+    "item_id": "mbppplus:109",
+    "prompt": "Write a Python function for the task below. It must pass this example test:\n\nassert odd_Equivalent(\"011001\",6) == 3\n\nTask: Write a python function to find the number of numbers with an odd value when rotating a binary string the given number of times.\n\nReturn the complete function, with any imports it needs, in a single ```python code block.",
+    "output_schema": null,
+    "outcomes": {
+     "haiku": true,
+     "sonnet": false,
+     "opus_low": true
+    }
+   },
+   {
+    "item_id": "mbppplus:311",
+    "prompt": "Write a Python function for the task below. It must pass this example test:\n\nassert set_left_most_unset_bit(10) == 14\n\nTask: Write a python function to set the left most unset bit.\n\nReturn the complete function, with any imports it needs, in a single ```python code block.",
+    "output_schema": null,
+    "outcomes": {
+     "haiku": false,
+     "sonnet": true,
+     "opus_low": true
+    }
+   },
+   {
+    "item_id": "mmlu_pro:7317",
+    "prompt": "Answer the following multiple-choice question.\n\nA Hausman test would be used for\n\nA. Testing for the presence of multicollinearity in a regression model\nB. Checking the validity of the instrumental variables\nC. Determining whether a variable is endogenous or exogenous\nD. Determining whether an equation that is part of a simultaneous system is identified\nE. Determining whether 2SLS or ILS is optimal\nF. Determining whether a simultaneous framework is needed for a particular variable\nG. Determining the order of integration in a time series\nH. Determining whether the structural form equations can be obtained via substitution from the reduced forms\nI. Testing the null hypothesis in a regression model\nJ. Checking the goodness of fit in a multiple regression model\n\nGive a short explanation, then the letter of the correct option as the answer.",
+    "output_schema": {
+     "additionalProperties": false,
+     "properties": {
+      "answer": {
+       "enum": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J"
+       ],
+       "type": "string"
+      },
+      "explanation": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "explanation",
+      "answer"
+     ],
+     "type": "object"
+    },
+    "outcomes": {
+     "haiku": false,
+     "sonnet": true,
+     "opus_low": true
+    }
+   },
+   {
+    "item_id": "banking77:test-0174",
+    "prompt": "Classify the customer's banking query into exactly one of these intents:\n\nactivate_my_card\nage_limit\napple_pay_or_google_pay\natm_support\nautomatic_top_up\nbalance_not_updated_after_bank_transfer\nbalance_not_updated_after_cheque_or_cash_deposit\nbeneficiary_not_allowed\ncancel_transfer\ncard_about_to_expire\ncard_acceptance\ncard_arrival\ncard_delivery_estimate\ncard_linking\ncard_not_working\ncard_payment_fee_charged\ncard_payment_not_recognised\ncard_payment_wrong_exchange_rate\ncard_swallowed\ncash_withdrawal_charge\ncash_withdrawal_not_recognised\nchange_pin\ncompromised_card\ncontactless_not_working\ncountry_support\ndeclined_card_payment\ndeclined_cash_withdrawal\ndeclined_transfer\ndirect_debit_payment_not_recognised\ndisposable_card_limits\nedit_personal_details\nexchange_charge\nexchange_rate\nexchange_via_app\nextra_charge_on_statement\nfailed_transfer\nfiat_currency_support\nget_disposable_virtual_card\nget_physical_card\ngetting_spare_card\ngetting_virtual_card\nlost_or_stolen_card\nlost_or_stolen_phone\norder_physical_card\npasscode_forgotten\npending_card_payment\npending_cash_withdrawal\npending_top_up\npending_transfer\npin_blocked\nreceiving_money\nRefund_not_showing_up\nrequest_refund\nreverted_card_payment?\nsupported_cards_and_currencies\nterminate_account\ntop_up_by_bank_transfer_charge\ntop_up_by_card_charge\ntop_up_by_cash_or_cheque\ntop_up_failed\ntop_up_limits\ntop_up_reverted\ntopping_up_by_card\ntransaction_charged_twice\ntransfer_fee_charged\ntransfer_into_account\ntransfer_not_received_by_recipient\ntransfer_timing\nunable_to_verify_identity\nverify_my_identity\nverify_source_of_funds\nverify_top_up\nvirtual_card_not_working\nvisa_or_mastercard\nwhy_verify_identity\nwrong_amount_of_cash_received\nwrong_exchange_rate_for_cash_withdrawal\n\nQuery: I noticed an extra $1 charge on my statement, can you tell me why that is?\n\nGive the intent name as the answer.",
+    "output_schema": {
+     "additionalProperties": false,
+     "properties": {
+      "answer": {
+       "enum": [
+        "activate_my_card",
+        "age_limit",
+        "apple_pay_or_google_pay",
+        "atm_support",
+        "automatic_top_up",
+        "balance_not_updated_after_bank_transfer",
+        "balance_not_updated_after_cheque_or_cash_deposit",
+        "beneficiary_not_allowed",
+        "cancel_transfer",
+        "card_about_to_expire",
+        "card_acceptance",
+        "card_arrival",
+        "card_delivery_estimate",
+        "card_linking",
+        "card_not_working",
+        "card_payment_fee_charged",
+        "card_payment_not_recognised",
+        "card_payment_wrong_exchange_rate",
+        "card_swallowed",
+        "cash_withdrawal_charge",
+        "cash_withdrawal_not_recognised",
+        "change_pin",
+        "compromised_card",
+        "contactless_not_working",
+        "country_support",
+        "declined_card_payment",
+        "declined_cash_withdrawal",
+        "declined_transfer",
+        "direct_debit_payment_not_recognised",
+        "disposable_card_limits",
+        "edit_personal_details",
+        "exchange_charge",
+        "exchange_rate",
+        "exchange_via_app",
+        "extra_charge_on_statement",
+        "failed_transfer",
+        "fiat_currency_support",
+        "get_disposable_virtual_card",
+        "get_physical_card",
+        "getting_spare_card",
+        "getting_virtual_card",
+        "lost_or_stolen_card",
+        "lost_or_stolen_phone",
+        "order_physical_card",
+        "passcode_forgotten",
+        "pending_card_payment",
+        "pending_cash_withdrawal",
+        "pending_top_up",
+        "pending_transfer",
+        "pin_blocked",
+        "receiving_money",
+        "Refund_not_showing_up",
+        "request_refund",
+        "reverted_card_payment?",
+        "supported_cards_and_currencies",
+        "terminate_account",
+        "top_up_by_bank_transfer_charge",
+        "top_up_by_card_charge",
+        "top_up_by_cash_or_cheque",
+        "top_up_failed",
+        "top_up_limits",
+        "top_up_reverted",
+        "topping_up_by_card",
+        "transaction_charged_twice",
+        "transfer_fee_charged",
+        "transfer_into_account",
+        "transfer_not_received_by_recipient",
+        "transfer_timing",
+        "unable_to_verify_identity",
+        "verify_my_identity",
+        "verify_source_of_funds",
+        "verify_top_up",
+        "virtual_card_not_working",
+        "visa_or_mastercard",
+        "why_verify_identity",
+        "wrong_amount_of_cash_received",
+        "wrong_exchange_rate_for_cash_withdrawal"
+       ],
+       "type": "string"
+      }
+     },
+     "required": [
+      "answer"
+     ],
+     "type": "object"
+    },
+    "outcomes": {
+     "haiku": true,
+     "sonnet": true,
+     "opus_low": true
+    }
+   },
+   {
+    "item_id": "mmlu_pro:11354",
+    "prompt": "Answer the following multiple-choice question.\n\nThe bandwidth and cut-off frequency of an antenna are 0.8 MHz and 44 MHz respectively. Calculate the Q-factor of theantenna.\n\nA. 55\nB. 50\nC. 75\nD. 85\nE. 65\nF. 70\nG. 80\nH. 45\nI. 60\nJ. 90\n\nGive a short explanation, then the letter of the correct option as the answer.",
+    "output_schema": {
+     "additionalProperties": false,
+     "properties": {
+      "answer": {
+       "enum": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J"
+       ],
+       "type": "string"
+      },
+      "explanation": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "explanation",
+      "answer"
+     ],
+     "type": "object"
+    },
+    "outcomes": {
+     "haiku": true,
+     "sonnet": true,
+     "opus_low": true
+    }
+   },
+   {
+    "item_id": "ifeval:1069",
+    "prompt": "Write a long email template that invites a group of participants to a meeting, with at least 500 words. The email must include the keywords \"correlated\" and \"experiencing\" and should not use any commas.",
+    "output_schema": null,
+    "outcomes": {
+     "haiku": false,
+     "sonnet": true,
+     "opus_low": true
+    }
+   },
+   {
+    "item_id": "mmlu_pro:9019",
+    "prompt": "Answer the following multiple-choice question.\n\nA bird is lost in a 3 by 3 by 3 cubical maze. The bird flies from room to room going to adjoining rooms with equal probability through each of the walls. To be specific, the corner rooms have 3 exits. What is the entropy rate of this random walk? Use base 2 logarithm and return the entropy rate in bits.\n\nA. 1.95\nB. 2.03\nC. 1.85\nD. 2.25\nE. 2.10\nF. 1.75\nG. 1.50\nH. 1.65\nI. 2.15\nJ. 2.50\n\nGive a short explanation, then the letter of the correct option as the answer.",
+    "output_schema": {
+     "additionalProperties": false,
+     "properties": {
+      "answer": {
+       "enum": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J"
+       ],
+       "type": "string"
+      },
+      "explanation": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "explanation",
+      "answer"
+     ],
+     "type": "object"
+    },
+    "outcomes": {
+     "haiku": true,
+     "sonnet": true,
+     "opus_low": true
+    }
+   },
+   {
+    "item_id": "ifeval:1216",
+    "prompt": "What sentiments existed in the Croatian and Serbian nations towards the Austrian Empire at the end of the 19th century? Make sure to wrap your entire response with double quotes and use at least 800 words.",
+    "output_schema": null,
+    "outcomes": {
+     "haiku": false,
+     "sonnet": true,
+     "opus_low": true
+    }
+   },
+   {
+    "item_id": "mbppplus:269",
+    "prompt": "Write a Python function for the task below. It must pass this example test:\n\nassert ascii_value('A')==65\n\nTask: Write a function to find the ascii value of a character.\n\nReturn the complete function, with any imports it needs, in a single ```python code block.",
+    "output_schema": null,
+    "outcomes": {
+     "haiku": true,
+     "sonnet": true,
+     "opus_low": true
+    }
+   }
+  ],
+  "clip": [
+   0.005,
+   0.995
+  ]
+ },
+ "noise_sample": {
+  "seed": 2026,
+  "item_ids": [
+   "banking77:test-2307",
+   "banking77:test-0356",
+   "banking77:test-2315",
+   "banking77:test-0383",
+   "banking77:test-0366",
+   "banking77:test-1837",
+   "banking77:test-2040",
+   "banking77:test-1946",
+   "banking77:test-1417",
+   "banking77:test-1210",
+   "banking77:test-2956",
+   "banking77:test-2069",
+   "banking77:test-2830",
+   "banking77:test-2557",
+   "banking77:test-0689",
+   "banking77:test-1671",
+   "banking77:test-2921",
+   "banking77:test-1003",
+   "banking77:test-2359",
+   "banking77:test-2159",
+   "banking77:test-1584",
+   "banking77:test-2810",
+   "banking77:test-0765",
+   "banking77:test-2840",
+   "banking77:test-1321",
+   "ifeval:371",
+   "ifeval:2275",
+   "ifeval:1893",
+   "ifeval:3445",
+   "ifeval:3538",
+   "ifeval:1646",
+   "ifeval:321",
+   "ifeval:1094",
+   "ifeval:1477",
+   "ifeval:2432",
+   "ifeval:1645",
+   "ifeval:251",
+   "ifeval:1281",
+   "ifeval:3739",
+   "ifeval:13",
+   "ifeval:1300",
+   "ifeval:2034",
+   "ifeval:1593",
+   "ifeval:2857",
+   "ifeval:2305",
+   "ifeval:1834",
+   "ifeval:3479",
+   "ifeval:2628",
+   "ifeval:3380",
+   "ifeval:1418",
+   "mbppplus:309",
+   "mbppplus:286",
+   "mbppplus:128",
+   "mbppplus:247",
+   "mbppplus:775",
+   "mbppplus:471",
+   "mbppplus:760",
+   "mbppplus:20",
+   "mbppplus:64",
+   "mbppplus:278",
+   "mbppplus:578",
+   "mbppplus:581",
+   "mbppplus:406",
+   "mbppplus:723",
+   "mbppplus:67",
+   "mbppplus:97",
+   "mbppplus:797",
+   "mbppplus:397",
+   "mbppplus:558",
+   "mbppplus:787",
+   "mbppplus:171",
+   "mbppplus:474",
+   "mbppplus:614",
+   "mbppplus:435",
+   "mbppplus:599",
+   "mmlu_pro:5111",
+   "mmlu_pro:7895",
+   "mmlu_pro:8712",
+   "mmlu_pro:8235",
+   "mmlu_pro:7970",
+   "mmlu_pro:11735",
+   "mmlu_pro:594",
+   "mmlu_pro:9364",
+   "mmlu_pro:10384",
+   "mmlu_pro:4075",
+   "mmlu_pro:6078",
+   "mmlu_pro:6263",
+   "mmlu_pro:9660",
+   "mmlu_pro:10920",
+   "mmlu_pro:5242",
+   "mmlu_pro:9455",
+   "mmlu_pro:8634",
+   "mmlu_pro:10452",
+   "mmlu_pro:4928",
+   "mmlu_pro:12245",
+   "mmlu_pro:2807",
+   "mmlu_pro:1607",
+   "mmlu_pro:7782",
+   "mmlu_pro:2082",
+   "mmlu_pro:5490"
+  ]
+ },
+ "budget_bytes": {
+  "jev": 29632,
+  "jev_bolstered": 5980
+ },
+ "retry": {
+  "attempts": 8,
+  "backoff_start_s": 1,
+  "backoff_cap_s": 60,
+  "retry_after_cap_s": 600,
+  "timeout_s": 30
+ }
+}

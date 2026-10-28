@@ -519,6 +519,32 @@ def print_router_task(task: str, panel: dict, routers: tuple[RouterEntry, ...]) 
     print_table(["row", "quality", "$ per 1k", "b", "c", "p"], rows)
 
 
+OVERHEAD_LINE = "G's and G+'s costs include Jev's overhead per request, and E's and F's have none."
+
+
+def stepped_line(routers: tuple[RouterEntry, ...]) -> str:
+    """The sentence on how the routers' steps are drawn: "E's, F's, G's and G+'s steps are joined ..."."""
+    names = [f"{router.short}'s" for router in routers]
+    whose = names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+    return f"{whose} steps are joined by straight lines in linear cost, in walk order from A"
+
+
+def headline_caption(basis: str, crosses: str, routers: tuple[RouterEntry, ...]) -> str:
+    """The headline figure's caption (A15 item 15): the basis and crosses, the pointer to the tables, how the steps
+    and crosses are drawn and, last, the line on Jev's overhead."""
+    return (f"Dev split, {basis}. {crosses} Differences between policies are judged by the paired intervals in tables "
+            f"v0 and v1 ({FIGURE_DATA.relative_to(PROJECT_ROOT)}) and v3 (figures/table_v3.json), not by whether "
+            f"crosses overlap. {stepped_line(routers)}; their crosses mark their operating points, each labeled with "
+            f"its target. {OVERHEAD_LINE}")  # fmt: skip
+
+
+def task_caption(basis: str, counts: str, crosses: str, routers: tuple[RouterEntry, ...]) -> str:
+    """The per-task figure's caption: as the headline's, with the task sizes and no operating points."""
+    return (f"Dev split, {basis} ({counts}). Each task on its own, with its own envelope and oracle. {crosses} No "
+            f"quality targets: verdicts are given for the two mixes only (Amendment A7). {stepped_line(routers)}, "
+            f"with no operating points. {OVERHEAD_LINE}")  # fmt: skip
+
+
 def main() -> int:
     dev = load().split("dev")
     snapshot = load_models()["price_snapshot"]
@@ -663,16 +689,10 @@ def main() -> int:
         path.write_text(json.dumps(data, indent=2) + "\n")
 
     crosses = f"Crosses are 95% intervals from {RESAMPLES:,} resamples of source groups within each task."
-    whose = " and ".join(f"{router.short}'s" for router in ROUTERS)
-    stepped = f"{whose} steps are joined by straight lines in linear cost, in walk order from A"
-    draw_headline(panels, {"realistic": realistic_note(mixes["realistic"], per_task["mbppplus"]["items"])},
-                  f"Dev split, {basis}. {crosses} Differences between policies are judged by the paired intervals "
-                  f"in tables v0 and v1 ({FIGURE_DATA.relative_to(PROJECT_ROOT)}), not by whether crosses overlap. "
-                  f"{stepped}; their crosses mark their operating points, each labeled with its target.", FIGURE)  # fmt: skip
     counts = ", ".join(f"{TASKS[task]} {panel['items']}" for task, panel in per_task.items())
-    draw_tasks(per_task, f"Dev split, {basis} ({counts}). Each task on its own, with its own envelope and oracle. "
-                         f"{crosses} No quality targets: verdicts are given for the two mixes only (Amendment A7). "
-                         f"{stepped}, with no operating points.", TASK_FIGURE)  # fmt: skip
+    draw_headline(panels, {"realistic": realistic_note(mixes["realistic"], per_task["mbppplus"]["items"])},
+                  headline_caption(basis, crosses, ROUTERS), FIGURE)  # fmt: skip
+    draw_tasks(per_task, task_caption(basis, counts, crosses, ROUTERS), TASK_FIGURE)
     written = (FIGURE, FIGURE_DATA, TASK_FIGURE, TASK_FIGURE_DATA)
     print(f"\nWrote {', '.join(str(path.relative_to(PROJECT_ROOT)) for path in written)}")
     return 0
