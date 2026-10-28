@@ -24,6 +24,7 @@ from collections.abc import Callable
 import numpy as np
 
 from analysis.check_jev_call import imported_packages, synthetic_data
+from analysis.checking import refused
 from analysis.freeze import closure
 from harness.client import PROJECT_ROOT
 from routers import jev, jev_call
@@ -36,14 +37,6 @@ def check(ok: bool, what: str) -> None:
     print(f"{'PASS' if ok else 'FAIL'}  {what}")
     if not ok:
         problems.append(what)
-
-
-def refused(call: Callable[[], object]) -> bool:
-    try:
-        call()
-    except jev.GPlusError:
-        return True
-    return False
 
 
 def close(got: object, want: object, tolerance: float = 1e-6) -> bool:
@@ -187,14 +180,14 @@ def main() -> int:
         "no features": lambda d: d.pop("features"),
     }
     for what, change in weight_refusals.items():
-        check(refused(mutated(change)), f"a weights file with {what} is refused")
-    check(not refused(mutated(lambda d: None)), "the guard lets a well-formed weights file through")
+        check(refused(jev.GPlusError, mutated(change)), f"a weights file with {what} is refused")
+    check(not refused(jev.GPlusError, mutated(lambda d: None)), "the guard lets a well-formed weights file through")
 
     # The function that orders the features also refuses a weights object whose order differs from the settings'.
     reordered = jev.GPlusWeights(
         features=tuple(reversed(FEATURES)), mean=weights.mean, scale=weights.scale, heads=weights.heads
     )
-    check(refused(lambda: jev.g_plus_features(answers, request, settings, reordered)),
+    check(refused(jev.GPlusError, lambda: jev.g_plus_features(answers, request, settings, reordered)),
           "features are refused against a weights object whose order differs from the settings'")  # fmt: skip
 
     print("\n-- the answers --")
@@ -219,8 +212,8 @@ def main() -> int:
         "a Choice probability above 1": lambda a: a["request_type"].update({"opt one": 1.5}),
     }
     for what, change in answer_refusals.items():
-        check(refused(answered(change)), f"{what} is refused, not scored")
-    check(not refused(answered(lambda a: None)), "the guard lets well-formed answers through")
+        check(refused(jev.GPlusError, answered(change)), f"{what} is refused, not scored")
+    check(not refused(jev.GPlusError, answered(lambda a: None)), "the guard lets well-formed answers through")
 
     print("\n-- the weights file on disk --")
     check(jev.WEIGHTS_FILE.name == "jev_weights.json" and jev.WEIGHTS_FILE.parent == (PROJECT_ROOT / "routers"),

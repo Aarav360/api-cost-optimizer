@@ -25,6 +25,7 @@ import subprocess
 import sys
 from collections.abc import Callable
 
+from analysis.checking import refused
 from analysis.freeze import closure
 from harness.client import PROJECT_ROOT
 from routers import jev_call
@@ -37,14 +38,6 @@ def check(ok: bool, what: str) -> None:
     print(f"{'PASS' if ok else 'FAIL'}  {what}")
     if not ok:
         problems.append(what)
-
-
-def refused(error: type[Exception], call: Callable[[], object]) -> bool:
-    try:
-        call()
-    except error:
-        return True
-    return False
 
 
 def imported_packages(tree: ast.AST) -> set[str]:

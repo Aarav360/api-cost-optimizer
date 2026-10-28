@@ -159,7 +159,7 @@ JEV = RouterEntry(
     label=LABELS[G],
     short=G,
     style=G_STYLE,
-    dev_table=_jev_dev_table("jev"),
+    dev_table=_jev_dev_table(NAMED_ROUTERS[G]),
     walks=dev_walks,
 )
 
@@ -168,7 +168,7 @@ JEV_BOLSTERED = RouterEntry(
     label=LABELS[G_PLUS],
     short=G_PLUS,
     style=G_PLUS_STYLE,
-    dev_table=_jev_dev_table("jev_bolstered"),
+    dev_table=_jev_dev_table(NAMED_ROUTERS[G_PLUS]),
     walks=dev_walks,
 )
 

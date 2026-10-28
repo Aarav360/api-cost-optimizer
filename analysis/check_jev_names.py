@@ -10,6 +10,10 @@ is `check_stage4`'s and `check_stage5`'s, which need `results/`.
   a label each, in `analysis/router_names.py`, and E's and F's names and labels are as they were;
 - the operating-points allowlist accepts both sections, singly and together, accepts them as required sections, and
   still refuses F-train and the diagnostics (known positive: it refuses F-train in a file that also holds G's section);
+- the names are typed in one place: no module of `analysis/` spells `"jev_bolstered"` or `"G+"` as a string constant
+  except `router_names.py`, the modules a freeze hashes (editing one means re-selecting G and G+, A15 item 13) and the
+  checks that mirror the settings file's own keys or hold an expected value (known positives: the scan finds the
+  literal in two hashed modules and in a temporary file, and passes a file that only mentions it in a docstring);
 - the chart's router list holds E, F, G and G+ in that order (Stage 6 · 12 added the last two; they were reserved before),
   and their two styles in `analysis/chart_routers.py` have a colour, a marker, a point marker and a line that no other
   router's shares,
@@ -18,17 +22,37 @@ is `check_stage4`'s and `check_stage5`'s, which need `results/`.
   stands within 3 of).
 """
 
+import ast
 import sys
 import tempfile
-from collections.abc import Callable
 from pathlib import Path
 
 from analysis.chart_routers import E_STYLE, F_STYLE, G_PLUS_STYLE, G_STYLE, ROUTERS
 from analysis.check_chart_routers import APART, gap
+from analysis.check_jev_freeze import frozen_paths
+from analysis.check_jev_settings_commit import COMMIT_FILES
+from analysis.checking import refused
 from analysis.operating_points import OperatingPointsError, check_sections, write_section
 from analysis.pareto import SERIES_1, SERIES_2, SERIES_3
 from analysis.router_names import F_TRAIN, G_PLUS, LABELS, NAMED_ROUTERS, TASK_RATES, E, F, G
 
+# What the scan looks for: the two names no router's code should spell out. "jev" is also a folder and a settings key,
+# so a scan for it could not tell a router from those.
+SPELLED = ("jev_bolstered", "G+")
+# Modules that may spell them, each for a reason: the one place, the checks' expected values, and the checks that
+# mirror the settings file's own keys, which the hashed `routers/jev_call.py` reads.
+MAY_SPELL = {
+    "router_names.py": "the one place",
+    "check_jev_names.py": "expected values",
+    "check_chart_routers.py": "expected values",
+    "check_jev_settings.py": "the settings file's keys",
+    "check_jev_settings_commit.py": "the settings file's keys",
+    "check_jev_call.py": "the settings file's keys",
+    "check_jev_client.py": "the settings file's keys",
+}
+HASHED_MODULES = {
+    Path(p).name for p in (*frozen_paths(), *COMMIT_FILES) if p.startswith("analysis/") and p.endswith(".py")
+}
 problems: list[str] = []
 
 
@@ -38,12 +62,15 @@ def check(ok: bool, what: str) -> None:
         problems.append(what)
 
 
-def refused(call: Callable[[], object]) -> bool:
-    try:
-        call()
-    except OperatingPointsError:
-        return True
-    return False
+def spelled_in(source: str) -> list[str]:
+    """The names of `SPELLED` that a module's source holds as a string constant (a docstring that merely mentions one
+    is a longer string, so it does not count)."""
+    return sorted({n.value for n in ast.walk(ast.parse(source)) if isinstance(n, ast.Constant) and n.value in SPELLED})
+
+
+def spellers(folder: Path) -> dict[str, list[str]]:
+    """The modules under `folder` that spell a router name out, with the names."""
+    return {p.name: found for p in sorted(folder.glob("*.py")) if (found := spelled_in(p.read_text(encoding="utf-8")))}
 
 
 def main() -> int:
@@ -61,6 +88,25 @@ def main() -> int:
     check(len(set(NAMED_ROUTERS.values())) == 4 and len(set(LABELS.values())) == 4,
           "no two routers share a section or a label")  # fmt: skip
 
+    print("\n-- the names are typed in one place --")
+    found = spellers(Path(__file__).resolve().parent)
+    check(spelled_in('G_PLUS = "G+"') == ["G+"] and spelled_in('x = ["jev_bolstered"]') == ["jev_bolstered"],
+          "known positive: the scan finds each name as a string constant")  # fmt: skip
+    check(spelled_in('"""A docstring that says "jev_bolstered" and G+ in passing."""') == [] and spelled_in("x = 1") == [],
+          "and passes a docstring that only mentions one, and a module with neither")  # fmt: skip
+    check({"build_jev_settings.py", "fit_jev_router.py"} <= set(found) <= {*HASHED_MODULES, *MAY_SPELL},
+          "known positive: the real scan finds the literals in the hashed builder and fit script")  # fmt: skip
+    with tempfile.TemporaryDirectory() as folder:
+        (Path(folder) / "typed_again.py").write_text('NAME = "jev_bolstered"\n')
+        check(
+            spellers(Path(folder)) == {"typed_again.py": ["jev_bolstered"]},
+            "known positive: a new module that types a name is found",
+        )
+    stray = sorted(set(found) - set(MAY_SPELL) - HASHED_MODULES)
+    check(stray == [], f"no other module under analysis/ spells a router name out {stray}")
+    check("router_names.py" in found and set(MAY_SPELL) >= {"router_names.py"} and HASHED_MODULES >= {"fit_jev_router.py", "smoke_jev.py"},
+          "the one place and the hashed modules the allowlist stands on are the ones found")  # fmt: skip
+
     print("\n-- the operating-points allowlist --")
     jev, bolstered = NAMED_ROUTERS[G], NAMED_ROUTERS[G_PLUS]
     with tempfile.TemporaryDirectory() as folder:
@@ -75,13 +121,13 @@ def main() -> int:
         write_section(bolstered, {}, only)
         check_sections(only)
         check(True, "G+'s section alone passes")
-        check(refused(lambda: check_sections(only, required=(jev, bolstered))),
+        check(refused(OperatingPointsError, lambda: check_sections(only, required=(jev, bolstered))),
               "a required section that is missing is refused")  # fmt: skip
         for name in (F_TRAIN, TASK_RATES, "jev_diagnostic"):
             other = Path(folder) / "other.json"
             other.write_text(both.read_text())
             write_section(name, {}, other)
-            check(refused(lambda: check_sections(other)),
+            check(refused(OperatingPointsError, lambda: check_sections(other)),
                   f"known positive: {name!r} in a file that holds G's and G+'s sections is refused")  # fmt: skip
 
     print("\n-- the chart's router list and the two reserved styles --")

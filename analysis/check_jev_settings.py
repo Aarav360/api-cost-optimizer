@@ -29,7 +29,6 @@ import sqlite3
 import sys
 import tempfile
 from collections import Counter
-from collections.abc import Callable
 from contextlib import closing
 from pathlib import Path
 
@@ -37,6 +36,7 @@ from analysis import build_jev_settings as builder
 from analysis import matrix
 from analysis.benchmark import read_rows
 from analysis.build_jev_settings import SettingsBuildError, build, build_from_files, settings_text
+from analysis.checking import refused
 from harness.client import load_models
 from harness.collect import MAIN
 
@@ -62,14 +62,6 @@ def check(ok: bool, what: str) -> None:
     print(f"{'PASS' if ok else 'FAIL'}  {what}")
     if not ok:
         problems.append(what)
-
-
-def refused(call: Callable[[], object], error: type[Exception] = SettingsBuildError) -> bool:
-    try:
-        call()
-    except error:
-        return True
-    return False
 
 
 def fails(config: str, number: int) -> bool:
@@ -206,7 +198,7 @@ def main() -> int:
         check(all(type(v) is int and 0 <= v <= 100 for v in plus["rates"].values()), "rates are whole percents")
         check([builder.whole_percent(*a) for a in ((2, 3), (1, 8), (1, 3), (5, 8), (0, 5), (5, 5))]
               == [67, 13, 33, 63, 0, 100], "whole percents: 2/3 is 67, 1/8 (12.5) is 13, 1/3 is 33, 5/8 is 63")  # fmt: skip
-        check(refused(lambda: builder.whole_percent(0, 0)), "a rate over no items is refused")
+        check(refused(SettingsBuildError, lambda: builder.whole_percent(0, 0)), "a rate over no items is refused")
 
         print("\n-- the noise sample --")
         noise = settings["noise_sample"]
@@ -302,17 +294,31 @@ def main() -> int:
         print("\n-- refusals --")
         success = {(r["item_id"], c): not fails(c, int(r["item_id"][2:])) for r in train for c in CONFIGS}
         none_fail = {**success, **{(f"a:{n:03d}", "haiku"): True for n in range(0, 60, 5)}}
-        check(refused(lambda: build(train, none_fail)), "a task where haiku failed nothing is refused")
+        check(
+            refused(SettingsBuildError, lambda: build(train, none_fail)), "a task where haiku failed nothing is refused"
+        )
         one_fail = {**success, **{(f"a:{n:03d}", "haiku"): True for n in range(5, 60, 5)}}
-        check(refused(lambda: build(train, one_fail)), "a task where haiku failed once, not twice, is refused")
+        check(
+            refused(SettingsBuildError, lambda: build(train, one_fail)),
+            "a task where haiku failed once, not twice, is refused",
+        )
         small = [r for r in train if r["source"] != "a" or int(r["item_id"][2:]) < 15]
-        check(refused(lambda: build(small, success)), "a task with under 25 items outside the groups is refused")
+        check(
+            refused(SettingsBuildError, lambda: build(small, success)),
+            "a task with under 25 items outside the groups is refused",
+        )
         missing = {k: v for k, v in success.items() if k != ("b:010", "sonnet")}
-        check(refused(lambda: build(train, missing)), "a missing outcome is refused")
+        check(refused(SettingsBuildError, lambda: build(train, missing)), "a missing outcome is refused")
         dev_row = next(r for r in rows if r["split"] == "dev")
-        check(refused(lambda: build([*train, dev_row], success)), "a row list with a dev row among train's is refused")
-        check(refused(lambda: build([r for r in rows if r["split"] == "dev"], success)), "dev rows are refused")
-        check(refused(lambda: builder.excluded_groups(settings, [r for r in train if r["source"] != "a"])),
+        check(
+            refused(SettingsBuildError, lambda: build([*train, dev_row], success)),
+            "a row list with a dev row among train's is refused",
+        )
+        check(
+            refused(SettingsBuildError, lambda: build([r for r in rows if r["split"] == "dev"], success)),
+            "dev rows are refused",
+        )
+        check(refused(SettingsBuildError, lambda: builder.excluded_groups(settings, [r for r in train if r["source"] != "a"])),
               "a past request outside the rows given is refused")  # fmt: skip
 
         print("\n-- train's cells alone --")
@@ -329,7 +335,7 @@ def main() -> int:
         check({i.split for i in whole.items.values()} == {"train", "dev"},
               "known positive: the whole-matrix path holds dev items as well")  # fmt: skip
         bad = write_store(directory, rows, "bad.sqlite", bad_dev_price=True)
-        check(refused(lambda: matrix.from_store(matrix.read_store(bad), bench), matrix.MatrixError),
+        check(refused(matrix.MatrixError, lambda: matrix.from_store(matrix.read_store(bad), bench)),
               "known positive: a bad dev row refuses the whole-matrix path")  # fmt: skip
         check(len(matrix.load_train(bad, bench).cells) == 720 and build_from_files(bench, bad).settings == settings,
               "the same store builds the same settings through train's cells, never examining the dev row")  # fmt: skip

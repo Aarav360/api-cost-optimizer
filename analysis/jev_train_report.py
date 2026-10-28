@@ -19,6 +19,7 @@ compares the record with both.
 
 import email.utils
 import hashlib
+import ipaddress
 import platform
 import statistics
 import subprocess
@@ -33,6 +34,7 @@ import numpy as np
 
 from analysis import collect_jev
 from analysis.benchmark import read_rows
+from analysis.router_names import LETTER_OF
 from routers import jev_call
 from routers.request import Request, from_row
 
@@ -132,7 +134,9 @@ def rebuild(
 ) -> Rebuilt:
     """Build each stored call again with the frozen code and the settings' budget: name those whose body hash differs
     from the stored one, and count the cuts."""
-    build = jev_call.g_call if router == "jev" else jev_call.g_plus_call
+    if router not in collect_jev.CALLS:
+        raise ReportError(f"unknown router {router!r}")
+    build = collect_jev.CALLS[router].build
     mismatched, cut = [], 0
     for r in records:
         item = str(r["item_id"])
@@ -157,8 +161,53 @@ def machine() -> str:
     return f"{chip or platform.processor()}, {platform.system()} {platform.release()} {platform.machine()}, Python {platform.python_version()}"
 
 
+def collected_span(records: Sequence[Mapping[str, Any]]) -> tuple[str, str]:
+    """The earliest and latest `collected_at` stamp among the records, as stored (item 10 records dates and times)."""
+    if not records:
+        raise ReportError("no stored calls")
+    try:
+        stamps = sorted((datetime.fromisoformat(str(r["collected_at"])), str(r["collected_at"])) for r in records)
+    except ValueError as error:
+        raise ReportError(f"a call's collected_at is not a time: {error}") from error
+    return stamps[0][1], stamps[-1][1]
+
+
+def describe_network(route: str, ports: str) -> str:
+    """The network as A15 item 19 words it for train: the default route's hardware port and device, whether its gateway is
+    a private address, and that no network name or address is recorded. `route` is `route -n get default`'s output and
+    `ports` is `networksetup -listallhardwareports`'s. Neither the gateway's address nor a hardware address is kept."""
+    fields = {k.strip(): v.strip() for k, _, v in (line.partition(":") for line in route.splitlines())}
+    device = fields.get("interface")
+    if not device:
+        return "not determined"
+    name = None
+    for block in ports.split("\n\n"):
+        lines = {k.strip(): v.strip() for k, _, v in (line.partition(":") for line in block.splitlines())}
+        if lines.get("Device") == device:
+            name = lines.get("Hardware Port")
+    try:
+        private = ipaddress.ip_address(fields.get("gateway", "")).is_private
+    except ValueError:
+        private = False
+    where = f"{name} ({device})" if name else device
+    return f"{where}{' behind a private gateway' if private else ''}, no network name or address recorded"
+
+
+def network() -> str:
+    """This machine's network, described by `describe_network` from the system's own tools ("not determined" where
+    they are missing)."""
+    try:
+        route = subprocess.run(["route", "-n", "get", "default"], capture_output=True, text=True, check=False).stdout
+        ports = subprocess.run(
+            ["networksetup", "-listallhardwareports"], capture_output=True, text=True, check=False
+        ).stdout
+    except OSError:
+        return "not determined"
+    return describe_network(route, ports)
+
+
 def display(router: str) -> str:
-    return {"jev": "G", "jev_bolstered": "G+"}[router]
+    return LETTER_OF[router]
 
 
 def record_lines(router: str, counts: Counts, rebuilt: Rebuilt, timing: Latency) -> tuple[str, str]:
@@ -199,6 +248,7 @@ def main() -> int:
     both = [collect_jev.read_records(router, "train") for router in ROUTERS]
     print(f"first train call, server Date: {min(first_date(r) for r in both).strftime('%a, %d %b %Y %H:%M:%S GMT')}")
     print(f"machine: {machine()}")
+    print(f"network: {network()}")
     return 0
 
 

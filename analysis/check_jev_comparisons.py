@@ -26,13 +26,14 @@ import json
 import math
 import statistics
 import sys
-from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
 
+from analysis import collect_jev
 from analysis import jev_comparisons as comparisons
 from analysis.bootstrap import Estimate, resample
+from analysis.checking import refused
 from analysis.matrix import Matrix
 from analysis.router_names import F_TRAIN, G_PLUS, E, F, G
 from analysis.router_table import ItemRouterScores, RouterScoreTable
@@ -48,14 +49,6 @@ def check(ok: bool, what: str) -> None:
     print(f"{'PASS' if ok else 'FAIL'}  {what}")
     if not ok:
         problems.append(what)
-
-
-def refused(call: Callable[[], object], error: type[Exception] = comparisons.JevComparisonsError) -> bool:
-    try:
-        call()
-    except error:
-        return True
-    return False
 
 
 def near(got: float | None, want: float, tolerance: float = 1e-9) -> bool:
@@ -252,13 +245,13 @@ def synthetic_checks() -> None:
           "the data calls itself descriptive, with no multiplicity correction")  # fmt: skip
 
     print("\n-- the refusals --")
-    check(refused(lambda: comparisons.compare(dev, draws, MIXES, {k: v for k, v in walks.items() if k != F}, tables)),
+    check(refused(comparisons.JevComparisonsError, lambda: comparisons.compare(dev, draws, MIXES, {k: v for k, v in walks.items() if k != F}, tables)),
           "a walk missing for a router the comparisons name is refused whole")  # fmt: skip
-    check(refused(lambda: comparisons.compare(dev, draws, MIXES, walks, {G: tables[G]})),
+    check(refused(comparisons.JevComparisonsError, lambda: comparisons.compare(dev, draws, MIXES, walks, {G: tables[G]})),
           "a router-score table missing for G+ is refused whole")  # fmt: skip
-    check(refused(lambda: comparisons.compare(dev, draws, {"uniform": MIXES["uniform"]}, walks, tables)),
+    check(refused(comparisons.JevComparisonsError, lambda: comparisons.compare(dev, draws, {"uniform": MIXES["uniform"]}, walks, tables)),
           "walks for a mix the comparisons were not given are refused whole")  # fmt: skip
-    check(refused(lambda: comparisons.compare(dev, draws, MIXES, {**walks, E: {"uniform": walks[E]["uniform"]}}, tables)),
+    check(refused(comparisons.JevComparisonsError, lambda: comparisons.compare(dev, draws, MIXES, {**walks, E: {"uniform": walks[E]["uniform"]}}, tables)),
           "a router whose walks lack a mix is refused whole")  # fmt: skip
 
 
@@ -297,8 +290,8 @@ def val(x: float | None) -> float:
 
 
 def real_checks() -> None:
-    from analysis import collect_jev, jev_walk
     from analysis import jev_train_report as report
+    from analysis import jev_walk
     from analysis.benchmark import read_rows
     from analysis.operating_points import OPERATING_POINTS_FILE, build_section, check_sections, read_section
     from analysis.references import envelope
@@ -464,7 +457,7 @@ def main() -> int:
     synthetic_checks()
     have = (
         (PROJECT_ROOT / "results" / "dev_matrix.sqlite").exists()
-        and all((PROJECT_ROOT / "results" / "jev" / f"{r}_dev.jsonl").exists() for r in ("jev", "jev_bolstered"))
+        and all((PROJECT_ROOT / "results" / "jev" / f"{r}_dev.jsonl").exists() for r in collect_jev.ROUTERS)
     )  # fmt: skip
     if have:
         real_checks()

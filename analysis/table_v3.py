@@ -14,7 +14,8 @@ and for G+, from `analysis/jev_comparisons.py` and the walks (`analysis/jev_walk
   McNemar rows against A;
 - the **diagnostics, labeled "diagnostic, dev only"** (as table v2 labels F's): within-task concordance per config and
   G+ less G, and router-score quantiles, which read no outcome. None is a policy, and none selects a setting;
-- the **dev latency** (item 10) with its retries and failed attempts as counts beside it, and the **dev calls**: each
+- the **dev latency** (item 10) with its retries and failed attempts as counts beside it, the **conditions** it was timed
+  under (machine, network, dates and times) and the **dev calls**: each
   router's first call's server `Date`, which item 20 records and `analysis/check_stage6.py` compares.
 
 Only train and dev are read, never a test item, and no Jev call is made: the stored dev records and the dev matrix.
@@ -73,6 +74,9 @@ UNITS = {
     "latency": "dev, in seconds, per router: the successful attempt's median and p90 (numpy's linear percentile) over "
     "calls, per task, with the first call and every reconnect apart and the retries and failed attempts as counts "
     "(A15 item 10). It depends on the machine and the network and is quoted as measured",
+    "latency_conditions": "where and when the dev latency was timed (A15 item 10; A16 item 3): the machine and network "
+    "that hold the stored records, read when this table is built, and the earliest and latest `collected_at` stamp of "
+    "the dev calls, from the stored records. No network name or address is recorded",
     "dev_calls": "the server `Date` header of each router's first dev call and the earlier of the two "
     "(first_call_server_date), as A15 item 20 records it",
 }
@@ -128,6 +132,7 @@ def build(result: comparisons.JevComparisons | None = None) -> dict[str, Any]:
                         **{key: data[key] for key in ("within_task_concordance", "concordance_differences",
                                                       "router_score_quantiles")}},
         "latency": data["latency"],
+        "latency_conditions": data["latency_conditions"],
         "dev_calls": first_dates(),
     }  # fmt: skip
 

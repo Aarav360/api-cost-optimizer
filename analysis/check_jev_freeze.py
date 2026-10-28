@@ -28,7 +28,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
 
@@ -38,8 +38,10 @@ from analysis import collect_jev, fit_jev_router
 from analysis import jev_train_report as report
 from analysis.benchmark import read_rows
 from analysis.check_jev_settings_commit import COMMIT_FILES, changed_since, settings_commit
+from analysis.checking import git, refused
 from analysis.freeze import closure
 from analysis.plan import PLAN, amendment_item
+from analysis.router_names import G_PLUS, NAMED_ROUTERS, G
 from harness.client import PROJECT_ROOT
 from routers import jev, jev_call
 from routers.ladder import SCORED
@@ -54,6 +56,7 @@ SETTINGS_BUILDER = "analysis/build_jev_settings.py"
 SETTINGS = "routers/jev_settings.json"
 STORED = {router: f"results/jev/{router}_train.jsonl" for router in collect_jev.ROUTERS}
 
+G_SECTION, G_PLUS_SECTION = NAMED_ROUTERS[G], NAMED_ROUTERS[G_PLUS]  # the records' router names (A15 item 14)
 problems: list[str] = []
 
 
@@ -61,18 +64,6 @@ def check(ok: bool, what: str) -> None:
     print(f"{'PASS' if ok else 'FAIL'}  {what}")
     if not ok:
         problems.append(what)
-
-
-def refused(call: Callable[[], object]) -> bool:
-    try:
-        call()
-    except report.ReportError:
-        return True
-    return False
-
-
-def git(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["git", *args], cwd=PROJECT_ROOT, capture_output=True, text=True, check=False)
 
 
 def git_bytes(commit: str, relative: str) -> bytes | None:
@@ -102,13 +93,13 @@ def key_in(root: Path, key: str) -> list[str]:
 def record(
     item: str, seconds: float, *, tokens: int = 100, number: int = 1, attempts: int = 1, failed: int = 0,
     new: bool = False, refusal: bool = False, model: str = "jev-1.14.0", date: str = "Wed, 28 Oct 2026 03:04:01 GMT",
-    sha: str = "0" * 64,
+    sha: str = "0" * 64, at: str = "2026-10-27T20:04:01-07:00",
 ) -> dict:  # fmt: skip
     """A stored record with only the fields the measures read, in values easy to work by hand."""
     return {
         "item_id": item, "pass": number, "body_sha256": sha, "model": model, "server_date": date, "seconds": seconds,
         "usage": {"input_tokens": tokens, "output_tokens": 5}, "attempts": attempts,
-        "failed_attempts": [{"status": 500}] * failed, "new_connection": new, "refused": refusal,
+        "failed_attempts": [{"status": 500}] * failed, "new_connection": new, "refused": refusal, "collected_at": at,
     }  # fmt: skip
 
 
@@ -355,37 +346,64 @@ def main() -> int:
     check(abs(alpha[0] - 0.4) < 1e-12 and abs(alpha[1] - 0.48) < 1e-12 and alpha[2] == 3
           and timing.by_task["beta"] == (0.2, 0.2, 1),
           "per task: alpha's median 0.4 and p90 0.48 over three calls, beta's one call 0.2 (its reconnect is out)")  # fmt: skip
-    check(refused(lambda: report.latency([record("a:1", 0.5, new=True)], {"a:1": "alpha"})),
+    check(refused(report.ReportError, lambda: report.latency([record("a:1", 0.5, new=True)], {"a:1": "alpha"})),
           "known negative: a file of one call, with nothing left after the first, is refused")  # fmt: skip
-    check(refused(lambda: report.latency(records, {"a:1": "alpha"})), "a call whose task is unknown is refused")
+    check(
+        refused(report.ReportError, lambda: report.latency(records, {"a:1": "alpha"})),
+        "a call whose task is unknown is refused",
+    )
+
+    # Dates and times of a collection (item 10: "dates and times"), from the records' own stamps, out of order here.
+    stamped = [record("a:1", 0.1, at="2026-10-27T20:25:54-07:00"), record("a:2", 0.1, at="2026-10-27T20:28:16-07:00"),
+               record("b:1", 0.1, at="2026-10-27T20:26:50-07:00")]  # fmt: skip
+    check(report.collected_span(stamped) == ("2026-10-27T20:25:54-07:00", "2026-10-27T20:28:16-07:00"),
+          "the span of a collection is its earliest and latest stamp, whatever order they were stored in")  # fmt: skip
+    check(refused(report.ReportError, lambda: report.collected_span([])), "known negative: no calls, no span")
+    check(refused(report.ReportError, lambda: report.collected_span([record("a:1", 0.1, at="yesterday")])),
+          "a stamp that isn't a time is refused")  # fmt: skip
+    # The network, as `route` and `networksetup` print it (made-up addresses): the port's name, the device, and
+    # whether the gateway is a private address; no network name or address is kept.
+    route = "   route to: default\n destination: default\n     gateway: 192.168.0.1\n   interface: en0\n"
+    ports = "Hardware Port: Ethernet Adapter (en3)\nDevice: en3\n\nHardware Port: Wi-Fi\nDevice: en0\nEthernet Address: aa:bb\n"
+    check(report.describe_network(route, ports) == "Wi-Fi (en0) behind a private gateway, no network name or address recorded",
+          "the network is the default route's port and device, behind a private gateway, with no name or address")  # fmt: skip
+    check(report.describe_network(route.replace("192.168.0.1", "8.8.8.8"), ports)
+          == "Wi-Fi (en0), no network name or address recorded",
+          "known positive: a public gateway is not called private")  # fmt: skip
+    check("192.168" not in report.describe_network(route, ports) and "aa:bb" not in report.describe_network(route, ports),
+          "neither the gateway's address nor the hardware address is in the description")  # fmt: skip
+    check(report.describe_network("", ports) == "not determined" and report.describe_network(route, "")
+          == "en0 behind a private gateway, no network name or address recorded",
+          "known negative: no route is 'not determined', and a port that isn't listed is named by its device")  # fmt: skip
 
     first = report.first_date(records)
     check(first == email.utils.parsedate_to_datetime("Wed, 28 Oct 2026 03:04:01 GMT"), "the first call's Date is read")
     check(
-        refused(lambda: report.first_date([record("a:1", 0.1, date="yesterday")])), "a Date that isn't one is refused"
+        refused(report.ReportError, lambda: report.first_date([record("a:1", 0.1, date="yesterday")])),
+        "a Date that isn't one is refused",
     )
-    check(refused(lambda: report.first_date([])), "no calls, no first Date")
+    check(refused(report.ReportError, lambda: report.first_date([])), "no calls, no first Date")
 
     print("\n-- body hashes and truncation (made-up requests, the committed settings) --")
     settings = jev_call.read_settings()
     request = Request("Say hi.", None)
     good = jev_call.g_call(request, settings).sha256
     items = {"made-up:1": request}
-    rebuilt = report.rebuild("jev", [record("made-up:1", 0.1, sha=good)], items, settings)
+    rebuilt = report.rebuild(G_SECTION, [record("made-up:1", 0.1, sha=good)], items, settings)
     check(rebuilt.mismatched == [] and rebuilt.cut == 0, "a record whose hash the frozen code builds matches, uncut")
-    rebuilt = report.rebuild("jev", [record("made-up:1", 0.1, sha="f" * 64)], items, settings)
+    rebuilt = report.rebuild(G_SECTION, [record("made-up:1", 0.1, sha="f" * 64)], items, settings)
     check(rebuilt.mismatched == ["made-up:1"], "known positive: a record with another hash is named")
     long = {"made-up:2": Request("x" * 40_000, None)}
     cut = jev_call.g_call(long["made-up:2"], settings)
-    rebuilt = report.rebuild("jev", [record("made-up:2", 0.1, sha=cut.sha256)], long, settings)
+    rebuilt = report.rebuild(G_SECTION, [record("made-up:2", 0.1, sha=cut.sha256)], long, settings)
     check(cut.cut_bytes > 0 and rebuilt.cut == 1 and rebuilt.mismatched == [],
           "a prompt over the byte budget is counted as cut, and its cut body still hashes as recorded")  # fmt: skip
     plus = jev_call.g_plus_call(request, settings).sha256
-    check(report.rebuild("jev_bolstered", [record("made-up:1", 0.1, sha=plus)], items, settings).mismatched == [],
+    check(report.rebuild(G_PLUS_SECTION, [record("made-up:1", 0.1, sha=plus)], items, settings).mismatched == [],
           "G+'s body is rebuilt by G+'s call building")  # fmt: skip
-    check(report.rebuild("jev", [record("made-up:1", 0.1, sha=plus)], items, settings).mismatched == ["made-up:1"],
+    check(report.rebuild(G_SECTION, [record("made-up:1", 0.1, sha=plus)], items, settings).mismatched == ["made-up:1"],
           "known positive: G+'s body is not G's")  # fmt: skip
-    check(refused(lambda: report.rebuild("jev", [record("nope", 0.1)], items, settings)),
+    check(refused(report.ReportError, lambda: report.rebuild(G_SECTION, [record("nope", 0.1)], items, settings)),
           "a record of an item with no request is refused")  # fmt: skip
 
     item = amendment_item(PLAN.read_text(encoding="utf-8"), "A15", 19)

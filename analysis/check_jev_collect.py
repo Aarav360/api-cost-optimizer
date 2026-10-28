@@ -16,7 +16,7 @@ the key is a dummy. Retry waits are injected, so no check sleeps.
 - the sources: test refused, the reader's other refusals, and each malformed made-up request refused whole;
 - stored records parse into the router scores a live call gave, for G and for G+, and refusals are counted from them;
 - the key: a dummy key reaches the server and is in no stored byte;
-- usage: overhead from a stored record, and the byte budget the stored usage fixes;
+- usage: a record's input tokens and overhead from its stored usage;
 - the command line: an explicit `--budget-bytes` while the settings file's are null, made-up requests, the noise pass,
   dev, the stop's exit code, and each refused combination.
 """
@@ -34,10 +34,13 @@ from analysis import collect_jev as cj
 from analysis.benchmark import BenchmarkError, SealedItemError
 from analysis.check_jev_client import KEY, synthetic_data
 from analysis.check_jev_plus import synthetic_answers, synthetic_weights
+from analysis.checking import refused
 from analysis.fake_jev import FakeJev, Reply, choice_answer, noul_answer, response_body
+from analysis.router_names import G_PLUS, NAMED_ROUTERS, G
 from routers import jev, jev_call
 from routers.request import Request
 
+G_SECTION, G_PLUS_SECTION = NAMED_ROUTERS[G], NAMED_ROUTERS[G_PLUS]  # the records' router names (A15 item 14)
 problems: list[str] = []
 
 
@@ -45,14 +48,6 @@ def check(ok: bool, what: str) -> None:
     print(f"{'PASS' if ok else 'FAIL'}  {what}")
     if not ok:
         problems.append(what)
-
-
-def refused(error: type[Exception], call: Callable[[], object]) -> bool:
-    try:
-        call()
-    except error:
-        return True
-    return False
 
 
 G_ANSWERS = {
@@ -87,7 +82,7 @@ ITEMS = [
 def settings_data(url: str, budgets: tuple[int | None, int | None] = (1000, 2000)) -> dict:
     """A settings file in #30's format on the fake server's URL, with a noise sample over two of ITEMS."""
     data = synthetic_data(url)
-    data["budget_bytes"] = {"jev": budgets[0], "jev_bolstered": budgets[1]}
+    data["budget_bytes"] = {G_SECTION: budgets[0], G_PLUS_SECTION: budgets[1]}
     data["noise_sample"] = {"seed": 2026, "item_ids": ["train-1", "train-3"]}
     return data
 
@@ -187,9 +182,9 @@ def section_storage() -> None:
     with tempfile.TemporaryDirectory() as folder, FakeJev(ALL_ANSWERS) as fake:
         directory = Path(folder)
         loaded = cj.load_settings(settings_file(directory, fake.url))
-        summary = run(fake, directory, "jev", ITEMS)
-        records = stored(directory, "jev")
-        check(file_of(directory, "jev").is_file(), "records go to <results>/jev/<router>_<split>.jsonl")
+        summary = run(fake, directory, G_SECTION, ITEMS)
+        records = stored(directory, G_SECTION)
+        check(file_of(directory, G_SECTION).is_file(), "records go to <results>/jev/<router>_<split>.jsonl")
         check(
             summary == cj.Summary(new=3, skipped=0, refused=0, cut=0) and len(records) == 3,
             "three requests, three records, none skipped, refused or cut",
@@ -201,7 +196,7 @@ def section_storage() -> None:
         first = records[0]
         built = jev_call.g_call(ITEMS[0].request, loaded.call)
         check(
-            first["router"] == "jev"
+            first["router"] == G_SECTION
             and first["split"] == "train"
             and first["item_id"] == "train-1"
             and first["pass"] == 1,
@@ -230,7 +225,7 @@ def section_storage() -> None:
             "seconds, attempts, failures, the new-connection flag (the first call only), refusal and local time",
         )
         check(fake.connections == 1 and fake.unexpected == [], "the whole run used one kept-open connection")
-        text = file_of(directory, "jev").read_text(encoding="utf-8")
+        text = file_of(directory, G_SECTION).read_text(encoding="utf-8")
         check(
             text.count("\n") == 3 and all(isinstance(json.loads(line), dict) for line in text.splitlines()),
             "one JSON object per line, each ending in a newline",
@@ -243,14 +238,14 @@ def section_storage() -> None:
     with tempfile.TemporaryDirectory() as folder, FakeJev(ALL_ANSWERS) as fake:
         directory = Path(folder)
         loaded = cj.load_settings(settings_file(directory, fake.url))
-        summary = run(fake, directory, "jev_bolstered", ITEMS)
-        records = stored(directory, "jev_bolstered")
+        summary = run(fake, directory, G_PLUS_SECTION, ITEMS)
+        records = stored(directory, G_PLUS_SECTION)
         built = jev_call.g_plus_call(ITEMS[1].request, loaded.call)
         check(
             summary.new == 3
-            and all(list(r) == STORED_FIELDS and r["router"] == "jev_bolstered" for r in records)
+            and all(list(r) == STORED_FIELDS and r["router"] == G_PLUS_SECTION for r in records)
             and records[1]["body_sha256"] == built.sha256
-            and not file_of(directory, "jev").exists(),
+            and not file_of(directory, G_SECTION).exists(),
             "G+ is stored in its own file with G+'s body hash and every field, with no weights needed to collect",
         )
         check(
@@ -262,65 +257,68 @@ def section_resume() -> None:
     print("\n-- resuming --")
     with tempfile.TemporaryDirectory() as folder, FakeJev(ALL_ANSWERS) as fake:
         directory = Path(folder)
-        run(fake, directory, "jev", ITEMS)
-        before = file_of(directory, "jev").read_bytes()
+        run(fake, directory, G_SECTION, ITEMS)
+        before = file_of(directory, G_SECTION).read_bytes()
         calls = len(fake.received)
-        again = run(fake, directory, "jev", ITEMS)
+        again = run(fake, directory, G_SECTION, ITEMS)
         check(
             again == cj.Summary(new=0, skipped=3, refused=0, cut=0)
             and len(fake.received) == calls
-            and file_of(directory, "jev").read_bytes() == before,
+            and file_of(directory, G_SECTION).read_bytes() == before,
             "a rerun skips every stored request, calls none of them again and changes nothing",
         )
         more = ITEMS + [cj.Item("train-4", Request("Fourth made-up request."))]
-        grown = run(fake, directory, "jev", more)
+        grown = run(fake, directory, G_SECTION, more)
         check(
             grown.new == 1
             and grown.skipped == 3
             and len(fake.received) == calls + 1
-            and file_of(directory, "jev").read_bytes().startswith(before),
+            and file_of(directory, G_SECTION).read_bytes().startswith(before),
             "a rerun with one more request calls only that one and appends it after the stored lines",
         )
         # A write cut short leaves no newline. Reading drops it, and the next append trims it first.
-        path = file_of(directory, "jev")
+        path = file_of(directory, G_SECTION)
         intact = path.read_bytes()
         with path.open("ab") as file:
             file.write(b'{"router": "jev", "split": "tr')
-        check(len(stored(directory, "jev")) == 4, "a torn last line is dropped when reading")
+        check(len(stored(directory, G_SECTION)) == 4, "a torn last line is dropped when reading")
         extra = more + [cj.Item("train-5", Request("Fifth made-up request."))]
-        run(fake, directory, "jev", extra)
+        run(fake, directory, G_SECTION, extra)
         text = path.read_bytes()
         check(
-            text.startswith(intact) and b'"tr\n' not in text and len(stored(directory, "jev")) == 5,
+            text.startswith(intact) and b'"tr\n' not in text and len(stored(directory, G_SECTION)) == 5,
             "the next append trims the torn line first, so the file stays valid",
         )
     print("\n-- a damaged file is refused whole --")
     with tempfile.TemporaryDirectory() as folder, FakeJev(ALL_ANSWERS) as fake:
         directory = Path(folder)
-        run(fake, directory, "jev", ITEMS[:1])
-        path = file_of(directory, "jev")
+        run(fake, directory, G_SECTION, ITEMS[:1])
+        path = file_of(directory, G_SECTION)
         good = path.read_text(encoding="utf-8")
         path.write_text(good + good, encoding="utf-8")
         check(
-            refused(cj.CollectError, lambda: stored(directory, "jev")),
+            refused(cj.CollectError, lambda: stored(directory, G_SECTION)),
             "a repeated item and pass is refused: a stored response is never overwritten",
         )
         record = json.loads(good)
         path.write_text(json.dumps({k: v for k, v in record.items() if k != "usage"}) + "\n", encoding="utf-8")
-        check(refused(cj.CollectError, lambda: stored(directory, "jev")), "a record missing a field is refused")
-        path.write_text(json.dumps(record | {"router": "jev_bolstered"}) + "\n", encoding="utf-8")
-        check(refused(cj.CollectError, lambda: stored(directory, "jev")), "a record of another router is refused")
+        check(refused(cj.CollectError, lambda: stored(directory, G_SECTION)), "a record missing a field is refused")
+        path.write_text(json.dumps(record | {"router": G_PLUS_SECTION}) + "\n", encoding="utf-8")
+        check(refused(cj.CollectError, lambda: stored(directory, G_SECTION)), "a record of another router is refused")
         path.write_text(json.dumps(record | {"refused": "no"}) + "\n", encoding="utf-8")
-        check(refused(cj.CollectError, lambda: stored(directory, "jev")), "a refusal flag that isn't a bool is refused")
+        check(
+            refused(cj.CollectError, lambda: stored(directory, G_SECTION)),
+            "a refusal flag that isn't a bool is refused",
+        )
         path.write_text(json.dumps(record | {"pass": 3}) + "\n", encoding="utf-8")
-        check(refused(cj.CollectError, lambda: stored(directory, "jev")), "a pass other than 1 or 2 is refused")
+        check(refused(cj.CollectError, lambda: stored(directory, G_SECTION)), "a pass other than 1 or 2 is refused")
         path.write_text(good, encoding="utf-8")
-        check(len(stored(directory, "jev")) == 1, "known positive: the undamaged file is read")
+        check(len(stored(directory, G_SECTION)) == 1, "known positive: the undamaged file is read")
         path.write_text("not json\n", encoding="utf-8")
-        check(refused(cj.CollectError, lambda: stored(directory, "jev")), "a line that isn't JSON is refused")
+        check(refused(cj.CollectError, lambda: stored(directory, G_SECTION)), "a line that isn't JSON is refused")
         calls = len(fake.received)
         check(
-            refused(cj.CollectError, lambda: run(fake, directory, "jev", ITEMS)) and len(fake.received) == calls,
+            refused(cj.CollectError, lambda: run(fake, directory, G_SECTION, ITEMS)) and len(fake.received) == calls,
             "a collection into a damaged file is refused before any call",
         )
 
@@ -334,30 +332,31 @@ def section_stop() -> None:
             FakeJev(ALL_ANSWERS, [good, Reply(status, {"detail": "no"})]) as fake,
         ):
             directory = Path(folder)
-            message = stops(jev.Rejected, lambda: run(fake, directory, "jev", ITEMS))
+            message = stops(jev.Rejected, lambda: run(fake, directory, G_SECTION, ITEMS))
             check(
                 message is not None and "jev train train-2" in message and str(status) in message,
                 f"a {status} stops the run and names the request",
             )
             check(
-                [r["item_id"] for r in stored(directory, "jev")] == ["train-1"] and len(fake.received) == 2,
+                [r["item_id"] for r in stored(directory, G_SECTION)] == ["train-1"] and len(fake.received) == 2,
                 f"after a {status} the record stored before it is valid and nothing after it was called",
             )
     with tempfile.TemporaryDirectory() as folder, FakeJev(ALL_ANSWERS, [good, *[Reply(500)] * 8]) as fake:
         directory = Path(folder)
-        message = stops(jev.RetryCapReached, lambda: run(fake, directory, "jev", ITEMS))
+        message = stops(jev.RetryCapReached, lambda: run(fake, directory, G_SECTION, ITEMS))
         check(
             message is not None and "train-2" in message and "8 attempts" in message,
             "eight failed attempts stop the run at the retry cap and name the request",
         )
-        before = file_of(directory, "jev").read_bytes()
-        done = run(fake, directory, "jev", ITEMS)
+        before = file_of(directory, G_SECTION).read_bytes()
+        done = run(fake, directory, G_SECTION, ITEMS)
         check(
-            done.new == 2 and done.skipped == 1 and file_of(directory, "jev").read_bytes().startswith(before),
+            done.new == 2 and done.skipped == 1 and file_of(directory, G_SECTION).read_bytes().startswith(before),
             "the rerun after a stop resumes: the stored request is skipped, the stopped one and the rest are sent",
         )
         check(
-            stored(directory, "jev")[1]["item_id"] == "train-2" and stored(directory, "jev")[1]["attempts"] == 1,
+            stored(directory, G_SECTION)[1]["item_id"] == "train-2"
+            and stored(directory, G_SECTION)[1]["attempts"] == 1,
             "the resumed request is stored once, as a first attempt",
         )
     with (
@@ -368,8 +367,8 @@ def section_stop() -> None:
         loaded = cj.load_settings(settings_file(directory, fake.url))
         client, waits = client_on(loaded)
         with client:
-            cj.collect(ITEMS[:1], router="jev", split="train", loaded=loaded, client=client, results_dir=directory)
-        record = stored(directory, "jev")[0]
+            cj.collect(ITEMS[:1], router=G_SECTION, split="train", loaded=loaded, client=client, results_dir=directory)
+        record = stored(directory, G_SECTION)[0]
         check(
             record["attempts"] == 2 and record["failed_attempts"] == [{"status": 429}] and waits == [2.0],
             "a retried call stores its attempt count and its failed attempts, and Retry-After was honoured",
@@ -382,12 +381,12 @@ def section_noise() -> None:
     with tempfile.TemporaryDirectory() as folder, FakeJev(ALL_ANSWERS) as fake:
         directory = Path(folder)
         calls = len(fake.received)
-        message = refused(cj.CollectError, lambda: run(fake, directory, "jev", sample, pass_number=2))
+        message = refused(cj.CollectError, lambda: run(fake, directory, G_SECTION, sample, pass_number=2))
         check(message and len(fake.received) == calls, "pass 2 is refused before any call if pass 1 isn't stored")
-        run(fake, directory, "jev", ITEMS)
-        pass_one = file_of(directory, "jev").read_bytes()
-        summary = run(fake, directory, "jev", sample, pass_number=2)
-        records = stored(directory, "jev")
+        run(fake, directory, G_SECTION, ITEMS)
+        pass_one = file_of(directory, G_SECTION).read_bytes()
+        summary = run(fake, directory, G_SECTION, sample, pass_number=2)
+        records = stored(directory, G_SECTION)
         check(
             summary.new == 2
             and [(r["item_id"], r["pass"]) for r in records] == [("train-1", 1), ("train-2", 1), ("train-3", 1),
@@ -395,7 +394,7 @@ def section_noise() -> None:
             "the sample is sent again as pass 2, beside its pass 1",
         )  # fmt: skip
         check(
-            file_of(directory, "jev").read_bytes().startswith(pass_one),
+            file_of(directory, G_SECTION).read_bytes().startswith(pass_one),
             "pass 2 never overwrites pass 1: the stored pass 1 lines are byte for byte as they were",
         )
         check(
@@ -403,16 +402,16 @@ def section_noise() -> None:
             "a pass 2 record is the same call as its pass 1 (the same body hash)",
         )
         calls = len(fake.received)
-        again = run(fake, directory, "jev", sample, pass_number=2)
+        again = run(fake, directory, G_SECTION, sample, pass_number=2)
         check(
             again.new == 0 and again.skipped == 2 and len(fake.received) == calls,
             "a rerun of the noise pass sends nothing",
         )
         check(
-            refused(cj.CollectError, lambda: run(fake, directory, "jev", sample, split="dev", pass_number=2)),
+            refused(cj.CollectError, lambda: run(fake, directory, G_SECTION, sample, split="dev", pass_number=2)),
             "the noise pass is for train items only: dev is refused",
         )
-        check(refused(cj.CollectError, lambda: run(fake, directory, "jev", sample, pass_number=3)), "no pass 3")
+        check(refused(cj.CollectError, lambda: run(fake, directory, G_SECTION, sample, pass_number=3)), "no pass 3")
 
 
 def section_smoke() -> None:
@@ -433,21 +432,21 @@ def section_smoke() -> None:
             and items[1].request == Request("Made-up two.", {"a": 1}),
             "made-up requests default their item IDs and schema, and may name their own",
         )
-        run(fake, directory, "jev", items, split="smoke", budget_bytes=5000, budgets=(None, None))
-        run(fake, directory, "jev_bolstered", items, split="smoke", budget_bytes=5000, budgets=(None, None))
-        run(fake, directory, "jev", ITEMS[:1])
+        run(fake, directory, G_SECTION, items, split="smoke", budget_bytes=5000, budgets=(None, None))
+        run(fake, directory, G_PLUS_SECTION, items, split="smoke", budget_bytes=5000, budgets=(None, None))
+        run(fake, directory, G_SECTION, ITEMS[:1])
         check(
-            file_of(directory, "jev", "smoke").is_file() and file_of(directory, "jev_bolstered", "smoke").is_file(),
+            file_of(directory, G_SECTION, "smoke").is_file() and file_of(directory, G_PLUS_SECTION, "smoke").is_file(),
             "smoke records are stored in their own files, per router",
         )
         check(
-            [r["item_id"] for r in stored(directory, "jev", "train")] == ["train-1"]
-            and cj.read_records("jev", "dev", directory) == []
-            and all(r["split"] == "smoke" for r in stored(directory, "jev", "smoke")),
+            [r["item_id"] for r in stored(directory, G_SECTION, "train")] == ["train-1"]
+            and cj.read_records(G_SECTION, "dev", directory) == []
+            and all(r["split"] == "smoke" for r in stored(directory, G_SECTION, "smoke")),
             "the train and dev records hold no smoke record: a table builder reading them never sees one",
         )
         check(
-            refused(cj.CollectError, lambda: run(fake, directory, "jev", items, split="smoke", pass_number=2)),
+            refused(cj.CollectError, lambda: run(fake, directory, G_SECTION, items, split="smoke", pass_number=2)),
             "smoke has no noise pass",
         )
     print("\n-- the budget a rerun needs --")
@@ -455,11 +454,11 @@ def section_smoke() -> None:
         directory = Path(folder)
         calls = len(fake.received)
         check(
-            refused(cj.CollectError, lambda: run(fake, directory, "jev", ITEMS, budgets=(None, None)))
+            refused(cj.CollectError, lambda: run(fake, directory, G_SECTION, ITEMS, budgets=(None, None)))
             and len(fake.received) == calls,
             "with the settings file's budget null and none given, the run is refused before any call",
         )
-        summary = run(fake, directory, "jev", ITEMS, budgets=(None, None), budget_bytes=7)
+        summary = run(fake, directory, G_SECTION, ITEMS, budgets=(None, None), budget_bytes=7)
         check(
             summary.new == 3 and summary.cut == 3,
             "an explicit budget stands in for the null one, and every prompt it cut is counted",
@@ -543,7 +542,7 @@ def sources(directory: Path) -> None:
     with FakeJev(ALL_ANSWERS) as fake:
         dup = [cj.Item("same", Request("a")), cj.Item("same", Request("b"))]
         check(
-            refused(cj.CollectError, lambda: run(fake, directory, "jev", dup)) and fake.received == [],
+            refused(cj.CollectError, lambda: run(fake, directory, G_SECTION, dup)) and fake.received == [],
             "a repeated item ID in the requests is refused before any call",
         )
         loaded = cj.load_settings(settings_file(directory, fake.url))
@@ -585,10 +584,10 @@ def section_parse() -> None:
         with client:
             g_live = jev.GRouter(loaded.call, client, budget_bytes=1000).score(request)
             plus_live = jev.GPlusRouter(loaded.call, weights, client, budget_bytes=2000).score(request)
-        run(fake, directory, "jev", ITEMS[:1])
-        run(fake, directory, "jev_bolstered", ITEMS[:1])
-        g_record = stored(directory, "jev")[0]
-        plus_record = stored(directory, "jev_bolstered")[0]
+        run(fake, directory, G_SECTION, ITEMS[:1])
+        run(fake, directory, G_PLUS_SECTION, ITEMS[:1])
+        g_record = stored(directory, G_SECTION)[0]
+        plus_record = stored(directory, G_PLUS_SECTION)[0]
         g_scores = cj.record_scores(g_record, request, loaded)
         plus_scores = cj.record_scores(plus_record, request, loaded, weights)
         check(
@@ -623,8 +622,8 @@ def section_parse() -> None:
     with tempfile.TemporaryDirectory() as folder, FakeJev(ALL_ANSWERS, script) as fake:
         directory = Path(folder)
         loaded = cj.load_settings(settings_file(directory, fake.url))
-        summary = run(fake, directory, "jev", ITEMS)
-        records = stored(directory, "jev")
+        summary = run(fake, directory, G_SECTION, ITEMS)
+        records = stored(directory, G_SECTION)
         check(
             cj.refused_items(records, loaded) == ["train-2", "train-3"]
             and [r["refused"] for r in records] == [False, True, True]
@@ -640,9 +639,9 @@ def section_parse() -> None:
     with tempfile.TemporaryDirectory() as folder, FakeJev(zeros) as fake:
         directory = Path(folder)
         loaded = cj.load_settings(settings_file(directory, fake.url))
-        run(fake, directory, "jev", ITEMS[:1])
+        run(fake, directory, G_SECTION, ITEMS[:1])
         check(
-            cj.refused_items(stored(directory, "jev"), loaded) == [],
+            cj.refused_items(stored(directory, G_SECTION), loaded) == [],
             "Jev answering 0.00 to everything is not a refusal",
         )
 
@@ -655,10 +654,8 @@ def section_key() -> None:
         loaded = cj.load_settings(settings_file(directory, fake.url))
         client, _ = client_on(loaded, dummy)
         with client:
-            cj.collect(ITEMS, router="jev", split="train", loaded=loaded, client=client, results_dir=directory)
-            cj.collect(
-                ITEMS, router="jev_bolstered", split="train", loaded=loaded, client=client, results_dir=directory
-            )
+            cj.collect(ITEMS, router=G_SECTION, split="train", loaded=loaded, client=client, results_dir=directory)
+            cj.collect(ITEMS, router=G_PLUS_SECTION, split="train", loaded=loaded, client=client, results_dir=directory)
         check(
             all(r.headers["authorization"] == f"Bearer {dummy}" for r in fake.received),
             "the dummy key reached the server on every call, so the search below can find it",
@@ -675,38 +672,20 @@ def section_key() -> None:
 
 
 def section_usage() -> None:
-    print("\n-- usage and the byte budget --")
+    print("\n-- usage --")
     with tempfile.TemporaryDirectory() as folder, FakeJev(ALL_ANSWERS) as fake:
         directory = Path(folder)
         loaded = cj.load_settings(settings_file(directory, fake.url))
-        run(fake, directory, "jev", ITEMS[:1], split="smoke")
+        run(fake, directory, G_SECTION, ITEMS[:1], split="smoke")
         fake.input_tokens = 350
-        run(fake, directory, "jev", ITEMS[1:2], split="smoke")
-        run(fake, directory, "jev_bolstered", ITEMS[1:2], split="smoke")
-        records = stored(directory, "jev", "smoke")
+        run(fake, directory, G_SECTION, ITEMS[1:2], split="smoke")
+        run(fake, directory, G_PLUS_SECTION, ITEMS[1:2], split="smoke")
+        records = stored(directory, G_SECTION, "smoke")
         check(
             [cj.input_tokens(r) for r in records] == [300, 350]
             and abs(cj.overhead_dollars(records[0], loaded) - 0.0000126) < 1e-12,
             "a record's input tokens are its stored usage, and 300 tokens at $0.042 per million is $0.0000126",
         )
-        check(
-            cj.measured_overhead_tokens(records) == 350, "the measured overhead is the largest stored input token count"
-        )
-        # The budget falls one for one with the overhead. check_jev_call pins the budget at 270 tokens, so the budget
-        # at 350 is 80 below the same function's at 270.
-        schema = {"type": "object"}
-        check(
-            cj.measured_budget_bytes("jev", records, loaded, schema)
-            == jev_call.g_budget_bytes(loaded.call, overhead_tokens=270, schema=schema) - 80,
-            "G's budget from stored usage is the settings' fixed parts less the measured overhead",
-        )
-        plus = stored(directory, "jev_bolstered", "smoke")
-        check(
-            cj.measured_budget_bytes("jev_bolstered", plus, loaded, None)
-            == jev_call.g_plus_budget_bytes(loaded.call, overhead_tokens=270, schema=None) - 80,
-            "G+'s budget from stored usage likewise, the past requests and questions as its fixed parts",
-        )
-        check(refused(cj.CollectError, lambda: cj.measured_overhead_tokens([])), "no records, no measurement")
         check(
             refused(cj.CollectError, lambda: cj.input_tokens(records[0] | {"usage": None})),
             "a record without usage is refused",
@@ -738,7 +717,7 @@ def section_command() -> None:
         made_up = directory / "made_up.json"
         made_up.write_text(json.dumps([{"prompt": "Made-up one."}, {"prompt": "Made-up two."}]), encoding="utf-8")
         base = ["--settings", str(settings), "--results-dir", str(results)]
-        smoke = ["collect", "--router", "jev", "--split", "smoke", "--requests", str(made_up), *base]
+        smoke = ["collect", "--router", G_SECTION, "--split", "smoke", "--requests", str(made_up), *base]
         code, _, err = command(smoke, env)
         check(
             code == 2 and "budget" in err and fake.received == [],
@@ -748,7 +727,7 @@ def section_command() -> None:
         check(
             code == 0
             and "jev smoke pass 1: 2 new, 0 already stored" in out
-            and len(stored(results, "jev", "smoke")) == 2,
+            and len(stored(results, G_SECTION, "smoke")) == 2,
             "--budget-bytes stands in for the null budget, and made-up requests are stored under smoke",
         )
         code, out, _ = command([*smoke, "--budget-bytes", "5000"], env)
@@ -772,22 +751,26 @@ def section_command() -> None:
             env,
         )
         check(code == 2 and "one router" in err, "--budget-bytes with both routers is refused")
-        code, _, err = command(["collect", "--router", "jev", "--split", "smoke", *base, "--budget-bytes", "5000"], env)
+        code, _, err = command(
+            ["collect", "--router", G_SECTION, "--split", "smoke", *base, "--budget-bytes", "5000"], env
+        )
         check(code == 2 and "made-up requests" in err, "smoke without --requests is refused")
-        code, _, _ = command(["collect", "--router", "jev", "--split", "test", *base, "--budget-bytes", "5000"], env)
+        code, _, _ = command(
+            ["collect", "--router", G_SECTION, "--split", "test", *base, "--budget-bytes", "5000"], env
+        )
         check(code == 2, "--split test is not a choice")
         code, _, err = command([*smoke, "--budget-bytes", "5000"], {})
         check(
             code == 1 and "stopped" in err and jev.KEY_VARIABLE in err,
             "no key in the environment: the run stops, exit 1",
         )
-        code, out, _ = command(["report", "--router", "jev", "--split", "smoke", *base], env)
+        code, out, _ = command(["report", "--router", G_SECTION, "--split", "smoke", *base], env)
         check(
             code == 0 and "2 records" in out and "refused: 0" in out and "input tokens: 600" in out,
             "report counts what is stored",
         )
-        code, out, _ = command(["budget", "--router", "jev", "--split", "smoke", *base], env)
-        check(code == 0 and "overhead 300 tokens" in out, "budget measures the overhead from the stored smoke usage")
+        code, _, err = command(["budget", "--router", G_SECTION, "--split", "smoke", *base], env)
+        check(code == 2 and "invalid choice" in err, "known positive: the removed budget command is refused")
         # Train, dev and the noise pass, on a synthetic benchmark whose train items are train-1 and train-3, the
         # settings' noise sample, and with budgets filled in (the smoke part above ran with them null).
         (directory / "filled").mkdir()
@@ -804,14 +787,14 @@ def section_command() -> None:
         code, out, _ = command(["noise", "--router", "both", *full], env)
         check(
             code == 0 and "jev train pass 2: 2 new" in out and "jev_bolstered train pass 2: 2 new" in out
-            and [r["pass"] for r in stored(results, "jev")] == [1, 1, 2, 2],
+            and [r["pass"] for r in stored(results, G_SECTION)] == [1, 1, 2, 2],
             "the noise pass sends the sample as pass 2, for both routers",
         )  # fmt: skip
         code, out, _ = command(["noise", "--router", "both", *full], env)
         check(code == 0 and "0 new, 2 already stored" in out, "the noise pass again sends nothing")
-        code, out, _ = command(["collect", "--router", "jev", "--split", "dev", *full], env)
+        code, out, _ = command(["collect", "--router", G_SECTION, "--split", "dev", *full], env)
         check(
-            code == 0 and [r["item_id"] for r in stored(results, "jev", "dev")] == ["dev-1"],
+            code == 0 and [r["item_id"] for r in stored(results, G_SECTION, "dev")] == ["dev-1"],
             "dev is collected through the reader",
         )
         sent = " ".join(r.body.decode() for r in fake.received)
@@ -820,7 +803,7 @@ def section_command() -> None:
             "no expected answer and no test request ever reached the fake server",
         )
         check(
-            len(stored(results, "jev", "train")) == 4 and len(stored(results, "jev", "smoke")) == 2,
+            len(stored(results, G_SECTION, "train")) == 4 and len(stored(results, G_SECTION, "smoke")) == 2,
             "each split stays in its own file",
         )
     with tempfile.TemporaryDirectory() as folder, FakeJev(ALL_ANSWERS, [Reply(400, {"detail": "bad"})]) as fake:
@@ -829,7 +812,7 @@ def section_command() -> None:
         made_up = directory / "made_up.json"
         made_up.write_text(json.dumps([{"prompt": "Made-up one."}]), encoding="utf-8")
         code, out, err = command(
-            ["collect", "--router", "jev", "--split", "smoke", "--requests", str(made_up), "--settings", str(settings),
+            ["collect", "--router", G_SECTION, "--split", "smoke", "--requests", str(made_up), "--settings", str(settings),
              "--results-dir", str(directory / "r")], env,
         )  # fmt: skip
         check(

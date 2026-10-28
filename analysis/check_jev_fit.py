@@ -24,7 +24,6 @@ folder. No Jev call, no test item and no real train response is read here (Stage
 import json
 import sys
 import tempfile
-from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -36,10 +35,13 @@ from analysis import check_jev_settings as synth
 from analysis import fit_jev_router as fit
 from analysis import matrix
 from analysis.build_jev_settings import build_from_files, settings_text
+from analysis.checking import refused
 from analysis.folds import build_folds
+from analysis.router_names import G_PLUS, NAMED_ROUTERS, G
 from routers import jev, jev_call
 from routers.request import from_row
 
+G_SECTION, G_PLUS_SECTION = NAMED_ROUTERS[G], NAMED_ROUTERS[G_PLUS]  # the records' router names (A15 item 14)
 problems: list[str] = []
 
 
@@ -47,14 +49,6 @@ def check(ok: bool, what: str) -> None:
     print(f"{'PASS' if ok else 'FAIL'}  {what}")
     if not ok:
         problems.append(what)
-
-
-def refused(call: Callable[[], object], error: type[Exception] = fit.JevFitError) -> bool:
-    try:
-        call()
-    except error:
-        return True
-    return False
 
 
 def near(got: float | None, want: float, tolerance: float = 1e-6) -> bool:
@@ -92,7 +86,7 @@ def synthetic_record(router: str, row: dict, passes: dict[str, bool], pass_numbe
                      wobble: dict[str, float] | None = None, split: str = "train") -> dict:  # fmt: skip
     """One stored record in #30's format. A refused one is a 200 whose answers lack every asked question."""
     answers = {} if refused else synthetic_answers(row, passes, wobble)
-    if router == "jev":  # G asks its three statements only, under their own IDs
+    if router == G_SECTION:  # G asks its three statements only, under their own IDs
         keep = {f"success_{c}": answers[f"success_{c}"] for c in synth.CONFIGS} if answers else {}
     else:  # G+ asks 18 questions: nine success statements, eight difficulty statements, the request type
         keep = {key: v for key, v in answers.items() if key not in {f"success_{c}" for c in synth.CONFIGS}}
@@ -129,12 +123,12 @@ def pipeline_checks() -> None:
             number = int(row["item_id"].split(":")[1])
             return {c: not synth.fails(c, number) for c in synth.CONFIGS}
 
-        plus = [synthetic_record("jev_bolstered", r, passes_of(r), refused=r["item_id"] in plus_refused) for r in train]
-        g = [synthetic_record("jev", r, passes_of(r), refused=r["item_id"] == g_refused) for r in train]
+        plus = [synthetic_record(G_PLUS_SECTION, r, passes_of(r), refused=r["item_id"] in plus_refused) for r in train]
+        g = [synthetic_record(G_SECTION, r, passes_of(r), refused=r["item_id"] == g_refused) for r in train]
         by_id = {r["item_id"]: r for r in train}
         wobble = {"success_haiku": 0.02, "success_sonnet": -0.04}
-        plus2 = [synthetic_record("jev_bolstered", by_id[i], passes_of(by_id[i]), 2) for i in noise_ids]
-        g2 = [synthetic_record("jev", by_id[i], passes_of(by_id[i]), 2, wobble=wobble) for i in noise_ids]
+        plus2 = [synthetic_record(G_PLUS_SECTION, by_id[i], passes_of(by_id[i]), 2) for i in noise_ids]
+        g2 = [synthetic_record(G_SECTION, by_id[i], passes_of(by_id[i]), 2, wobble=wobble) for i in noise_ids]
         write_records(directory / "jev_bolstered_train.jsonl", plus + plus2)
         write_records(directory / "jev_train.jsonl", g + g2)
 
@@ -192,7 +186,7 @@ def pipeline_checks() -> None:
               and all(list(result.signal[c]) == list(fit.SIGNAL_MODELS) for c in synth.CONFIGS),
               "a signal check per config, over the four models")  # fmt: skip
         check(
-            result.signal["haiku"]["G+"]["log loss"] < result.signal["haiku"]["intercept only"]["log loss"],
+            result.signal["haiku"][G_PLUS]["log loss"] < result.signal["haiku"]["intercept only"]["log loss"],
             "on this informative synthetic Jev, G+ beats the intercept-only model's log loss",
         )
         g_noise = result.noise[fit.G]
@@ -207,7 +201,7 @@ def pipeline_checks() -> None:
         # whose second pass is refused scores 0 for every config, so D6 is that item's pass-1 score over 100 items.
         refused_pass2 = noise_ids[0]
         write_records(directory / "jev_bolstered_train.jsonl", plus
-                      + [synthetic_record("jev_bolstered", by_id[i], passes_of(by_id[i]), 2, refused=i == refused_pass2)
+                      + [synthetic_record(G_PLUS_SECTION, by_id[i], passes_of(by_id[i]), 2, refused=i == refused_pass2)
                          for i in noise_ids])  # fmt: skip
         flipped = run()
         before = jev.g_plus_scores(answered[refused_pass2], False, from_row(by_id[refused_pass2]), settings,
@@ -222,7 +216,7 @@ def pipeline_checks() -> None:
               "the printout carries the counts: 240 train items, 48 excluded, 3 refused, 189 fit rows")  # fmt: skip
         check(all(f"{c}: C = {result.chosen[c].c:g}" in text for c in synth.CONFIGS)
               and ("of the grid" in text) == any(result.chosen[c].at_end for c in synth.CONFIGS)
-              and "D6" in text and "G+" in text and "task rates" in text,
+              and "D6" in text and G_PLUS in text and "task rates" in text,
               "the printout carries each C, flags one at an end of the grid, and holds the signal check and D6")  # fmt: skip
 
         print("\n-- refusals, each whole --")
@@ -230,29 +224,38 @@ def pipeline_checks() -> None:
         ok = next(r for r in plus if r["item_id"] in result.item_ids)  # a fit row's record, spoiled in each case below
         rest = [r for r in plus if r is not ok]
         write_records(path, rest + plus2)
-        check(refused(lambda: run()), "a fit row with no stored G+ answer is refused")
+        check(refused(fit.JevFitError, lambda: run()), "a fit row with no stored G+ answer is refused")
         write_records(path, [*plus, ok, *plus2])
-        check(refused(lambda: run()), "a request stored twice for one pass is refused")
+        check(refused(fit.JevFitError, lambda: run()), "a request stored twice for one pass is refused")
         write_records(path, [{k: v for k, v in ok.items() if k != "seconds"}, *rest, *plus2])
-        check(refused(lambda: run()), "a record missing a field of #30's format is refused")
+        check(refused(fit.JevFitError, lambda: run()), "a record missing a field of #30's format is refused")
         first = by_id[ok["item_id"]]
-        write_records(path, [synthetic_record("jev_bolstered", first, passes_of(first), split="dev"), *rest, *plus2])
-        check(refused(lambda: run()), "a record of another split is refused: only train's answers are read")
-        write_records(path, [dict(ok, router="jev"), *rest, *plus2])
-        check(refused(lambda: run()), "a record of the other router is refused")
+        write_records(path, [synthetic_record(G_PLUS_SECTION, first, passes_of(first), split="dev"), *rest, *plus2])
+        check(
+            refused(fit.JevFitError, lambda: run()),
+            "a record of another split is refused: only train's answers are read",
+        )
+        write_records(path, [dict(ok, router=G_SECTION), *rest, *plus2])
+        check(refused(fit.JevFitError, lambda: run()), "a record of the other router is refused")
         unflagged = dict(ok, response={"model": "jev-1.14.0", "answers": {}, "usage": ok["usage"]})
         write_records(path, [unflagged, *rest, *plus2])
-        check(refused(lambda: run()), "a response the parser reads as refused but the record doesn't flag is refused")
+        check(
+            refused(fit.JevFitError, lambda: run()),
+            "a response the parser reads as refused but the record doesn't flag is refused",
+        )
         write_records(path, [dict(ok, refused=True), *rest, *plus2])
-        check(refused(lambda: run()), "a record flagged refused whose response answers every question is refused")
+        check(
+            refused(fit.JevFitError, lambda: run()),
+            "a record flagged refused whose response answers every question is refused",
+        )
         write_records(path, plus + plus2[1:])
-        check(refused(lambda: run()), "a noise-sample item with no second-pass answer is refused")
+        check(refused(fit.JevFitError, lambda: run()), "a noise-sample item with no second-pass answer is refused")
         write_records(path, plus + plus2)
-        check(not refused(lambda: run()), "known positive: the same inputs, restored, are accepted")
+        check(not refused(fit.JevFitError, lambda: run()), "known positive: the same inputs, restored, are accepted")
         target = directory / "weights.json"
         fit.write_weights(fit.weights_text(result.weights), target, overwrite=False)
         check(target.read_text(encoding="utf-8") == fit.weights_text(result.weights), "the weights file is written")
-        check(refused(lambda: fit.write_weights("{}", target, overwrite=False)),
+        check(refused(fit.JevFitError, lambda: fit.write_weights("{}", target, overwrite=False)),
               "an existing weights file is not overwritten without the flag")  # fmt: skip
 
         print("\n-- train's cells alone --")
@@ -261,7 +264,7 @@ def pipeline_checks() -> None:
         check(synth.loads_whole_matrix("from analysis import matrix\nmatrix.load(path)")
               and synth.loads_whole_matrix("read_store(path)") and not synth.loads_whole_matrix("read_store(p, split='train')"),
               "known positives: the source check flags a whole-matrix load and passes a train-only one")  # fmt: skip
-        check(refused(lambda: matrix.load(store), matrix.MatrixError),
+        check(refused(matrix.MatrixError, lambda: matrix.load(store)),
               "known positive: the store's bad dev row refuses the whole-store loader")  # fmt: skip
         check(result.counts.train == 240, "the fit ran on that same store, since only train's rows were queried")
 
@@ -297,15 +300,15 @@ def main() -> int:
     g_raw = np.array([s for k in range(5) for s in (*g_p[k], *g_q[k])])
     z = np.random.default_rng(3).normal(size=(20, 2))
     result = fit.signal_check(z, y, folds, tasks, 1.0, g_raw)
-    check(list(result) == ["intercept only", "task rates", "G", "G+"], "the four models, in the record's order")
+    check(list(result) == ["intercept only", "task rates", G, G_PLUS], "the four models, in the record's order")
     check(near(result["intercept only"]["log loss"], 0.699447) and near(result["task rates"]["log loss"], 0.706055),
           "intercept-only and task-rates log loss match the hand-worked 0.699447 and 0.706055")  # fmt: skip
-    check(near(result["G"]["log loss"], 0.651735),
+    check(near(result[G]["log loss"], 0.651735),
           "G's log loss clips a raw 1.00 on a failure to 0.995 and a 0.00 to 0.005, giving the hand-worked 0.651735")  # fmt: skip
     check(near(result["intercept only"]["concordance"][None], 0.5) and near(result["task rates"]["concordance"][None], 0.5),
           "a model that gives a task and fold one score has concordance 0.5, all ties")  # fmt: skip
-    check(near(result["G"]["concordance"][None], 6.5 / 9) and near(result["G"]["concordance"]["p"], 0.625)
-          and near(result["G"]["concordance"]["q"], 0.8),
+    check(near(result[G]["concordance"][None], 6.5 / 9) and near(result[G]["concordance"]["p"], 0.625)
+          and near(result[G]["concordance"]["q"], 0.8),
           "G's concordance is the hand-worked 6.5 of 9 pairs: 0.625 for p and 0.8 for q")  # fmt: skip
     # G+ by another route: scikit-learn's own cross-validation machinery with the same settings, one predefined split.
     expected_p = cross_val_predict(
@@ -313,15 +316,21 @@ def main() -> int:
         cv=PredefinedSplit(folds), method="predict_proba",
     )[:, 1]  # fmt: skip
     expected_loss = float(np.mean([log_loss(y[folds == k], expected_p[folds == k], labels=[0, 1]) for k in range(5)]))
-    check(near(result["G+"]["log loss"], expected_loss, 1e-9),
+    check(near(result[G_PLUS]["log loss"], expected_loss, 1e-9),
           "G+'s cross-validated log loss equals scikit-learn's cross_val_predict over the same folds")  # fmt: skip
 
     print("\n-- the model and the choice of C --")
     check(
-        refused(lambda: fit.fit_model(z, y, 1.0, max_iter=1)), "known positive: a fit that doesn't converge is refused"
+        refused(fit.JevFitError, lambda: fit.fit_model(z, y, 1.0, max_iter=1)),
+        "known positive: a fit that doesn't converge is refused",
     )
-    check(not refused(lambda: fit.fit_model(z, y, 1.0)), "the same fit with the real settings converges")
-    check(refused(lambda: fit.fit_model(z, np.zeros(20, dtype=int), 1.0)), "a head with only one outcome is refused")
+    check(
+        not refused(fit.JevFitError, lambda: fit.fit_model(z, y, 1.0)), "the same fit with the real settings converges"
+    )
+    check(
+        refused(fit.JevFitError, lambda: fit.fit_model(z, np.zeros(20, dtype=int), 1.0)),
+        "a head with only one outcome is refused",
+    )
     check(fit.GRID[0] == 1e-4 and fit.GRID[-1] == 1e2 and len(fit.GRID) == 13
           and all(abs(fit.GRID[i + 1] / fit.GRID[i] - 10 ** 0.5) < 1e-9 for i in range(12)),
           "the grid is 13 log-spaced values from 1e-4 to 1e2")  # fmt: skip
@@ -362,7 +371,7 @@ def main() -> int:
         near(noise["opus_low"].d6, 0.1 / 3) and near(noise["opus_low"].shift, 0.1 / 3),
         "opus_low: D6 and shift 0.033333",
     )
-    check(refused(lambda: fit.noise_difference(one, {"i1": two["i1"]}, ("haiku",))),
+    check(refused(fit.JevFitError, lambda: fit.noise_difference(one, {"i1": two["i1"]}, ("haiku",))),
           "passes that score different items are refused")  # fmt: skip
 
     pipeline_checks()

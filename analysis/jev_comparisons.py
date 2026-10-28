@@ -21,7 +21,7 @@ records and the dev matrix only.
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from analysis import collect_jev
 from analysis import jev_train_report as report
@@ -32,7 +32,7 @@ from analysis.jev_table import dev_table, quantiles
 from analysis.jev_walk import walks_of
 from analysis.matrix import Matrix
 from analysis.router_metrics import Difference, Reading
-from analysis.router_names import F_TRAIN, G_PLUS, E, F, G
+from analysis.router_names import F_TRAIN, G_PLUS, LETTER_OF, NAMED_ROUTERS, E, F, G
 from analysis.router_panels import mcnemar_row
 from analysis.router_table import RouterScoreTable
 from analysis.same_target import SameTarget, compare_same_target
@@ -127,6 +127,9 @@ class JevComparisons:
     concordance_gap: dict[str, Difference]  # G+ less G, per config
     latency: dict[str, report.Latency]  # dev, by collect_jev router name; empty where not given
     counts: dict[str, report.Counts]
+    conditions: dict[str, object] = field(
+        default_factory=dict
+    )  # where and when dev's calls were timed; `compute` fills it
 
 
 def compare(
@@ -168,6 +171,16 @@ def dev_counts() -> dict[str, report.Counts]:
     return {r: report.call_counts(collect_jev.read_records(r, "dev")) for r in collect_jev.ROUTERS}
 
 
+def latency_conditions() -> dict[str, object]:
+    """What a remote service's latency depends on (item 10: "machine, network, dates and times"): the machine and
+    network this runs on, which hold the stored records (uncommitted `results/` lives on the collecting machine only),
+    and the earliest and latest `collected_at` stamp over both routers' dev calls, from the records themselves."""
+    first, last = report.collected_span(
+        [r for router in collect_jev.ROUTERS for r in collect_jev.read_records(router, "dev")]
+    )
+    return {"machine": report.machine(), "network": report.network(), "collected_from": first, "collected_to": last}
+
+
 def compute() -> JevComparisons:
     """All of Stage 6 · 11's numbers, from the dev matrix, the stored dev records and the committed files. E, F and
     F-train come from Stage 5's diagnostics (the same resamples), G and G+ from `jev_walk` over their dev tables."""
@@ -176,9 +189,11 @@ def compute() -> JevComparisons:
     tables = {}
     for name in JEV:
         walks[name] = walks_of(name, base.draws)
-        tables[name] = dev_table(collect_jev.ROUTERS[JEV.index(name)])
+        tables[name] = dev_table(NAMED_ROUTERS[name])
     found = compare(base.dev, base.draws, load_mixes(), walks, tables)
-    return JevComparisons(**{**found.__dict__, "latency": dev_latency(), "counts": dev_counts()})
+    return JevComparisons(
+        **{**found.__dict__, "latency": dev_latency(), "counts": dev_counts(), "conditions": latency_conditions()}
+    )
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -193,9 +208,8 @@ def _matched_data(row: MatchedCost) -> dict[str, float | None]:
 def latency_data(latency: Mapping[str, report.Latency], counts: Mapping[str, report.Counts]) -> dict[str, object]:
     """Dev latency in seconds, by router (G, G+): median and p90 overall and per task, the first call and the
     reconnects apart, and the retries and failed attempts as counts beside them."""
-    names = dict(zip(collect_jev.ROUTERS, JEV, strict=True))
     return {
-        names[r]: {
+        LETTER_OF[r]: {
             "median": t.median, "p90": t.p90, "calls": t.count, "first_call": t.first, "reconnects": t.reconnects,
             "retries": counts[r].retries, "failed_attempts": counts[r].failed_attempts,
             "per_task": {task: {"median": m, "p90": p, "calls": n} for task, (m, p, n) in t.by_task.items()},
@@ -222,6 +236,7 @@ def to_data(result: JevComparisons) -> dict[str, object]:
         "router_score_quantiles": {n: {c: {f"{q:g}": v for q, v in by.items()} for c, by in quantiles(t).items()}
                                    for n, t in result.tables.items()},
         "latency": latency_data(result.latency, result.counts) if result.latency else {},
+        "latency_conditions": result.conditions,
     }  # fmt: skip
 
 
@@ -303,8 +318,11 @@ def print_concordance(result: JevComparisons) -> None:
 
 def print_latency(result: JevComparisons) -> None:
     print("\nLatency on dev (successful attempt's time alone, ms; the first call and reconnects apart)")
+    where = result.conditions
+    print(f"  machine: {where['machine']}; network: {where['network']}; dev calls collected from "
+          f"{where['collected_from']} to {where['collected_to']}")  # fmt: skip
     for r, t in result.latency.items():
-        name = dict(zip(collect_jev.ROUTERS, JEV, strict=True))[r]
+        name = LETTER_OF[r]
         c = result.counts[r]
         print(f"  {name:3} {t.count} calls: median {1000 * t.median:.1f}, p90 {1000 * t.p90:.1f}; retries {c.retries}, "
               f"failed attempts {c.failed_attempts}; first call {1000 * t.first:.1f}; "

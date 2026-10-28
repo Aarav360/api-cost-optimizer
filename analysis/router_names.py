@@ -15,6 +15,10 @@ E, F, G, G_PLUS, F_TRAIN, TASK_RATES = "E", "F", "G", "G+", "F-train", "task rat
 # 15). A router joins when an amendment names it. F-train and the diagnostics never do.
 NAMED_ROUTERS = {E: "rules", F: "trained", G: "jev", G_PLUS: "jev_bolstered"}
 
+# A section's letter, the reverse of the map above: "G" for `jev`. Code that holds a section name (the stored records'
+# `router` field is one) gets its letter here instead of spelling the pair out again.
+LETTER_OF = {section: letter for letter, section in NAMED_ROUTERS.items()}
+
 # Each named router's label, on the chart and in the figure JSONs.
 LABELS = {
     E: "E: rules router",

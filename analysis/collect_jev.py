@@ -29,11 +29,10 @@ trimmed before the next append.
   0.00. Truncation (a prompt the byte budget cut) is counted per run and printed, since the record has no field for it.
 - The key comes from the environment (`TYPESAFE_API_KEY`) and is in no record.
 
-Overhead and the byte budget (A15 items 8 and 10) come from stored usage: `input_tokens` and `overhead_dollars` read a
-record's input tokens and charge them at the settings' price. `measured_overhead_tokens` is the largest input token
-count among records: an upper bound on Jev's fixed overhead when they are minimal calls, and for a call that carries
-past requests it counts their tokens twice, which only makes a budget safer. `measured_budget_bytes` feeds it to
-`routers.jev_call`'s budget functions with the settings' questions and past requests as the fixed parts.
+Overhead (A15 item 10) comes from stored usage: `input_tokens` and `overhead_dollars` read a record's input tokens and
+charge them at the settings' price. The byte budget's fixed overhead (item 8) is not measured here: `analysis/smoke_jev.py`
+measured it from minimal calls, and a stored record's input tokens also hold the request, the questions and, for G+, the
+past requests, so they are no measure of it.
 
 Run from the project root (the key in `TYPESAFE_API_KEY`):
 
@@ -42,7 +41,6 @@ Run from the project root (the key in `TYPESAFE_API_KEY`):
     uv run python -m analysis.collect_jev noise --router both
     uv run python -m analysis.collect_jev collect --router both --split dev
     uv run python -m analysis.collect_jev report --router jev --split train
-    uv run python -m analysis.collect_jev budget --router jev --split smoke --schema-file longest_schema.json
 
 `--budget-bytes` is for one router and replaces the settings file's (null before the smoke test fills it in). Dev is
 collected only after the freeze commit (A15 item 13); nothing here enforces that order.
@@ -59,12 +57,12 @@ from datetime import datetime
 from pathlib import Path
 
 from analysis.benchmark import BenchmarkError, read_rows
+from analysis.router_names import G_PLUS, NAMED_ROUTERS, G
 from harness.client import PROJECT_ROOT
 from routers import jev, jev_call
 from routers.request import Request, from_row
 
 RESULTS_DIR = PROJECT_ROOT / "results"
-ROUTERS = ("jev", "jev_bolstered")  # the section names in A15 item 14: G and G+
 SPLITS = ("train", "dev", "smoke")
 PASSES = (1, 2)  # 2 is the noise pass
 STORED_FIELDS = (
@@ -75,6 +73,39 @@ STORED_FIELDS = (
 
 class CollectError(ValueError):
     """A request, file or option this script refuses whole, before any call is made."""
+
+
+@dataclass(frozen=True)
+class RouterCalls:
+    """What differs between G's calls and G+'s, in one place: how a call is built, which questions it asks, how a
+    stored response becomes router scores (the path a live call takes), and whether those need G+'s weights."""
+
+    build: Callable[..., jev_call.Call]
+    questions: Callable[[jev_call.Settings], dict[str, dict]]
+    scores: Callable[[object, Request, jev_call.Settings, jev.GPlusWeights | None], jev.GScores]
+    weighted: bool
+
+
+def _g_scores(
+    response: object, request: Request, settings: jev_call.Settings, weights: jev.GPlusWeights | None
+) -> jev.GScores:
+    return jev.g_response_scores(response, settings)
+
+
+def _g_plus_scores(
+    response: object, request: Request, settings: jev_call.Settings, weights: jev.GPlusWeights | None
+) -> jev.GScores:
+    if weights is None:
+        raise CollectError("G+'s router scores need its weights")
+    return jev.g_plus_response_scores(response, request, settings, weights)
+
+
+# The stored records' `router` is the section's name in the operating-points file (A15 item 14), from `router_names`.
+CALLS = {
+    NAMED_ROUTERS[G]: RouterCalls(jev_call.g_call, jev_call.g_questions, _g_scores, weighted=False),
+    NAMED_ROUTERS[G_PLUS]: RouterCalls(jev_call.g_plus_call, jev_call.g_plus_questions, _g_plus_scores, weighted=True),
+}
+ROUTERS = tuple(CALLS)
 
 
 @dataclass(frozen=True)
@@ -280,7 +311,7 @@ def collect(
     done = {(r["item_id"], r["pass"]) for r in existing}
     if pass_number == 2 and (missing := [i for i in ids if (i, 1) not in done]):
         raise CollectError(f"{len(missing)} items have no pass 1 stored for {router}, e.g. {missing[0]}")
-    build = jev_call.g_call if router == "jev" else jev_call.g_plus_call
+    build = CALLS[router].build
     new = skipped = refused = cut = 0
     for number, item in enumerate(items, start=1):
         if (item.item_id, pass_number) in done:
@@ -306,23 +337,19 @@ def record_scores(
 ) -> jev.GScores:
     """A stored record's router scores and refusal, by the path a live call takes. G+ needs its weights and the
     request (its schema flag is a feature)."""
-    if record["router"] == "jev":
-        return jev.g_response_scores(record["response"], loaded.call)
-    if record["router"] == "jev_bolstered":
-        if weights is None:
-            raise CollectError("G+'s router scores need its weights")
-        return jev.g_plus_response_scores(record["response"], request, loaded.call, weights)
-    raise CollectError(f"unknown router {record['router']!r}")
+    calls = CALLS.get(str(record["router"]))
+    if calls is None:
+        raise CollectError(f"unknown router {record['router']!r}")
+    return calls.scores(record["response"], request, loaded.call, weights)
 
 
 def refused_items(records: Sequence[Mapping[str, object]], loaded: Loaded) -> list[str]:
     """The item IDs whose stored response is a refusal, read from the response itself (A15 item 9). A record of
     pass 2 is listed beside its pass 1."""
-    questions = {"jev": jev_call.g_questions, "jev_bolstered": jev_call.g_plus_questions}
     return [
         str(r["item_id"])
         for r in records
-        if jev.parse_answers(r["response"], questions[str(r["router"])](loaded.call)).refused
+        if jev.parse_answers(r["response"], CALLS[str(r["router"])].questions(loaded.call)).refused
     ]
 
 
@@ -338,26 +365,6 @@ def input_tokens(record: Mapping[str, object]) -> int:
 def overhead_dollars(record: Mapping[str, object], loaded: Loaded) -> float:
     """A call's overhead in dollars: its stored input tokens at the settings' price (A15 item 10)."""
     return jev.overhead_dollars(input_tokens(record), loaded.client)
-
-
-def measured_overhead_tokens(records: Sequence[Mapping[str, object]]) -> int:
-    """The largest input token count among the records (see the module docstring for what it bounds)."""
-    if not records:
-        raise CollectError("no stored records to measure the overhead from")
-    return max(input_tokens(r) for r in records)
-
-
-def measured_budget_bytes(
-    router: str, records: Sequence[Mapping[str, object]], loaded: Loaded, schema: dict | None
-) -> int:
-    """A router's byte budget from stored usage: the measured overhead, with the questions and (for G+) past requests
-    as the fixed parts. `schema` is the longest output schema the router will see."""
-    overhead = measured_overhead_tokens(records)
-    if router == "jev":
-        return jev_call.g_budget_bytes(loaded.call, overhead_tokens=overhead, schema=schema)
-    if router == "jev_bolstered":
-        return jev_call.g_plus_budget_bytes(loaded.call, overhead_tokens=overhead, schema=schema)
-    raise CollectError(f"unknown router {router!r}")
 
 
 # ---- the command line -----------------------------------------------------------------------------------------
@@ -408,18 +415,6 @@ def command_report(args: argparse.Namespace) -> int:
     return 0
 
 
-def command_budget(args: argparse.Namespace) -> int:
-    loaded = load_settings(args.settings)
-    schema = json.loads(args.schema_file.read_text(encoding="utf-8")) if args.schema_file else None
-    records = read_records(args.router, args.split, args.results_dir)
-    overhead = measured_overhead_tokens(records)
-    budget = measured_budget_bytes(args.router, records, loaded, schema)
-    print(
-        f"{args.router}: overhead {overhead} tokens, budget {budget} bytes (from {len(records)} {args.split} records)"
-    )
-    return 0
-
-
 def parser() -> argparse.ArgumentParser:
     top = argparse.ArgumentParser(description="Collect Jev responses for G and G+, or report on what is stored.")
     sub = top.add_subparsers(dest="command", required=True)
@@ -430,12 +425,9 @@ def parser() -> argparse.ArgumentParser:
         if name == "collect":
             one.add_argument("--split", choices=SPLITS, required=True)
             one.add_argument("--requests", type=Path, help="a JSON list of made-up requests (smoke only)")
-    for name, text in (("report", "count what is stored"), ("budget", "measure the byte budget from stored usage")):
-        one = sub.add_parser(name, help=text)
-        one.add_argument("--router", choices=ROUTERS, required=True)
-        one.add_argument("--split", choices=SPLITS, required=True)
-        if name == "budget":
-            one.add_argument("--schema-file", type=Path, help="JSON of the longest output schema the router will see")
+    one = sub.add_parser("report", help="count what is stored")
+    one.add_argument("--router", choices=ROUTERS, required=True)
+    one.add_argument("--split", choices=SPLITS, required=True)
     for one in sub.choices.values():
         one.add_argument("--settings", type=Path, default=jev_call.SETTINGS_FILE)
         one.add_argument("--results-dir", type=Path, default=RESULTS_DIR)
@@ -448,7 +440,7 @@ def main(argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = 
     try:
         if args.command in ("collect", "noise"):
             return command_collect(args, environ)
-        return command_report(args) if args.command == "report" else command_budget(args)
+        return command_report(args)
     except jev.RunStop as stop:
         print(f"stopped: {stop}\nwhat was stored before it is valid; rerun to resume", file=sys.stderr)
         return 1

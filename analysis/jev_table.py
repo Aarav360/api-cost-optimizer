@@ -23,6 +23,7 @@ import numpy as np
 
 from analysis import collect_jev
 from analysis.benchmark import read_rows
+from analysis.router_names import LETTER_OF
 from analysis.router_table import ItemRouterScores, RouterScoreTable
 from routers import jev
 from routers.ladder import SCORED
@@ -82,9 +83,9 @@ def build_table(
 @functools.cache
 def dev_table(router: str) -> RouterScoreTable:
     """`router`'s table over every dev item, in the reader's order, from the stored dev records (a router is
-    `collect_jev.ROUTERS`' "jev" for G or "jev_bolstered" for G+)."""
+    section name of G or G+, one of `collect_jev.ROUTERS`)."""
     loaded = collect_jev.load_settings()
-    weights = jev.read_weights(loaded.call) if router == "jev_bolstered" else None
+    weights = jev.read_weights(loaded.call) if collect_jev.CALLS[router].weighted else None
     rows = read_rows(split="dev")
     records = collect_jev.read_records(router, "dev")
     return build_table(
@@ -128,7 +129,8 @@ def call_lines() -> list[str]:
 
 
 def main() -> None:
-    for router, name in ((collect_jev.ROUTERS[0], "G"), (collect_jev.ROUTERS[1], "G+")):
+    for router in collect_jev.ROUTERS:
+        name = LETTER_OF[router]
         table = dev_table(router)
         refused = len(collect_jev.refused_items(collect_jev.read_records(router, "dev"), collect_jev.load_settings()))
         distinct = len({tuple(e.router_scores[c] for c in SCORED) for e in table.items})

@@ -31,8 +31,9 @@ policies. Chart and table v2 put F beside E, and item 21 records F's operating p
 comparisons and the diagnostics' headline numbers. At matched cost F's paired difference from the
 random-mixture envelope includes 0 at each of its six operating points, as E's does. Stage 6 built
 two routers on Jev, TypeSafe's decision model (`jev-1.14.0`, one call per request each): G, the Jev
-router, asks it zero-shot whether a small, a mid-sized and a large model will answer the request
-correctly and uses its answers as router scores, and G+, the bolstered Jev router, shows it 16 past
+router, asks it zero-shot one success statement per config below the frontier (that a small, a
+mid-sized or a large config will answer the request correctly, with no names, efforts or rates) and
+uses its answers as router scores, and G+, the bolstered Jev router, shows it 16 past
 train requests with their outcomes, asks 18 questions and turns the answers into router scores with
 one logistic regression per config, fitted on train alone ([Amendment A15](PLAN_v4.md)). The settings
 were frozen in one commit before any Jev call on a benchmark request and G+'s weights in another

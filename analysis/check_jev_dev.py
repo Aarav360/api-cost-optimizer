@@ -29,7 +29,7 @@ import math
 import re
 import subprocess
 import sys
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -39,6 +39,7 @@ from analysis import collect_jev, jev_table
 from analysis import jev_train_report as report
 from analysis.benchmark import read_rows
 from analysis.check_jev_settings_commit import settings_commit
+from analysis.checking import refused
 from analysis.operating_points import (
     OPERATING_POINTS_FILE,
     OperatingPointsError,
@@ -48,12 +49,13 @@ from analysis.operating_points import (
 )
 from analysis.plan import PLAN, amendment_item
 from analysis.references import ROUNDING, TARGETS
-from analysis.router_names import NAMED_ROUTERS, E, F
+from analysis.router_names import G_PLUS, NAMED_ROUTERS, E, F, G
 from harness.client import PROJECT_ROOT
 from routers import jev, jev_call
 from routers.ladder import SCORED
 from routers.request import Request
 
+G_SECTION, G_PLUS_SECTION = NAMED_ROUTERS[G], NAMED_ROUTERS[G_PLUS]  # the records' router names (A15 item 14)
 problems: list[str] = []
 
 
@@ -63,14 +65,6 @@ def check(ok: bool, what: str) -> None:
         problems.append(what)
 
 
-def refused(call: Callable[[], object], error: type[Exception] = jev_table.JevTableError) -> bool:
-    try:
-        call()
-    except error:
-        return True
-    return False
-
-
 def near(got: float, want: float, tolerance: float = 1e-9) -> bool:
     return abs(got - want) <= tolerance
 
@@ -78,7 +72,7 @@ def near(got: float, want: float, tolerance: float = 1e-9) -> bool:
 def g_record(item: str, answers: dict[str, float] | None, tokens: int = 1000, flag: bool | None = None) -> dict:
     """A stored G record: a 200 whose answers are the three success statements, or none (a refusal)."""
     body = {} if answers is None else {f"success_{c}": {"type": "noul", "noul": a} for c, a in answers.items()}
-    return {"router": "jev", "split": "dev", "item_id": item, "pass": 1, "response": {"answers": body},
+    return {"router": G_SECTION, "split": "dev", "item_id": item, "pass": 1, "response": {"answers": body},
             "usage": {"input_tokens": tokens}, "refused": answers is None if flag is None else flag}  # fmt: skip
 
 
@@ -91,7 +85,7 @@ def table_checks() -> None:
         g_record("a:2", None, tokens=2000),
         g_record("a:3", {"haiku": 0.0, "sonnet": 0.5, "opus_low": 1.0}, tokens=500),
     ]
-    table = jev_table.build_table("jev", records, requests, ids, loaded)
+    table = jev_table.build_table(G_SECTION, records, requests, ids, loaded)
     by_id = {e.item_id: e for e in table.items}
     check([e.item_id for e in table.items] == ids, "the table holds the dev items in the order asked")
     check(
@@ -106,30 +100,34 @@ def table_checks() -> None:
     )
     check(near(by_id["a:2"].overhead, 2000 * 0.042 / 1_000_000), "a refused call is still charged its input tokens")
     check(
-        refused(lambda: jev_table.build_table("jev", records[:2], requests, ids, loaded)),
+        refused(jev_table.JevTableError, lambda: jev_table.build_table(G_SECTION, records[:2], requests, ids, loaded)),
         "a dev item with no record is refused",
     )
     check(
-        refused(lambda: jev_table.build_table("jev", records + [records[0]], requests, ids, loaded)),
+        refused(
+            jev_table.JevTableError,
+            lambda: jev_table.build_table(G_SECTION, records + [records[0]], requests, ids, loaded),
+        ),
         "a request stored twice is refused",
     )
     other = [{**records[0], "split": "train"}, *records[1:]]
     check(
-        refused(lambda: jev_table.build_table("jev", other, requests, ids, loaded)),
+        refused(jev_table.JevTableError, lambda: jev_table.build_table(G_SECTION, other, requests, ids, loaded)),
         "a record of another split is refused",
     )
     pass_two = [{**records[0], "pass": 2}, *records[1:]]
     check(
-        refused(lambda: jev_table.build_table("jev", pass_two, requests, ids, loaded)),
+        refused(jev_table.JevTableError, lambda: jev_table.build_table(G_SECTION, pass_two, requests, ids, loaded)),
         "a pass 2 record is not a dev call and is refused",
     )
     lying = [g_record("a:1", {"haiku": 0.9, "sonnet": 0.95, "opus_low": 0.99}, flag=True), *records[1:]]
     check(
-        refused(lambda: jev_table.build_table("jev", lying, requests, ids, loaded)),
+        refused(jev_table.JevTableError, lambda: jev_table.build_table(G_SECTION, lying, requests, ids, loaded)),
         "a refusal flag the response disagrees with is refused",
     )
     check(
-        refused(lambda: jev_table.build_table("nope", records, requests, ids, loaded)), "an unknown router is refused"
+        refused(jev_table.JevTableError, lambda: jev_table.build_table("nope", records, requests, ids, loaded)),
+        "an unknown router is refused",
     )
 
 
@@ -140,7 +138,7 @@ def plus_record(item: str, schema_free: bool = True) -> dict:
     options = settings["request_type"]["options"]
     answers: dict = {i: {"type": "noul", "noul": 0.5} for i in ids}
     answers["request_type"] = {"type": "choice", "probabilities": dict(zip(options, (0.1, 0.2, 0.3, 0.4), strict=True))}
-    return {"router": "jev_bolstered", "split": "dev", "item_id": item, "pass": 1, "response": {"answers": answers},
+    return {"router": G_PLUS_SECTION, "split": "dev", "item_id": item, "pass": 1, "response": {"answers": answers},
             "usage": {"input_tokens": 9000}, "refused": False}  # fmt: skip
 
 
@@ -158,7 +156,7 @@ def plus_checks() -> None:
     ids = ["b:1", "b:2"]
     requests = {"b:1": Request("p"), "b:2": Request("q", {"type": "object"})}
     records = [plus_record("b:1"), plus_record("b:2")]
-    table = jev_table.build_table("jev_bolstered", records, requests, ids, loaded, jev.read_weights(loaded.call))
+    table = jev_table.build_table(G_PLUS_SECTION, records, requests, ids, loaded, jev.read_weights(loaded.call))
     for item, flag in (("b:1", 0.0), ("b:2", 1.0)):
         x = [*features[:-1], flag]
         want = {
@@ -184,7 +182,7 @@ def plus_checks() -> None:
         "G+'s overhead is its input tokens at $0.042 per million",
     )
     check(
-        refused(lambda: jev_table.build_table("jev_bolstered", records, requests, ids, loaded)),
+        refused(jev_table.JevTableError, lambda: jev_table.build_table(G_PLUS_SECTION, records, requests, ids, loaded)),
         "G+'s table without its weights is refused",
     )
 
@@ -193,7 +191,7 @@ def quantile_checks() -> None:
     loaded = collect_jev.load_settings()
     ids = [f"a:{n}" for n in range(1, 6)]
     records = [g_record(f"a:{n}", {"haiku": n / 10, "sonnet": 0.5, "opus_low": 1.0 - n / 10}) for n in range(1, 6)]
-    table = jev_table.build_table("jev", records, dict.fromkeys(ids, Request("p")), ids, loaded)
+    table = jev_table.build_table(G_SECTION, records, dict.fromkeys(ids, Request("p")), ids, loaded)
     got = jev_table.quantiles(table)
     # haiku's scores are .1 .2 .3 .4 .5: numpy's linear quantile at q is the value at position q * 4.
     want = {0.0: 0.1, 0.05: 0.12, 0.25: 0.2, 0.5: 0.3, 0.75: 0.4, 0.95: 0.48, 1.0: 0.5}
@@ -330,7 +328,7 @@ def table_checks_real() -> None:
         )
         same = True
         for entry, record in zip(table.items, records, strict=True):
-            if router == "jev":
+            if router == G_SECTION:
                 scored = jev.g_scores(record["response"], jev_call.g_questions(loaded.call))
                 scores = scored.scores
             else:
