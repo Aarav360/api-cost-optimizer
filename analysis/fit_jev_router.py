@@ -45,7 +45,7 @@ from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 
-from analysis import build_jev_settings
+from analysis import build_jev_settings, collect_jev
 from analysis.folds import N_FOLDS, read_folds
 from routers import jev, jev_call
 from routers.jev import (
@@ -207,31 +207,16 @@ def noise_difference(
 # Stored records (issue #30's format) and the answers in them
 
 
-RECORD_FIELDS = ("router", "split", "item_id", "pass", "body_sha256", "response", "model", "usage", "request_id",
-                 "server_date", "seconds", "attempts", "failed_attempts", "new_connection", "refused",
-                 "collected_at")  # fmt: skip
 G_PLUS_RECORDS, G_RECORDS = "jev_bolstered", "jev"  # the records' router names (A15 item 9)
 
 
 def read_records(path: Path, router: str, split: str) -> list[dict]:
-    """The records of one JSON Lines file, refused whole unless each holds every field of #30's format, is `router`'s
-    and `split`'s, and is the only record of its item and pass."""
-    records, seen = [], set()
-    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-        record = json.loads(line)
-        if missing := [f for f in RECORD_FIELDS if f not in record]:
-            raise JevFitError(f"{path.name} line {number} lacks {missing}")
-        if (record["router"], record["split"]) != (router, split):
-            raise JevFitError(f"{path.name} line {number} is a {record['router']} {record['split']} record, "
-                              f"not {router} {split}")  # fmt: skip
-        if record["pass"] not in (1, 2) or not isinstance(record["refused"], bool):
-            raise JevFitError(f"{path.name} line {number} has a pass other than 1 or 2, or a refusal that isn't a bool")
-        key = (record["item_id"], record["pass"])
-        if key in seen:
-            raise JevFitError(f"{path.name} holds {key[0]} twice for pass {key[1]}")
-        seen.add(key)
-        records.append(record)
-    return records
+    """The records of one JSON Lines file, through the collection script's own reader (so the two can't drift), with
+    its refusal made the fit's own: a file that isn't `router`'s and `split`'s whole records is refused."""
+    try:
+        return collect_jev.read_records_file(path, router, split)
+    except collect_jev.CollectError as error:
+        raise JevFitError(str(error)) from error
 
 
 Questions = Mapping[str, Mapping[str, object]]

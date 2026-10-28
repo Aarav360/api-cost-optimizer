@@ -34,4 +34,5 @@ jobs:
       - run: uv run python -m analysis.check_jev_call
       - run: uv run python -m analysis.check_jev_client
       - run: uv run python -m analysis.check_jev_plus
+      - run: uv run python -m analysis.check_jev_collect
       - run: uv run python -m analysis.check_jev_fit

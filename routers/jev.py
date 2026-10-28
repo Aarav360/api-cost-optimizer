@@ -44,6 +44,11 @@ read from the weights file (`routers/jev_weights.json`, the format fixed in issu
 3. **Heads:** the features are standardized with the weights file's means and scales, then each config's router
    score is sigmoid(coef . z + intercept). G's router scores, by contrast, are Jev's answers unchanged.
 
+G+ end to end (Stage 6 · 6). `GPlusRouter` joins that scoring to the client: `score(request)` builds G+'s body
+(`jev_call.g_plus_call`), calls Jev and gives the three router scores. A stored response takes the same path,
+`g_response_scores` for G and `g_plus_response_scores` for G+, so a table built from stored records can't drift from
+a live call (A15 item 12).
+
 The feature names and order come from the settings (`feature_names`); a weights file whose names or order differ is
 refused whole.
 """
@@ -64,7 +69,7 @@ from urllib.parse import urlsplit
 
 import numpy as np
 
-from routers.jev_call import Call, Settings, g_call, g_questions, read_settings
+from routers.jev_call import Call, Settings, g_call, g_plus_call, g_plus_questions, g_questions, read_settings
 from routers.ladder import SCORED
 from routers.request import Request
 
@@ -649,3 +654,55 @@ def g_plus_scores(
     if refused:
         return dict.fromkeys(SCORED, 0.0)
     return g_plus_heads(g_plus_features(answers, request, settings, weights), weights)
+
+
+def g_plus_response_scores(response: object, request: Request, settings: Settings, weights: GPlusWeights) -> GScores:
+    """G+'s router scores from a stored or live response: the parser, then the features and heads. The one path both
+    a live call and a stored record take, so a table built from records can't drift from the router (A15 item 12).
+    A refusal is 0 for every config, flagged (A15 item 9)."""
+    parsed = parse_answers(response, g_plus_questions(settings))
+    return GScores(g_plus_scores(parsed.answers, parsed.refused, request, settings, weights), parsed.refused)
+
+
+def g_response_scores(response: object, settings: Settings) -> GScores:
+    """G's router scores from a stored or live response, as `g_plus_response_scores` is for G+."""
+    return g_scores(response, g_questions(settings))
+
+
+class GPlusRouter:
+    """The bolstered Jev router G+: `score(request)` builds G+'s body, calls Jev and reads the three router scores
+    through the weights (Stage 6 · 6: Stage 6 · 3's call body and scoring joined to Stage 6 · 2's client)."""
+
+    def __init__(
+        self, settings: Settings, weights: GPlusWeights, client: JevClient, *, budget_bytes: int | None = None
+    ) -> None:
+        self.settings = settings
+        self.weights = weights
+        self.client = client
+        self.budget_bytes = budget_bytes  # None: the settings file's; the smoke test gives its own (A15 item 13)
+        self.counts = Counts()
+
+    def ask(self, request: Request, label: str | None = None) -> Asked:
+        """Score a request and keep the call's record; `label` names the request in a stop, as `GRouter.ask`."""
+        call = g_plus_call(request, self.settings, budget_bytes=self.budget_bytes)
+        name = label or f"{call.sha256[:12]} ({request.prompt[:40]!r})"
+        result = self.client.call(call.body, call.sha256, name)
+        scores = g_plus_response_scores(result.response, request, self.settings, self.weights)
+        self.counts.calls += 1
+        self.counts.refused += scores.refused
+        self.counts.cut += call.cut_bytes > 0
+        return Asked(call, result, scores.scores)
+
+    def score(self, request: Request) -> dict[str, float]:
+        return self.ask(request).scores
+
+
+@cache
+def default_g_plus_router() -> GPlusRouter:
+    settings = read_settings()
+    return GPlusRouter(settings, read_weights(settings), JevClient(read_client_settings()))
+
+
+def g_plus_score(request: Request) -> dict[str, float]:
+    """G+'s router scores for a request (the `Router` protocol's `score`, for the bolstered Jev router)."""
+    return default_g_plus_router().score(request)
