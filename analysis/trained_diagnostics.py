@@ -206,13 +206,26 @@ def compute() -> Diagnostics:
 # JSON-ready data, for table v2 and A11 item 21
 
 
-def _reading_data(reading: Reading | Difference, items: Mapping[str, int]) -> dict[str, object]:
+def reading_data(reading: Reading | Difference, items: Mapping[str, int]) -> dict[str, object]:
     return {
         "pooled": estimate_data(reading.pooled),
         "per_task": {t: {**(estimate_data(e) or {}), "warning": task_warning(t, items[t])}
                      for t, e in reading.per_task.items()},
         "size": size_data(reading.size) if isinstance(reading, Reading) else None,
     }  # fmt: skip
+
+
+def same_target_data(cells: Mapping[tuple[str, str], Mapping[str, Mapping[float, SameTarget]]]) -> dict[str, object]:
+    """Same-target cells as plain JSON-ready data, keyed `first less second`, then mix, then target. A cell holds the
+    cost and quality differences (first less second) as value, low, high, or null where both fall back to A."""
+    return {
+        f"{a} less {b}": {
+            mix: {f"{share:.0%}": {"reading": cell.reading, "first_fell_back": cell.first_fell_back,
+                                   "second_fell_back": cell.second_fell_back,
+                                   "cost_per_1k": estimate_data(cell.cost), "quality": estimate_data(cell.quality)}
+                  for share, cell in by_share.items()}
+            for mix, by_share in by_mix.items()}
+        for (a, b), by_mix in cells.items()}  # fmt: skip
 
 
 def to_data(result: Diagnostics) -> dict[str, object]:
@@ -224,21 +237,14 @@ def to_data(result: Diagnostics) -> dict[str, object]:
     items = {t: sum(1 for i in result.dev.items.values() if i.task == t) for t in dict.fromkeys(
         i.task for i in result.dev.items.values())}  # fmt: skip
     return {
-        "within_task_concordance": {n: {c: _reading_data(r, items) for c, r in by.items()}
+        "within_task_concordance": {n: {c: reading_data(r, items) for c, r in by.items()}
                                     for n, by in result.concordance.items()},
-        "log_loss": {n: {c: _reading_data(r, items) for c, r in by.items()} for n, by in result.log_loss.items()},
-        "concordance_differences": {f"{a} less {b}": {c: _reading_data(d, items) for c, d in by.items()}
+        "log_loss": {n: {c: reading_data(r, items) for c, r in by.items()} for n, by in result.log_loss.items()},
+        "concordance_differences": {f"{a} less {b}": {c: reading_data(d, items) for c, d in by.items()}
                                     for (a, b), by in result.concordance_gaps.items()},
-        "log_loss_differences": {f"{a} less {b}": {c: _reading_data(d, items) for c, d in by.items()}
+        "log_loss_differences": {f"{a} less {b}": {c: reading_data(d, items) for c, d in by.items()}
                                  for (a, b), by in result.log_loss_gaps.items()},
-        "same_target": {
-            f"{a} less {b}": {
-                mix: {f"{share:.0%}": {"reading": cell.reading, "first_fell_back": cell.first_fell_back,
-                                       "second_fell_back": cell.second_fell_back,
-                                       "cost_per_1k": estimate_data(cell.cost), "quality": estimate_data(cell.quality)}
-                      for share, cell in by_share.items()}
-                for mix, by_share in by_mix.items()}
-            for (a, b), by_mix in result.same_target.items()},
+        "same_target": same_target_data(result.same_target),
     }  # fmt: skip
 
 

@@ -2,7 +2,7 @@
 # The repo's fast checks, run before every commit and by hand from the project root:  .githooks/pre-commit
 # Turn the hook on once per clone:  git config core.hooksPath .githooks
 # CI (.github/workflows/check.yml) runs the same checks except the ones in the results/ block at the end
-# (check_jev_dev, check_simulator, check_stage4, check_trained_dev, check_trained_diagnostics), which need the dev results matrix in
+# (check_jev_dev, check_jev_comparisons, check_simulator, check_stage4, check_trained_dev, check_trained_diagnostics), which need the dev results matrix in
 # results/ (not committed); several others also have a section that runs only where results/ or the model snapshot is
 # present. check_collect, check_sandbox and check_evaluators need Docker and take minutes, so they stay manual (README,
 # "Running it").
@@ -58,6 +58,10 @@ if [ -f results/dev_matrix.sqlite ]; then
   # G's and G+'s dev tables, quantiles and walks (A15 items 13, 14): the pieces anywhere, and with results/jev's dev
   # responses and the freeze commit the stored records, the tables rebuilt, the sections reproduced (about 60 s). No Jev call.
   uv run python -m analysis.check_jev_dev | grep -E "^FAIL|checks"
+  # G's and G+'s comparisons and diagnostics (A15 item 14): the hand-worked synthetic sections anywhere, and here the
+  # same-target cells against the committed operating points, McNemar, concordance and dev latency against the raw
+  # stored lines, and nothing written to the operating-points file (about 90 s). No Jev call.
+  uv run python -m analysis.check_jev_comparisons | grep -E "^FAIL|checks"
   uv run python -m analysis.check_simulator | grep -E "^FAIL|checks"
   uv run python -m analysis.check_stage4 | grep -E "^FAIL|checks"
   # F and F-train on dev: the tables against score_with (about 30 s: it embeds the 744 dev requests again).
