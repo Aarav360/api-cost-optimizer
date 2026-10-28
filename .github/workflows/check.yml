@@ -39,5 +39,6 @@ jobs:
       - run: uv run python -m analysis.check_jev_fit
       - run: uv run python -m analysis.check_jev_settings_commit
       - run: uv run python -m analysis.check_jev_freeze
+      - run: uv run python -m analysis.check_jev_review
       - run: uv run python -m analysis.check_jev_dev
       - run: uv run python -m analysis.check_jev_comparisons

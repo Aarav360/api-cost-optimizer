@@ -196,6 +196,28 @@ def slip_checks(good: Sequence[str]) -> None:
             "the first dev call's Date")  # fmt: skip
 
 
+def conditions_in_a16(table: Mapping[str, Any]) -> None:
+    """A16 item 3 (the review's record of dev latency's conditions) quotes table v3's machine, network, and first and last
+    collection time word for word."""
+    print("\n-- dev latency's conditions in Amendment A16 item 3 --")
+    try:
+        item = amendment_item(PLAN.read_text(), "A16", 3)
+    except ValueError:
+        check(False, "Amendment A16 has an item 3")
+        return
+    where = table["latency_conditions"]
+    wanted = [
+        f"on {where['machine']}",
+        f"{where['network']}",
+        f"from {where['collected_from']} to {where['collected_to']}",
+    ]
+    missing = [text for text in wanted if text not in item]
+    check(not missing, "A16 item 3 quotes table v3's machine, network and collection times" + "".join(f"\n      missing: {m!r}" for m in missing))  # fmt: skip
+    altered = dict(where, collected_to=where["collected_to"].replace(":16", ":17"))
+    check(altered != where and f"from {altered['collected_from']} to {altered['collected_to']}" not in item,
+          "known positive: a last collection time with one digit changed is not in the record")  # fmt: skip
+
+
 def without_host(table: Mapping[str, Any]) -> dict[str, Any]:
     """Table v3 less the two entries that describe the machine it was built on, which change with the machine."""
     data = json.loads(json.dumps(table))
@@ -641,6 +663,7 @@ def main() -> int:
     table_v3_file(headline, per_task, table, table_v2)
     record_checks(headline, sections, table["dev_calls"], price)
     readme_checks(headline, table, table_v2)
+    conditions_in_a16(table)
     own_guards()
     if (PROJECT_ROOT / "results" / "dev_matrix.sqlite").exists() and (PROJECT_ROOT / "results" / "jev").exists():
         on_dev(headline, per_task, table)

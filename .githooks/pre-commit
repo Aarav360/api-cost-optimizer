@@ -55,9 +55,13 @@ uv run python -m analysis.check_jev_fit | grep -E "^FAIL|checks"
 # results/ is present), the commit's files unchanged since it, the made-up requests none a train or dev request.
 uv run python -m analysis.check_jev_settings_commit | grep -E "^FAIL|checks"
 # The freeze record (A15 items 13 and 19): item 19 against the committed files and git history, and where results/jev
-# holds train's stored responses, against those (hashes, model IDs, body hashes, counts, latency, the first call's
-# Date) and a refit of G+'s weights to 1e-9. No Jev call. CI skips the history and the stored-response sections.
+# holds train's stored responses, against those (hashes, model IDs, body hashes, counts, latency recomputed from the
+# stored records, the first call's Date) and a refit of G+'s weights to 1e-9. No Jev call. CI skips the history and the
+# stored-response sections.
 uv run python -m analysis.check_jev_freeze | grep -E "^FAIL|checks"
+# Amendment A16's records (the Stage 6 review): the hashed-file lists, the recorded findings, item 4's commits and item 8's
+# numbers against their sources; dev's refusal count where results/jev holds dev's responses. No Jev call.
+uv run python -m analysis.check_jev_review | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
   # G's and G+'s dev tables, quantiles and walks (A15 items 13, 14): the pieces anywhere, and with results/jev's dev
   # responses and the freeze commit the stored records, the tables rebuilt, the sections reproduced (about 60 s). No Jev call.
