@@ -30,3 +30,6 @@ jobs:
       - run: uv run python -m analysis.check_trained_freeze
       - run: uv run python -m analysis.check_trained_fit
       - run: uv run python -m analysis.check_learning_curve
+      - run: uv run python -m analysis.check_jev_settings
+      - run: uv run python -m analysis.check_jev_call
+      - run: uv run python -m analysis.check_jev_plus
