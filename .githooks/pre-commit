@@ -42,6 +42,9 @@ uv run python -m analysis.check_jev_call | grep -E "^FAIL|checks"
 uv run python -m analysis.check_jev_client | grep -E "^FAIL|checks"
 # G+'s scoring (A15 items 7 and 9): answers to features to router scores, on synthetic answers and weights.
 uv run python -m analysis.check_jev_plus | grep -E "^FAIL|checks"
+# G+ end to end and the collection script (A15 items 9, 10, 12, 13), against the fake Jev server and a temporary
+# results folder: no results/, no network, no Jev call, no key.
+uv run python -m analysis.check_jev_collect | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
   uv run python -m analysis.check_simulator | grep -E "^FAIL|checks"
   uv run python -m analysis.check_stage4 | grep -E "^FAIL|checks"
