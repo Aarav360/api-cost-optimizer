@@ -74,15 +74,17 @@ F_STYLE = RouterStyle(
 )  # fmt: skip
 
 # G's and G+'s: colours, markers and lines chosen before any Jev number existed. Their label offsets are placed by eye on
-# the committed figure after the walks, as E's and F's were (A15, item 15: layout is presentation, not selection).
+# the committed figure after the walks, as E's and F's were (A15, item 15: layout is presentation, not selection). On the
+# realistic panel G's 99% and 100% labels sit in the clear space above the crosses, with short leaders that stay left of
+# G+'s fallback leader, which climbs steeply past "A: opus"; the other leaders run clear of one another.
 G_STYLE = RouterStyle(
     color="#1e0a14", marker="o", point_marker="P", linestyle="-.",
     point_offsets={
         ("realistic", "97%"): (-60, -40, "right"),
-        ("realistic", "99%"): (30, 60, "left"),
-        ("realistic", "100%"): (60, 40, "left"),
+        ("realistic", "99%"): (4, 50, "left"),
+        ("realistic", "100%"): (1, 43, "left"),
         ("uniform", "97%"): (-14, -26, "right"),
-        ("uniform", "99%"): (-60, 50, "right"),
+        ("uniform", "99%"): (-72, 21, "right"),
         ("uniform", "100%"): (40, 60, "left"),
     },
 )  # fmt: skip
@@ -91,9 +93,9 @@ G_PLUS_STYLE = RouterStyle(
     point_offsets={
         ("realistic", "97%"): (-30, 8, "right"),
         ("realistic", "99%"): (-60, 36, "right"),
-        ("realistic", "100%: falls back to A"): (66, -62, "right"),
+        ("realistic", "100%: falls back to A"): (84, 70, "right"),
         ("uniform", "97%"): (-50, -30, "right"),
-        ("uniform", "99%"): (-60, 30, "right"),
+        ("uniform", "99%"): (-35, 40, "right"),
         ("uniform", "100%"): (30, -60, "left"),
     },
 )  # fmt: skip
