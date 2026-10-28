@@ -51,10 +51,13 @@ from routers import jev, jev_call
 from routers.jev import (
     FEATURE_COUNT,
     GPlusWeights,
+    GScores,
+    Parsed,
     feature_names,
     g_plus_features,
     g_plus_scores,
-    noul_answer,
+    g_scores,
+    parse_answers,
     parse_weights,
 )
 from routers.ladder import SCORED
@@ -210,14 +213,6 @@ RECORD_FIELDS = ("router", "split", "item_id", "pass", "body_sha256", "response"
 G_PLUS_RECORDS, G_RECORDS = "jev_bolstered", "jev"  # the records' router names (A15 item 9)
 
 
-@dataclass(frozen=True)
-class Answered:
-    """One stored call, as the fit reads it: Jev's answers by question ID (empty if refused) and the refusal flag."""
-
-    answers: dict[str, float | dict[str, float]]
-    refused: bool
-
-
 def read_records(path: Path, router: str, split: str) -> list[dict]:
     """The records of one JSON Lines file, refused whole unless each holds every field of #30's format, is `router`'s
     and `split`'s, and is the only record of its item and pass."""
@@ -239,37 +234,38 @@ def read_records(path: Path, router: str, split: str) -> list[dict]:
     return records
 
 
-def unwrap_answers(response: Mapping[str, Any]) -> dict[str, float | dict[str, float]]:
-    """A response's answers by question ID: a Noul answer is a float, a Choice answer a dict from option to its
-    probability, as Jev's API gives them (docs.typesafe.ai/api/system-one)."""
-    answers: dict[str, float | dict[str, float]] = {}
-    try:
-        for question, answer in response["answers"].items():
-            if answer["type"] == "noul":
-                answers[question] = float(answer["noul"])
-            elif answer["type"] == "choice":
-                answers[question] = {option: float(p) for option, p in answer["probabilities"].items()}
-            else:
-                raise JevFitError(f"the answer to {question!r} has type {answer['type']!r}")
-    except (KeyError, TypeError, AttributeError, ValueError) as error:
-        raise JevFitError(f"a stored response's answers are malformed: {error!r}") from error
-    return answers
+Questions = Mapping[str, Mapping[str, object]]
 
 
-def answered_by_pass(records: Sequence[Mapping[str, Any]]) -> dict[int, dict[str, Answered]]:
-    """Each pass's stored calls by item ID. A refused record carries no answers: the stored flag decides (item 9)."""
-    passes: dict[int, dict[str, Answered]] = {1: {}, 2: {}}
+def agreed(record: Mapping[str, Any], refused: bool) -> None:
+    """The stored refusal flag and the parser's reading of the stored response must agree (item 9)."""
+    if record["refused"] != refused:
+        raise JevFitError(
+            f"{record['item_id']} pass {record['pass']}: the stored refusal flag is {record['refused']}, but the "
+            f"parser reads the stored response as refused = {refused}"
+        )
+
+
+def parsed_by_pass(records: Sequence[Mapping[str, Any]], questions: Questions) -> dict[int, dict[str, Parsed]]:
+    """G+'s stored responses read by `routers/jev.py`'s own parser against the questions asked, by pass and item.
+
+    The fit reads answers through the router's parser, as the tables do (A15 item 12), so it can't drift from it."""
+    passes: dict[int, dict[str, Parsed]] = {1: {}, 2: {}}
     for record in records:
-        answers = {} if record["refused"] else unwrap_answers(record["response"])
-        passes[record["pass"]][record["item_id"]] = Answered(answers, record["refused"])
+        parsed = parse_answers(record["response"], questions)
+        agreed(record, parsed.refused)
+        passes[record["pass"]][record["item_id"]] = parsed
     return passes
 
 
-def g_scores(answered: Answered) -> dict[str, float]:
-    """G's router scores: Jev's answers to its three success statements unchanged, 0 for each if refused (item 9)."""
-    if answered.refused:
-        return dict.fromkeys(SCORED, 0.0)
-    return {config: noul_answer(answered.answers, f"success_{config}") for config in SCORED}
+def g_scores_by_pass(records: Sequence[Mapping[str, Any]], questions: Questions) -> dict[int, dict[str, GScores]]:
+    """G's router scores by pass and item: the router's own `g_scores` on each stored response (0 if refused)."""
+    passes: dict[int, dict[str, GScores]] = {1: {}, 2: {}}
+    for record in records:
+        scored = g_scores(record["response"], questions)
+        agreed(record, scored.refused)
+        passes[record["pass"]][record["item_id"]] = scored
+    return passes
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -339,8 +335,10 @@ def fit_from_files(
     settings = jev_call.parse_settings(settings_data)
     rows, success = build_jev_settings.read_train(benchmark_file, store)
     folds_by_item = read_folds("train") if fold_of is None else fold_of
-    plus_passes = answered_by_pass(read_records(records_dir / "jev_bolstered_train.jsonl", G_PLUS_RECORDS, "train"))
-    g_passes = answered_by_pass(read_records(records_dir / "jev_train.jsonl", G_RECORDS, "train"))
+    plus_records = read_records(records_dir / "jev_bolstered_train.jsonl", G_PLUS_RECORDS, "train")
+    plus_passes = parsed_by_pass(plus_records, jev_call.g_plus_questions(settings))
+    g_passes = g_scores_by_pass(read_records(records_dir / "jev_train.jsonl", G_RECORDS, "train"),
+                                jev_call.g_questions(settings))  # fmt: skip
 
     excluded = build_jev_settings.excluded_groups(settings_data, rows)
     outside = [r for r in rows if r["source_group"] not in excluded]
@@ -350,8 +348,9 @@ def fit_from_files(
                 f"no stored pass-1 answer on {what} call for {len(lacking)} fit rows, such as {lacking[0]}"
             )
     kept = sorted((r for r in outside if not plus_passes[1][r["item_id"]].refused), key=lambda r: r["item_id"])
-    counts = Counts(len(rows), len(rows) - len(outside), len(outside) - len(kept),
-                    sum(g_passes[1][r["item_id"]].refused for r in kept), len(kept))  # fmt: skip
+    # A refusal on G's call scores 0 there but keeps the row: G is only a column of the signal check.
+    g_refused = sum(g_passes[1][r["item_id"]].refused for r in kept)
+    counts = Counts(len(rows), len(rows) - len(outside), len(outside) - len(kept), g_refused, len(kept))
 
     # The deployable router's own features, so the fit and the scorer can't differ (item 7); the placeholder weights
     # only carry the feature order, which the standardizer and heads then follow.
@@ -366,7 +365,7 @@ def fit_from_files(
         raise JevFitError(f"item {missing} is not in train's fold file") from None
     tasks = np.array([r["source"] for r in kept])
     labels = {c: np.array([int(success[(r["item_id"], c)]) for r in kept]) for c in SCORED}
-    g_raw = {c: np.array([g_scores(g_passes[1][r["item_id"]])[c] for r in kept]) for c in SCORED}
+    g_raw = {c: np.array([g_passes[1][r["item_id"]].scores[c] for r in kept]) for c in SCORED}
 
     chosen = {c: choose_c(z, labels[c], folds) for c in SCORED}
     models = {c: fit_model(z, labels[c], chosen[c].c) for c in SCORED}
@@ -389,8 +388,7 @@ def fit_from_files(
         return g_plus_scores(a.answers, a.refused, from_row(row_of[item]), settings, fitted)
 
     noise = {
-        G: noise_difference({i: g_scores(g_passes[1][i]) for i in sample}, {i: g_scores(g_passes[2][i]) for i in sample},
-                            SCORED),
+        G: noise_difference({i: g_passes[1][i].scores for i in sample}, {i: g_passes[2][i].scores for i in sample}, SCORED),
         G_PLUS: noise_difference({i: plus_score(i, 1) for i in sample}, {i: plus_score(i, 2) for i in sample}, SCORED),
     }  # fmt: skip
     return FitResult(counts, tuple(r["item_id"] for r in kept), labels, chosen, models, data, signal, noise)

@@ -14,6 +14,9 @@ folder. No Jev call, no test item and no real train response is read here (Stage
   run-0 labels (refusals and `max_tokens` stops are failures in the store already);
 - the weights file in #30's format: read by `routers/jev.py`'s own reader, and its numpy heads match scikit-learn's
   `predict_proba` to 1e-9;
+- the stored records, read through `routers/jev.py`'s own parser, each refusal fed its bad case: a fit row with no
+  answer, a request stored twice, a missing field, another split or router, a refusal flag that disagrees with the
+  response, a noise-sample item with no second pass, and a weights file that already exists;
 - train's cells alone: a dev row that the whole-store loader refuses never reaches the fit, and a source check flags a
   script that loads the whole matrix (a known positive).
 """
@@ -169,7 +172,8 @@ def pipeline_checks() -> None:
         check(all(weights.heads[c].c == result.chosen[c].c for c in synth.CONFIGS), "each head carries its chosen C")
         # The deployable path, item by item: stored answers -> features -> numpy heads, against scikit-learn's own
         # predict_proba on the standardized features of the same rows.
-        answered = {r["item_id"]: fit.unwrap_answers(r["response"]) for r in plus}
+        asked = jev_call.g_plus_questions(settings)
+        answered = {r["item_id"]: jev.parse_answers(r["response"], asked).answers for r in plus}
         features = np.array([jev.g_plus_features(answered[i], from_row(by_id[i]), settings, weights)
                              for i in result.item_ids])  # fmt: skip
         z = (features - weights.mean) / weights.scale
@@ -223,19 +227,24 @@ def pipeline_checks() -> None:
 
         print("\n-- refusals, each whole --")
         path = directory / "jev_bolstered_train.jsonl"
-        write_records(path, plus[1:] + plus2)
+        ok = next(r for r in plus if r["item_id"] in result.item_ids)  # a fit row's record, spoiled in each case below
+        rest = [r for r in plus if r is not ok]
+        write_records(path, rest + plus2)
         check(refused(lambda: run()), "a fit row with no stored G+ answer is refused")
-        write_records(path, [*plus, plus[0], *plus2])
+        write_records(path, [*plus, ok, *plus2])
         check(refused(lambda: run()), "a request stored twice for one pass is refused")
-        write_records(path, [{k: v for k, v in plus[0].items() if k != "seconds"}, *plus[1:], *plus2])
+        write_records(path, [{k: v for k, v in ok.items() if k != "seconds"}, *rest, *plus2])
         check(refused(lambda: run()), "a record missing a field of #30's format is refused")
-        first = by_id[plus[0]["item_id"]]
-        write_records(
-            path, [synthetic_record("jev_bolstered", first, passes_of(first), split="dev"), *plus[1:], *plus2]
-        )
+        first = by_id[ok["item_id"]]
+        write_records(path, [synthetic_record("jev_bolstered", first, passes_of(first), split="dev"), *rest, *plus2])
         check(refused(lambda: run()), "a record of another split is refused: only train's answers are read")
-        write_records(path, [dict(plus[0], router="jev"), *plus[1:], *plus2])
+        write_records(path, [dict(ok, router="jev"), *rest, *plus2])
         check(refused(lambda: run()), "a record of the other router is refused")
+        unflagged = dict(ok, response={"model": "jev-1.14.0", "answers": {}, "usage": ok["usage"]})
+        write_records(path, [unflagged, *rest, *plus2])
+        check(refused(lambda: run()), "a response the parser reads as refused but the record doesn't flag is refused")
+        write_records(path, [dict(ok, refused=True), *rest, *plus2])
+        check(refused(lambda: run()), "a record flagged refused whose response answers every question is refused")
         write_records(path, plus + plus2[1:])
         check(refused(lambda: run()), "a noise-sample item with no second-pass answer is refused")
         write_records(path, plus + plus2)
