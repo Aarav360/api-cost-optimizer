@@ -82,10 +82,15 @@ class Matrix:
         return Matrix(items, {key: cell for key, cell in self.cells.items() if key[0] in kept})
 
 
-def read_store(path: Path = MAIN.matrix) -> list[dict]:
-    """Every row of the dev results matrix, every run, with only the columns the analysis needs."""
+def read_store(path: Path = MAIN.matrix, split: str | None = None) -> list[dict]:
+    """Every row of the dev results matrix, every run, with only the columns the analysis needs.
+
+    With `split`, the query keeps that split's rows alone, so the other split's rows are never read into memory.
+    """
+    where, args = ("", ()) if split is None else (" WHERE split = ?", (split,))
     with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as conn:
-        return [dict(zip(STORE_COLUMNS, row)) for row in conn.execute(f"SELECT {', '.join(STORE_COLUMNS)} FROM rows")]
+        query = f"SELECT {', '.join(STORE_COLUMNS)} FROM rows{where}"
+        return [dict(zip(STORE_COLUMNS, row)) for row in conn.execute(query, args)]
 
 
 def list_price(row: dict, prices: dict) -> float:
@@ -93,11 +98,15 @@ def list_price(row: dict, prices: dict) -> float:
     return cost_usd({"request": {"model": row["model"]}, "response": {"usage": row}}, prices)
 
 
-def from_store(rows: list[dict]) -> Matrix:
-    """Check every stored row, then build the matrix from the run-0 rows."""
+def from_store(rows: list[dict], benchmark_file: Path | None = None) -> Matrix:
+    """Check every stored row, then build the matrix from the run-0 rows.
+
+    `benchmark_file` is a benchmark for a check to feed in; the frozen benchmark by default.
+    """
     models = load_models()
     # The benchmark gives each item's source group, through the reader, which yields train and dev items only.
-    benchmark = {item["item_id"]: item for item in read_rows()}
+    benchmark_rows = read_rows() if benchmark_file is None else read_rows(benchmark_file)
+    benchmark = {item["item_id"]: item for item in benchmark_rows}
 
     matrix_rows = []
     for row in rows:
@@ -122,3 +131,12 @@ def from_store(rows: list[dict]) -> Matrix:
 
 def load(path: Path = MAIN.matrix) -> Matrix:
     return from_store(read_store(path))
+
+
+def load_train(path: Path = MAIN.matrix, benchmark_file: Path | None = None) -> Matrix:
+    """The matrix of train's cells alone: dev's rows are filtered out in the query, before any check or any memory.
+
+    A router's fit script uses this, never `load`, so no dev outcome can reach a fit (Amendment A12, item 1; A15,
+    item 12). `benchmark_file` is a benchmark for a check to feed in.
+    """
+    return from_store(read_store(path, split="train"), benchmark_file)

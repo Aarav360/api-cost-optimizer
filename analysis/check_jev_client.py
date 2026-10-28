@@ -25,6 +25,7 @@ import subprocess
 import sys
 from collections.abc import Callable
 
+from analysis.check_jev_call import synthetic_g_plus
 from analysis.fake_jev import FakeJev, Reply, choice_answer, noul_answer, response_body
 from analysis.freeze import closure
 from harness.client import PROJECT_ROOT
@@ -81,6 +82,7 @@ def synthetic_data(url: str = "http://127.0.0.1:1/v1/systemone", retry: dict | N
                 {"id": "success_opus_low", "config": "opus_low", "text": "Large text."},
             ]
         },
+        "g_plus": synthetic_g_plus(),  # call building parses G+'s part too; G+ is #33's check, not this one's
         "budget_bytes": {"jev": 1000, "jev_bolstered": None},
         "retry": retry or RETRY,
     }
