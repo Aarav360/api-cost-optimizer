@@ -29,13 +29,16 @@ in the clone. Never a test item, and no Jev call.
   stored records', E's and F's tables charge no overhead and G's and G+'s charge it on every request.
 """
 
+import contextlib
 import hashlib
+import io
 import json
 import re
-import subprocess
 import sys
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
+from datetime import datetime
+from functools import partial
 from itertools import zip_longest
 from pathlib import Path
 from typing import Any
@@ -45,6 +48,7 @@ from matplotlib.figure import Figure
 from analysis.chart_routers import ROUTERS
 from analysis.check_chart_routers import colours
 from analysis.check_stage5 import envelope_at, mcnemar_p, numeric, threshold_text
+from analysis.checking import git
 from analysis.operating_points import OPERATING_POINTS_FILE, build_section, read_section, section_hash
 from analysis.pareto import (
     FIGURE_DATA,
@@ -67,8 +71,9 @@ from analysis.table_v3 import TABLE_V3
 from harness.client import PROJECT_ROOT
 from routers.ladder import FRONTIER, SCORED
 
-# The commit Stage 6 · 11 left on the branch: tables v1 and v2 and E's and F's parts are as it has them.
-STAGE5_FILES_AT = "9217e7536071f69e52c146c70319009cad5c5e9c"
+# The commit Stage 6 · 11 left on the branch, the last before chart and table v3: tables v1 and v2, the learning curve
+# and E's and F's parts of the figure JSONs are as it has them.
+STAGE6_11_COMMIT = "9217e7536071f69e52c146c70319009cad5c5e9c"
 SETTINGS_FILE = PROJECT_ROOT / "routers" / "jev_settings.json"
 E_SECTION, F_SECTION = NAMED_ROUTERS[E], NAMED_ROUTERS[F]
 JEV_SECTIONS = {G: NAMED_ROUTERS[G], G_PLUS: NAMED_ROUTERS[G_PLUS]}
@@ -79,7 +84,7 @@ PAIRS = ((G, E), (G, F), (G_PLUS, E), (G_PLUS, F_TRAIN), (G_PLUS, F), (G_PLUS, G
 NOTES = {"realistic": "a note"}  # the headline figure sizes its titles by its notes
 UNITS_NEEDED = ("operating_points", "comparisons", "same_target", "matched_cost", "mcnemar", "diagnostics",
                 "within_task_concordance", "concordance_differences", "router_score_quantiles", "latency",
-                "dev_calls")  # fmt: skip
+                "latency_conditions", "dev_calls")  # fmt: skip
 problems: list[str] = []
 
 
@@ -89,8 +94,26 @@ def check(ok: bool, what: str) -> None:
         problems.append(what)
 
 
-def git(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["git", *args], cwd=PROJECT_ROOT, capture_output=True, text=True, check=False)
+def committed_json(commit: str, file: str) -> dict | None:
+    """A JSON file as `commit` holds it, or None where git can't show it or it isn't a JSON object: a FAIL for the
+    caller to print, not a crash."""
+    shown = git("show", f"{commit}:{file}")
+    try:
+        data = json.loads(shown.stdout) if shown.returncode == 0 else None
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def failures_of(section: Callable[[], None]) -> int:
+    """How many FAILs a section prints, without counting them as this script's own: the way a check proves that a
+    section prints FAIL for a bad input, instead of raising."""
+    before = len(problems)
+    with contextlib.redirect_stdout(io.StringIO()):
+        section()
+    failed = len(problems) - before
+    del problems[before:]
+    return failed
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -149,6 +172,63 @@ def record_lines(
     return lines
 
 
+def slip_checks(good: Sequence[str]) -> None:
+    """The record check catches a one-digit slip in a quality line, in a G+ threshold and in the first dev call's Date.
+    A line the guard needs that the files' lines lack is a FAIL, not a crash."""
+
+    def slipped(find: Callable[[str], bool], change: Callable[[str], str], what: str) -> None:
+        index = next((i for i, line in enumerate(good) if find(line)), None)
+        if index is None:
+            check(False, f"the lines the files give hold the line this guard slips ({what})")
+            return
+        slip = change(good[index])
+        check(slip != good[index] and len(record_mismatches([*good[:index], slip, *good[index + 1 :]], good)) == 1,
+              f"the record check catches a slip in {what}: {slip!r}")  # fmt: skip
+
+    slipped(lambda line: line.startswith("    | G: quality there"),
+            lambda line: re.sub(r"(\d+\.)(\d)%", lambda m: f"{m[1]}{(int(m[2]) + 1) % 10}%", line, count=1),
+            "one number")  # fmt: skip
+    slipped(lambda line: line.startswith("    | G+: threshold"),
+            lambda line: re.sub(r"0\.(\d)", lambda m: f"0.{(int(m[1]) + 1) % 10}", line, count=1),
+            "G+'s thresholds")  # fmt: skip
+    slipped(lambda line: "server `Date`" in line,
+            lambda line: line.replace(":54 GMT", ":55 GMT").replace(":50 GMT", ":51 GMT"),
+            "the first dev call's Date")  # fmt: skip
+
+
+def without_host(table: Mapping[str, Any]) -> dict[str, Any]:
+    """Table v3 less the two entries that describe the machine it was built on, which change with the machine."""
+    data = json.loads(json.dumps(table))
+    for key in ("machine", "network"):
+        data["latency_conditions"].pop(key, None)
+    return data
+
+
+def own_guards() -> None:
+    print("\n-- the check's own guards print FAIL, they do not raise, on what they can't read --")
+    check(failures_of(partial(slip_checks, ["    | a line none of the guards looks for |"])) == 3,
+          "known positive: lines without the three the guards slip are three FAILs, not a crash")  # fmt: skip
+    check(committed_json("0" * 40, "figures/pareto.json") is None,
+          "known positive: a commit git doesn't have gives None, not a crash")  # fmt: skip
+    check(committed_json("HEAD", "figures/not_a_file.json") is None and committed_json("HEAD", "README.md") is None,
+          "and so do a file the commit lacks and one that isn't JSON")  # fmt: skip
+    check(committed_json("HEAD", "figures/pareto.json") is not None, "a committed JSON file is read")
+    sample = {
+        "latency": {G: {"median": 0.07}},
+        "latency_conditions": {"machine": "a", "network": "b", "collected_to": "t"},
+    }
+    other_host = json.loads(json.dumps(sample))
+    other_host["latency_conditions"].update(machine="c", network="d")
+    slower = json.loads(json.dumps(sample))
+    slower["latency"][G]["median"] = 0.08
+    later = json.loads(json.dumps(sample))
+    later["latency_conditions"]["collected_to"] = "u"
+    check(without_host(sample) == without_host(other_host) and without_host(sample) != without_host(slower)
+          and without_host(sample) != without_host(later),
+          "known positive: the rebuild comparison ignores the machine and network alone, and finds a changed "
+          "latency or collection time")  # fmt: skip
+
+
 def record_mismatches(record: Sequence[str], good: Sequence[str]) -> list[tuple[str, str]]:
     """Each numeric line of the record that differs from the line the files give, paired with it; a line missing on
     either side is paired with ''."""
@@ -175,18 +255,7 @@ def record_checks(
     check(DIAGNOSTIC_LABEL in text, f'and labels the diagnostics "{DIAGNOSTIC_LABEL}"')
     # A guard proves it can fail, on the lines the files give: a slip in one digit, and a number the check doesn't know.
     check(not record_mismatches(good, good), "known positive: the lines the files give match themselves")
-    quality = next(i for i, line in enumerate(good) if line.startswith("    | G: quality there"))
-    slip = re.sub(r"(\d+\.)(\d)%", lambda m: f"{m[1]}{(int(m[2]) + 1) % 10}%", good[quality], count=1)
-    check(slip != good[quality] and len(record_mismatches([*good[:quality], slip, *good[quality + 1 :]], good)) == 1,
-          f"the record check catches a slip in one number: {slip!r}")  # fmt: skip
-    plus = next(i for i, line in enumerate(good) if line.startswith("    | G+: threshold"))
-    slip = re.sub(r"0\.(\d)", lambda m: f"0.{(int(m[1]) + 1) % 10}", good[plus], count=1)
-    check(slip != good[plus] and len(record_mismatches([*good[:plus], slip, *good[plus + 1 :]], good)) == 1,
-          f"and in G+'s: {slip!r}")  # fmt: skip
-    date = next(i for i, line in enumerate(good) if "server `Date`" in line)
-    slip = good[date].replace(":54 GMT", ":55 GMT").replace(":50 GMT", ":51 GMT")
-    check(slip != good[date] and len(record_mismatches([*good[:date], slip, *good[date + 1 :]], good)) == 1,
-          "and in the first dev call's Date")  # fmt: skip
+    slip_checks(good)
     check(len(record_mismatches([*good, "    - One number more: 1.0 points."], good)) == 1,
           "the record check catches a number it doesn't compare")  # fmt: skip
     check(len(record_mismatches(good[:-1], good)) == 1, "and a line missing from the record")
@@ -220,21 +289,22 @@ def stage5_kept(headline: dict, per_task: dict) -> None:
           "neither figure JSON holds a diagnostic: F-train and the task-rates diagnostic are not policies")  # fmt: skip
     check(not any("band" in key for key in headline), "no band")
 
-    wanted = git("cat-file", "-e", f"{STAGE5_FILES_AT}^{{commit}}").returncode == 0
-    if not wanted:
-        print(f"(commit {STAGE5_FILES_AT[:7]} is not in this clone: the comparison with Stage 5's files is skipped)")
+    commit_present = git("cat-file", "-e", f"{STAGE6_11_COMMIT}^{{commit}}").returncode == 0
+    if not commit_present:
+        print(f"(commit {STAGE6_11_COMMIT[:7]} is not in this clone: the comparison with Stage 5's files is skipped)")
         return
     for file in ("figures/table_v2.json", "figures/learning_curve.json", "figures/learning_curve.png"):
-        check(git("diff", "--quiet", STAGE5_FILES_AT, "--", file).returncode == 0,
+        check(git("diff", "--quiet", STAGE6_11_COMMIT, "--", file).returncode == 0,
               f"{file} is byte for byte what Stage 5 committed")  # fmt: skip
     for file, now in (("figures/pareto.json", headline), ("figures/pareto_tasks.json", per_task)):
-        before = json.loads(git("show", f"{STAGE5_FILES_AT}:{file}").stdout)
-        check(only_added(before, now, (E_SECTION, F_SECTION)), f"{file}: E's and F's parts, every number and key, are as "
-              f"Stage 5 committed them; G's and G+'s are added beside them")  # fmt: skip
+        before = committed_json(STAGE6_11_COMMIT, file)
+        check(before is not None and only_added(before, now, (E_SECTION, F_SECTION)),
+              f"{file}: E's and F's parts, every number and key, are as Stage 5 committed them; G's and G+'s are "
+              f"added beside them")  # fmt: skip
     bad = json.loads(json.dumps(headline))
     bad["panels"]["realistic"]["routers"][E_SECTION]["steps"][1]["quality"] += 0.001
-    before = json.loads(git("show", f"{STAGE5_FILES_AT}:figures/pareto.json").stdout)
-    check(not only_added(before, bad, (E_SECTION, F_SECTION)),
+    before = committed_json(STAGE6_11_COMMIT, "figures/pareto.json")
+    check(before is not None and not only_added(before, bad, (E_SECTION, F_SECTION)),
           "known positive: a changed number in E's part is found")  # fmt: skip
 
 
@@ -441,6 +511,12 @@ def table_v3_file(headline: dict, per_task: dict, table: dict, table_v2: dict) -
                   and sum(t["calls"] for t in latency[n]["per_task"].values()) == latency[n]["calls"]
                   for n in latency),
           "dev latency: every dev call counted once, as the first call, a reconnect or a timed call, the median under the p90")  # fmt: skip
+    where = table["latency_conditions"]
+    check(list(where) == ["machine", "network", "collected_from", "collected_to"]
+          and all(isinstance(v, str) and v for v in where.values())
+          and datetime.fromisoformat(where["collected_from"]) <= datetime.fromisoformat(where["collected_to"]),
+          "dev latency's conditions: the machine, the network, and the dates and times of the calls, the first not "
+          "after the last")  # fmt: skip
     dates = table["dev_calls"]
     check(set(dates) == {"first_call_server_date", G, G_PLUS}
           and dates["first_call_server_date"] in (dates[G], dates[G_PLUS])
@@ -511,7 +587,9 @@ def on_dev(headline: dict, per_task: dict, table: dict) -> None:
 
     print("\n-- on dev: a rebuild, the stored records and the overhead (hook only) --")
     result = jev_comparisons.compute()
-    check(json.loads(json.dumps(built.build(result))) == table, "table v3 equals a rebuild from the dev matrix and the stored records")  # fmt: skip
+    check(without_host(json.loads(json.dumps(built.build(result)))) == without_host(table),
+          "table v3 equals a rebuild from the dev matrix and the stored records, apart from the machine and network "
+          "it names, which are read where the table is built")  # fmt: skip
     dev, draws, mixes = result.dev, result.draws, load_mixes()
     fixed = {config: simulate(dev, always(dev, config)) for config in LADDER}
     steps = {name: step_outcomes(dev, result.tables[name], fixed[FRONTIER]) for name in (G, G_PLUS)}
@@ -563,6 +641,7 @@ def main() -> int:
     table_v3_file(headline, per_task, table, table_v2)
     record_checks(headline, sections, table["dev_calls"], price)
     readme_checks(headline, table, table_v2)
+    own_guards()
     if (PROJECT_ROOT / "results" / "dev_matrix.sqlite").exists() and (PROJECT_ROOT / "results" / "jev").exists():
         on_dev(headline, per_task, table)
     else:
