@@ -10,8 +10,9 @@ is `check_stage4`'s and `check_stage5`'s, which need `results/`.
   a label each, in `analysis/router_names.py`, and E's and F's names and labels are as they were;
 - the operating-points allowlist accepts both sections, singly and together, accepts them as required sections, and
   still refuses F-train and the diagnostics (known positive: it refuses F-train in a file that also holds G's section);
-- the chart's router list holds E and F only, so G and G+ are not drawn until Stage 6 · 12, and their two styles are
-  reserved in `analysis/chart_routers.py`: a colour, a marker, a point marker and a line that no other router's shares,
+- the chart's router list holds E, F, G and G+ in that order (Stage 6 · 12 added the last two; they were reserved before),
+  and their two styles in `analysis/chart_routers.py` have a colour, a marker, a point marker and a line that no other
+  router's shares,
   and a colour at least 15 apart (OKLab x100, in normal vision and under simulated protan, deutan and tritan vision)
   from every other colour the figures draw and from each other's (known positive: a teal that the configs' blue
   stands within 3 of).
@@ -84,8 +85,11 @@ def main() -> int:
                   f"known positive: {name!r} in a file that holds G's and G+'s sections is refused")  # fmt: skip
 
     print("\n-- the chart's router list and the two reserved styles --")
-    check([r.name for r in ROUTERS] == [NAMED_ROUTERS[E], NAMED_ROUTERS[F]],
-          "the router list still holds E and F only: G and G+ are drawn from Stage 6 · 12")  # fmt: skip
+    check([r.name for r in ROUTERS] == [NAMED_ROUTERS[E], NAMED_ROUTERS[F], NAMED_ROUTERS[G], NAMED_ROUTERS[G_PLUS]],
+          "the router list holds E, F, G and G+ in that order, under their names in the operating-points file")  # fmt: skip
+    check([r.style for r in ROUTERS] == [E_STYLE, F_STYLE, G_STYLE, G_PLUS_STYLE]
+          and [r.label for r in ROUTERS] == [LABELS[E], LABELS[F], LABELS[G], LABELS[G_PLUS]],
+          "each entry has its router's reserved style and its label from the names file")  # fmt: skip
     styles = {E: E_STYLE, F: F_STYLE, G: G_STYLE, G_PLUS: G_PLUS_STYLE}
     for field in ("color", "marker", "point_marker", "linestyle"):
         check(
