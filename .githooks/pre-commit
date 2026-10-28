@@ -47,6 +47,9 @@ uv run python -m analysis.check_jev_plus | grep -E "^FAIL|checks"
 uv run python -m analysis.check_jev_collect | grep -E "^FAIL|checks"
 # G+'s fit, the train signal check and D6 (A15 items 7, 10 and 19): synthetic benchmark, store and stored records.
 uv run python -m analysis.check_jev_fit | grep -E "^FAIL|checks"
+# The settings commit's promises (A15 item 13): budgets set, the file rebuilt from its seed and train's outcomes (where
+# results/ is present), the commit's files unchanged since it, the made-up requests none a train or dev request.
+uv run python -m analysis.check_jev_settings_commit | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
   uv run python -m analysis.check_simulator | grep -E "^FAIL|checks"
   uv run python -m analysis.check_stage4 | grep -E "^FAIL|checks"
