@@ -33,8 +33,10 @@ uv run python -m analysis.check_stage5 | grep -E "^FAIL|checks"
 # The Jev settings builder (A15 items 4-6, 10, 12) on a synthetic benchmark and store; where results/ is present it
 # also builds from the real train data and compares a committed routers/jev_settings.json with the build.
 uv run python -m analysis.check_jev_settings | grep -E "^FAIL|checks"
-# Stage 6's call building (A15 items 4 and 8): synthetic settings, no results/, no Jev call.
+# Stage 6's call building (A15 items 4 to 6 and 8, G's and G+'s bodies): synthetic settings, no results/, no Jev call.
 uv run python -m analysis.check_jev_call | grep -E "^FAIL|checks"
+# G+'s scoring (A15 items 7 and 9): answers to features to router scores, on synthetic answers and weights.
+uv run python -m analysis.check_jev_plus | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
   uv run python -m analysis.check_simulator | grep -E "^FAIL|checks"
   uv run python -m analysis.check_stage4 | grep -E "^FAIL|checks"

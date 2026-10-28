@@ -2,11 +2,14 @@
 
 A request becomes G's call body, as bytes. Pure functions only: nothing here sends a call or reads an answer, which
 is routers/jev.py's job. This module is frozen at the settings commit (A15 item 13), apart from the client and parser
-so that a client bug found later never touches a frozen file. G+'s body joins it in Stage 6 · 3.
+so that a client bug found later never touches a frozen file. G+'s body joins it in Stage 6 · 3 (A15 items 5, 6
+and 8): 16 past requests with their outcomes, then the request, and 18 questions.
 
 It reads the settings file (`routers/jev_settings.json`, the format fixed in issue #30) for what it builds from:
-`jev.model`, `display_names`, `g.success_statements` and `budget_bytes`. Other keys are the client's and are ignored
-here. Standard library only.
+`jev.model`, `display_names`, `g.success_statements`, `g_plus` and `budget_bytes`. Other keys are the client's and
+are ignored here (`g_plus.rates` and `noise_sample` among them: the rates are already inside the statements' text).
+`g_plus.clip` is read because the client's scoring needs it and a settings file is refused whole. Standard library
+only.
 """
 
 import hashlib
@@ -39,11 +42,58 @@ class Statement:
 
 
 @dataclass(frozen=True)
+class PlusStatement:
+    """One of G+'s nine success statements: a phrasing (`a`, `b` or `c`; `c` is the negated one) of a config's."""
+
+    id: str
+    config: str
+    phrasing: str
+    text: str
+
+
+@dataclass(frozen=True)
+class DifficultyStatement:
+    """One of G+'s eight difficulty statements, sent as a Noul question under `difficulty_<n>` (A15 item 6)."""
+
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
+class RequestType:
+    """G+'s request-type question: a Choice question whose options are sent with null criteria (A15 item 6)."""
+
+    id: str
+    text: str
+    options: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class PastRequest:
+    """A past train request shown whole, with each config's run-0 outcome (True: correct), in state order."""
+
+    item_id: str
+    prompt: str
+    schema: dict | None
+    outcomes: dict[str, bool]
+
+
+@dataclass(frozen=True)
+class GPlusSettings:
+    success_statements: tuple[PlusStatement, ...]
+    difficulty_statements: tuple[DifficultyStatement, ...]
+    request_type: RequestType
+    past_requests: tuple[PastRequest, ...]
+    clip: tuple[float, float]  # every answer used as a feature is clipped to this before log-odds (A15 item 7)
+
+
+@dataclass(frozen=True)
 class Settings:
     model: str
     display_names: dict[str, str]
     g_statements: tuple[Statement, ...]
     budget_bytes: dict[str, int | None]  # router name -> budget; null until the smoke test fills it
+    g_plus: GPlusSettings
 
 
 @dataclass(frozen=True)
@@ -68,6 +118,62 @@ def is_text(value: object) -> bool:
     return isinstance(value, str) and value != ""
 
 
+PHRASINGS = ("a", "b", "c")  # `c` is the negated statement (A15 item 6)
+DIFFICULTY_COUNT = 8
+PAST_REQUEST_COUNT = 16  # A15 item 5: within each of 4 tasks, 2 that haiku failed and 2 it passed
+REQUEST_TYPE_ID = "request_type"
+REQUEST_TYPE_OPTIONS = 4
+
+
+def parse_g_plus(data: dict) -> GPlusSettings:
+    """G+'s part of a settings file (A15 items 5 to 7), refusing it whole if any part is missing or malformed."""
+    try:
+        statements = tuple(
+            PlusStatement(s["id"], s["config"], s["phrasing"], s["text"]) for s in data["success_statements"]
+        )
+        difficulty = tuple(DifficultyStatement(s["id"], s["text"]) for s in data["difficulty_statements"])
+        kind = RequestType(
+            data["request_type"]["id"], data["request_type"]["text"], tuple(data["request_type"]["options"])
+        )
+        past = tuple(
+            PastRequest(p["item_id"], p["prompt"], p["output_schema"], dict(p["outcomes"]))
+            for p in data["past_requests"]
+        )
+        clip = tuple(data["clip"])
+    except (KeyError, TypeError, ValueError) as error:
+        raise CallError(f"g_plus settings lack or misshape {error!r}") from error
+    # Nine statements: each scored config's three phrasings, in the ladder's order, under IDs success_<config>_<phrasing>.
+    expected = [(config, phrasing) for config in SCORED for phrasing in PHRASINGS]
+    if [(s.config, s.phrasing) for s in statements] != expected or any(
+        s.id != f"success_{s.config}_{s.phrasing}" for s in statements
+    ):
+        raise CallError("G+'s success statements must be three phrasings (a, b, c) per config, in the ladder's order")
+    if not all(is_text(s.text) for s in statements):
+        raise CallError("a G+ success statement is empty or not a string")
+    if [d.id for d in difficulty] != [f"difficulty_{n}" for n in range(1, DIFFICULTY_COUNT + 1)]:
+        raise CallError(f"G+'s difficulty statements must be difficulty_1 to difficulty_{DIFFICULTY_COUNT}, in order")
+    if not all(is_text(d.text) for d in difficulty):
+        raise CallError("a difficulty statement is empty or not a string")
+    if kind.id != REQUEST_TYPE_ID or not is_text(kind.text):
+        raise CallError(f"the request-type question needs the ID {REQUEST_TYPE_ID} and a non-empty text")
+    if len(kind.options) != REQUEST_TYPE_OPTIONS or len(set(kind.options)) != REQUEST_TYPE_OPTIONS:
+        raise CallError(f"the request-type question needs {REQUEST_TYPE_OPTIONS} distinct options")
+    if not all(is_text(option) for option in kind.options):
+        raise CallError("a request-type option is empty or not a string")
+    if len(past) != PAST_REQUEST_COUNT:
+        raise CallError(f"G+ shows {PAST_REQUEST_COUNT} past requests, not {len(past)}")
+    for p in past:
+        if not is_text(p.item_id) or not is_text(p.prompt) or not (p.schema is None or isinstance(p.schema, dict)):
+            raise CallError(
+                f"past request {p.item_id!r} needs an item ID, a prompt and a schema that is an object or null"
+            )
+        if set(p.outcomes) != set(SCORED) or not all(type(v) is bool for v in p.outcomes.values()):
+            raise CallError(f"past request {p.item_id!r} needs a true or false outcome for exactly {SCORED}")
+    if len(clip) != 2 or not all(type(c) in (int, float) for c in clip) or not 0 < clip[0] < clip[1] < 1:
+        raise CallError("clip must be two numbers with 0 < low < high < 1")
+    return GPlusSettings(statements, difficulty, kind, past, (float(clip[0]), float(clip[1])))
+
+
 def parse_settings(data: dict) -> Settings:
     """The call-building part of a settings file, refusing it whole if any part is missing or malformed."""
     try:
@@ -75,6 +181,7 @@ def parse_settings(data: dict) -> Settings:
         names = data["display_names"]
         statements = tuple(Statement(s["id"], s["config"], s["text"]) for s in data["g"]["success_statements"])
         budgets = data["budget_bytes"]
+        plus_data = data["g_plus"]
     except (KeyError, TypeError) as error:
         raise CallError(f"settings lack or misshape {error!r}") from error
     if not is_text(model):
@@ -90,7 +197,7 @@ def parse_settings(data: dict) -> Settings:
         raise CallError("budget_bytes must hold exactly jev and jev_bolstered")
     if not all(b is None or (type(b) is int and b >= 1) for b in budgets.values()):
         raise CallError("a budget is null or a whole number of bytes of at least 1")
-    return Settings(model, names, statements, budgets)
+    return Settings(model, names, statements, budgets, parse_g_plus(plus_data))
 
 
 def read_settings(path: Path = SETTINGS_FILE) -> Settings:
@@ -171,4 +278,52 @@ def g_call(request: Request, settings: Settings, *, budget_bytes: int | None = N
     prompt, cut = cut_prompt(request.prompt, budget)
     state = g_state(prompt, request.output_schema)
     body = dumps({"model": settings.model, "state": state, "questions": g_questions(settings)})
+    return Call(body, body_sha256(body), cut)
+
+
+def g_plus_questions(settings: Settings) -> dict[str, dict]:
+    """G+'s 18 questions in the body's order (A15 item 6): the nine success statements and the eight difficulty
+    statements as Noul questions, then the request-type question as a Choice question with each option's criterion
+    null (Jev refuses a Choice question with no `criteria`, and reads a null description by the option's name)."""
+    plus = settings.g_plus
+    questions: dict[str, dict] = {s.id: {"type": "noul", "instructions": s.text} for s in plus.success_statements}
+    questions |= {d.id: {"type": "noul", "instructions": d.text} for d in plus.difficulty_statements}
+    kind = plus.request_type
+    questions[kind.id] = {"type": "choice", "instructions": kind.text, "criteria": dict.fromkeys(kind.options)}
+    return questions
+
+
+def g_plus_state(prompt: str, schema: dict | None, settings: Settings) -> dict:
+    """G+'s Jev state (A15 items 5 and 8): the past requests with their outcomes, then the request. An outcome is keyed
+    by its config's display name and reads "correct" or "incorrect"; key order is the code's, never sorted."""
+    names = settings.display_names
+    past = [
+        {
+            "past_request": {"prompt": p.prompt, "output_schema": p.schema},
+            "outcomes": {names[config]: "correct" if p.outcomes[config] else "incorrect" for config in SCORED},
+        }
+        for p in settings.g_plus.past_requests
+    ]
+    return {"past_requests_with_outcomes": past, "request": {"prompt": prompt, "output_schema": schema}}
+
+
+def g_plus_budget_bytes(settings: Settings, *, overhead_tokens: int, schema: dict | None) -> int:
+    """G+'s budget for the settings file, as G's: `schema` is the longest output schema G+ will see. The state counts
+    with an empty prompt, so its 16 past requests are inside it and never cut."""
+    question_bytes = [len(dumps({key: question})) for key, question in g_plus_questions(settings).items()]
+    state_bytes = len(dumps(g_plus_state("", schema, settings)))
+    return compute_budget_bytes(overhead_tokens=overhead_tokens, state_bytes=state_bytes, question_bytes=question_bytes)
+
+
+def g_plus_call(request: Request, settings: Settings, *, budget_bytes: int | None = None) -> Call:
+    """G+'s call body for a request: the past requests with outcomes, the request, then 18 questions.
+
+    Budget and cut as `g_call`, from the settings' `jev_bolstered` entry unless given. Only the request's prompt is
+    cut: its schema, the past requests and the questions stay whole."""
+    budget = settings.budget_bytes.get("jev_bolstered") if budget_bytes is None else budget_bytes
+    if budget is None or budget < 1:
+        raise CallError(f"no usable byte budget for G+ ({budget!r})")
+    prompt, cut = cut_prompt(request.prompt, budget)
+    state = g_plus_state(prompt, request.output_schema, settings)
+    body = dumps({"model": settings.model, "state": state, "questions": g_plus_questions(settings)})
     return Call(body, body_sha256(body), cut)
