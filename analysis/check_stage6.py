@@ -23,6 +23,8 @@ in the clone. Never a test item, and no Jev call.
 - Amendment A15 item 20's record: every number in it is the one the committed files give, at the precision it
   prints, through the plan's amendment-item reader, with guards that a one-digit slip and an uncompared number both
   fail, and the comparisons are called descriptive with no multiplicity correction;
+- the README's numbers about G and G+: each sentence that quotes one is the one the committed files give, with a guard
+  that a one-digit slip is not in the README;
 - on dev (hook only): G's and G+'s parts and table v3 equal a rebuild, the first dev call's server `Date` is the
   stored records', E's and F's tables charge no overhead and G's and G+'s charge it on every request.
 """
@@ -447,6 +449,54 @@ def table_v3_file(headline: dict, per_task: dict, table: dict, table_v2: dict) -
 
 
 # ---------------------------------------------------------------------------------------------------------------
+# The README's numbers
+
+
+README = PROJECT_ROOT / "README.md"
+
+
+def readme_facts(headline: dict, table: dict, table_v2: dict) -> list[str]:
+    """The README's sentences that quote a number about G or G+, as the committed files give it."""
+    realistic = headline["panels"]["realistic"]
+    a = realistic["configs"][FRONTIER]["cost_per_1k"]["value"]
+    cost = {n: realistic["routers"][name]["operating_points"]["97%"]["cost_per_1k"]["value"]
+            for n, name in JEV_SECTIONS.items()}  # fmt: skip
+    haiku = {n: table["diagnostics"]["within_task_concordance"][n]["haiku"]["pooled"]["value"] for n in (G, G_PLUS)}
+    f_haiku = table_v2["diagnostics"]["within_task_concordance"][F]["haiku"]["pooled"]["value"]
+    excluding: dict[str, list[str]] = {}
+    for n in (G, G_PLUS):
+        excluding[n] = []
+        for mix in MIXES:
+            for key, row in table["comparisons"]["matched_cost"][n][mix].items():
+                if row["low"] > 0 or row["high"] < 0:
+                    excluding[n].append(f"{mix} mix, {key} target: {100 * row['difference']:+.1f} points, interval "
+                                        f"{100 * row['low']:+.1f} to {100 * row['high']:+.1f}")  # fmt: skip
+    where = f" ({'; '.join(excluding[G_PLUS])})" if excluding[G_PLUS] else ""
+    return [
+        f"At the 97% target on the realistic mix G costs ${cost[G]:.2f} per 1,000 requests and G+ ${cost[G_PLUS]:.2f}, "
+        f"against A's ${a:.2f}, with Jev's overhead in both.",
+        f"Within-task concordance on `haiku` is {haiku[G]:.3f} for G and {haiku[G_PLUS]:.3f} for G+, against F's "
+        f"{f_haiku:.3f} (diagnostics, dev only).",
+        f"At matched cost G's paired difference from the random-mixture envelope excludes 0 at {len(excluding[G])} of "
+        f"its six operating points and G+'s at {len(excluding[G_PLUS])}{where}, a descriptive reading with no "
+        f"multiplicity correction.",
+    ]
+
+
+def readme_checks(headline: dict, table: dict, table_v2: dict) -> None:
+    print("\n-- the README's numbers about G and G+ --")
+    text = " ".join(README.read_text().split())
+    facts = readme_facts(headline, table, table_v2)
+    for fact in facts:
+        check(fact in text, f"the README says: {fact}")
+    slip = re.sub(r"(\d)(?=[ ,.)]|$)", lambda m: str((int(m[1]) + 1) % 10), facts[0], count=1)
+    check(
+        slip != facts[0] and slip not in text,
+        "known positive: a one-digit slip in the first sentence is not in the README",
+    )
+
+
+# ---------------------------------------------------------------------------------------------------------------
 # On dev, where the stored records and the dev matrix are
 
 
@@ -499,6 +549,9 @@ def main() -> int:
     table, table_v2 = json.loads(TABLE_V3.read_text()), json.loads((TABLE_V3.parent / "table_v2.json").read_text())
     sections = {letter: read_section(name) for letter, name in JEV_SECTIONS.items()}
     price = json.loads(SETTINGS_FILE.read_text())["jev"]["price_per_million_input_tokens"]
+    if "--print-readme" in sys.argv[1:]:
+        print("\n".join(readme_facts(headline, table, table_v2)))
+        return 0
     if "--print" in sys.argv[1:]:
         print("\n".join(line for line in record_lines(headline, sections, table["dev_calls"], price)))
         return 0
@@ -509,6 +562,7 @@ def main() -> int:
     drawn(headline, per_task)
     table_v3_file(headline, per_task, table, table_v2)
     record_checks(headline, sections, table["dev_calls"], price)
+    readme_checks(headline, table, table_v2)
     if (PROJECT_ROOT / "results" / "dev_matrix.sqlite").exists() and (PROJECT_ROOT / "results" / "jev").exists():
         on_dev(headline, per_task, table)
     else:
