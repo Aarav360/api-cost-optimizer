@@ -154,8 +154,10 @@ def recorded_findings(plan_items: dict[int, str]) -> None:
 
 def settings_commit_files(item: str) -> None:
     print("\n-- item 4: how the settings commit holds its files --")
+    # A shallow clone (CI's checkout) grafts its one commit as the file's first, so the history is read only in a full one.
+    shallow = git("rev-parse", "--is-shallow-repository").stdout.strip() != "false"
     commit = settings_commit(PROJECT_ROOT, SETTINGS)
-    if commit is None or git("cat-file", "-e", f"{commit}^{{commit}}").returncode != 0:
+    if shallow or commit is None or git("cat-file", "-e", f"{commit}^{{commit}}").returncode != 0:
         print("      (the settings commit is not in this clone: this section is skipped)")
         return
     added = {line.split("\t")[1] for line in git("show", "--name-status", "--format=", commit).stdout.splitlines()
