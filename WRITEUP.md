@@ -176,6 +176,17 @@ Topics to come back to for the write-up, newest last. Details are in PLAN_v4.md'
 - The shift check matters most. A uniform move barely changes the average gap, yet it pushes items across every threshold in the same direction.
 - Talking point: with a model behind someone else's API, "same version" isn't proof of the same behaviour, so you have to measure it.
 
+### 2026-10-27 · Jev zero-shot ranks requests, but its raw scores are worse than the base rate (Amendment A15, item 19)
+- On train, G's raw scores order successes above failures within a task about 0.68 to 0.71 of the time (a coin is 0.50). Yet their clipped log loss is worse than predicting the base rate: haiku 0.3995 against 0.3954, sonnet 0.3964 against 0.3781.
+- G+ keeps that ordering (0.68 to 0.75) and fixes the calibration: log loss 0.3539 against 0.3954 for haiku, and 0.2786 against 0.2967 for opus_low.
+- Talking point: ranking and calibration are different jobs. A threshold policy needs the first, a cost estimate needs the second, and a train calibration is what turned one into the other.
+
+### 2026-10-27 · On dev, G+ is the first router to beat the random-mixture envelope at matched cost (Amendment A15, item 20; table v3)
+- At the uniform mix and 97% target, G+ is +2.0 points above the envelope (+0.7 to +3.3). No interval for E or F ever excluded 0. It's 1 of G's and G+'s 12 intervals, and descriptive, so one in twenty could exclude 0 by chance.
+- Within-task concordance on dev: G 0.69–0.70, G+ 0.74–0.76, against F's 0.57. G+ − G is +0.05 to +0.06, and the interval excludes 0 for all three configs. An off-the-shelf decision model knows something beyond the task, and our labels add to it.
+- E still wins at 97% realistic (73.1% savings against G+'s 65.1%). G+ wins at 99% on both mixes and at 97% uniform.
+- Talking point: Stage 8's noise check decides whether this survives. Jev answers from someone else's API, so its edge is only as good as the version staying put.
+
 ## Part 2
 
 Ideas for a follow-up study after Stage 8, newest last.
