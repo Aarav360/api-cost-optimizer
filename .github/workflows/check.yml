@@ -24,6 +24,7 @@ jobs:
       - run: uv run python -m analysis.check_metrics
       - run: uv run python -m analysis.check_rules_router
       - run: uv run python -m analysis.check_chart_routers
+      - run: uv run python -m analysis.check_jev_names
       - run: uv run python -m analysis.check_stage5
       - run: uv run python -m analysis.check_trained_router
       - run: uv run python -m analysis.check_trained_freeze
@@ -31,5 +32,6 @@ jobs:
       - run: uv run python -m analysis.check_learning_curve
       - run: uv run python -m analysis.check_jev_settings
       - run: uv run python -m analysis.check_jev_call
+      - run: uv run python -m analysis.check_jev_client
       - run: uv run python -m analysis.check_jev_plus
       - run: uv run python -m analysis.check_jev_fit

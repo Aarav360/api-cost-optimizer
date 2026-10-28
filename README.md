@@ -126,6 +126,7 @@ uv run python -m analysis.check_walk       # breakpoints, steps, the walk and th
 uv run python -m analysis.check_metrics    # within-task concordance, log loss, the same-target comparison and the operating-points allowlist
 uv run python -m analysis.check_rules_router  # E's cues, fit and freeze hashes (A9 item 17), and A10's record against the frozen code
 uv run python -m analysis.check_chart_routers  # the chart script's router list: E's and F's entries and styles, two routers drawn
+uv run python -m analysis.check_jev_names  # G's and G+'s names, the allowlist accepting their sections, and their two reserved chart styles
 uv run python -m analysis.fetch_model      # once: the five embedding-model files at A11's pinned commit, into .cache/ (the router never fetches)
 uv run python -m analysis.check_trained_router  # the trained router's foundation, on a fake backend; with the snapshot, also the real tokenizer's window and that the snapshot directory holds only the five pinned files
 uv run python -m analysis.fit_trained_router caches    # F's embedding caches of train and dev requests, into results/trained_embeddings/ (no outcome read)

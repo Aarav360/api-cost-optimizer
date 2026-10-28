@@ -27,6 +27,8 @@ uv run python -m analysis.check_trained_fit | grep -E "^FAIL|checks"
 # Its refit against the train matrix runs only where results/ is present, like check_simulator below.
 uv run python -m analysis.check_rules_router | grep -E "^FAIL|checks"
 uv run python -m analysis.check_chart_routers | grep -E "^FAIL|checks"
+# Stage 6's prefactor (A15 items 14, 15): G's and G+'s names, the allowlist and their reserved chart styles.
+uv run python -m analysis.check_jev_names | grep -E "^FAIL|checks"
 # Stage 5's chart and table v2, the learning-curve figure and A11 item 21, against the committed files; the hook adds
 # the rebuild from the dev matrix (about 60 s).
 uv run python -m analysis.check_stage5 | grep -E "^FAIL|checks"
@@ -35,6 +37,9 @@ uv run python -m analysis.check_stage5 | grep -E "^FAIL|checks"
 uv run python -m analysis.check_jev_settings | grep -E "^FAIL|checks"
 # Stage 6's call building (A15 items 4 to 6 and 8, G's and G+'s bodies): synthetic settings, no results/, no Jev call.
 uv run python -m analysis.check_jev_call | grep -E "^FAIL|checks"
+# Stage 6's client and G's scoring (A15 items 3, 4, 9 and 12), against the fake Jev server on a loopback port: no
+# results/, no network, no Jev call, retry waits injected.
+uv run python -m analysis.check_jev_client | grep -E "^FAIL|checks"
 # G+'s scoring (A15 items 7 and 9): answers to features to router scores, on synthetic answers and weights.
 uv run python -m analysis.check_jev_plus | grep -E "^FAIL|checks"
 # G+'s fit, the train signal check and D6 (A15 items 7, 10 and 19): synthetic benchmark, store and stored records.

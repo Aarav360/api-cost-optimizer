@@ -11,6 +11,13 @@ for its steps and another for its operating points' centres, and a line. E's is 
 triangles and a dashed line, against E's purple, squares, diamonds and a solid line; the figures' other colours are the
 configs' blue, the envelope's orange and the oracle's green. F's maroon is at least 15 apart in OKLab (x100) from each
 of those four, in normal vision and under simulated red-green colour blindness; `check_chart_routers` measures it.
+
+G's and G+'s styles are reserved here (Amendment A15, items 14 and 15) and `ROUTERS` doesn't hold them yet, so no figure
+draws them until Stage 6 · 12. G's is a near-black, circles, plus signs and a dash-dot line; G+'s a deep indigo, X
+marks, pentagons and a dotted line. The five colours already drawn leave room for only two more that sit 15 apart from
+them and each other under every simulated vision, and the darkest ones are those two: no pair of mid-tones is. A dark
+line still reads against the near-white surface, and each style also has a marker and a line of its own, so no two
+routers rest on colour alone. `check_jev_names` measures the distances.
 """
 
 from collections.abc import Callable
@@ -64,6 +71,10 @@ F_STYLE = RouterStyle(
         ("uniform", "100%, 99%: falls back to A"): (8, -92, "right"),
     },
 )  # fmt: skip
+
+# G's and G+'s, reserved for Stage 6 · 12, which draws them and places their label offsets after the walks (A15, item 15).
+G_STYLE = RouterStyle(color="#1e0a14", marker="o", point_marker="P", linestyle="-.")
+G_PLUS_STYLE = RouterStyle(color="#14109a", marker="X", point_marker="p", linestyle=":")
 
 
 @dataclass(frozen=True)
