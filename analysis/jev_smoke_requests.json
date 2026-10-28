@@ -1,0 +1,36 @@
+[
+ {
+  "item_id": "smoke-001",
+  "prompt": "Write two sentences about a lighthouse keeper's morning. Do not use the letter z, and end the second sentence with a question mark.",
+  "output_schema": null
+ },
+ {
+  "item_id": "smoke-002",
+  "prompt": "Put this customer message into exactly one of these groups: billing, shipping, account, other.\nMessage: \"My parcel still has not arrived after ten days.\"",
+  "output_schema": {
+   "type": "object",
+   "properties": {"label": {"type": "string", "enum": ["billing", "shipping", "account", "other"]}},
+   "required": ["label"]
+  }
+ },
+ {
+  "item_id": "smoke-003",
+  "prompt": "Which planet is closest to the Sun?\nA) Venus\nB) Mercury\nC) Earth\nD) Mars\nAnswer with one letter.",
+  "output_schema": null
+ },
+ {
+  "item_id": "smoke-004",
+  "prompt": "Write a Python function triangular(n) that returns the n-th triangular number, with a short docstring.",
+  "output_schema": null
+ },
+ {
+  "item_id": "smoke-005",
+  "prompt": "A coach leaves the depot at 9:15 and drives 180 km at a steady 60 km/h. At what time does it arrive? Give the time and one line of working.",
+  "output_schema": null
+ },
+ {
+  "item_id": "smoke-006",
+  "prompt": "Write a four-line poem about autumn rain. Every line must start with a different vowel, the third line must contain the word \"window\", and the whole poem must be in lower case.",
+  "output_schema": null
+ }
+]
