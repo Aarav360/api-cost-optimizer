@@ -30,6 +30,9 @@ uv run python -m analysis.check_chart_routers | grep -E "^FAIL|checks"
 # Stage 5's chart and table v2, the learning-curve figure and A11 item 21, against the committed files; the hook adds
 # the rebuild from the dev matrix (about 60 s).
 uv run python -m analysis.check_stage5 | grep -E "^FAIL|checks"
+# The Jev settings builder (A15 items 4-6, 10, 12) on a synthetic benchmark and store; where results/ is present it
+# also builds from the real train data and compares a committed routers/jev_settings.json with the build.
+uv run python -m analysis.check_jev_settings | grep -E "^FAIL|checks"
 # Stage 6's call building (A15 items 4 and 8): synthetic settings, no results/, no Jev call.
 uv run python -m analysis.check_jev_call | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
