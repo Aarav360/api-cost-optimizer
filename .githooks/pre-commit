@@ -36,6 +36,9 @@ uv run python -m analysis.check_stage5 | grep -E "^FAIL|checks"
 # dev matrix and the stored dev responses the hook also rebuilds G's and G+'s parts and table v3 and compares the first
 # dev call's Date (about 90 s). No Jev call.
 uv run python -m analysis.check_stage6 | grep -E "^FAIL|checks"
+# The interactive explorer (figures/pareto_explorer.html) against chart v3's JSONs: the committed page is their build,
+# and its numbers and words are theirs. Rerun analysis.explorer after analysis.pareto.
+uv run python -m analysis.check_explorer | grep -E "^FAIL|checks"
 # The Jev settings builder (A15 items 4-6, 10, 12) on a synthetic benchmark and store; where results/ is present it
 # also builds from the real train data and compares a committed routers/jev_settings.json with the build.
 uv run python -m analysis.check_jev_settings | grep -E "^FAIL|checks"

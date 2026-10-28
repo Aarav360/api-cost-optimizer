@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Built by analysis/explorer.py into figures/pareto_explorer.html: edit this template, not the page. -->
+<title>Router Pareto Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a lab-notebook instrument panel. Controls in tight rows above one large plot, the operating-points table below. */
+:root {
+  --bg: #f4f3ef; --surface: #fcfcfb; --ink: #1d1b18; --ink-2: #55524d; --muted: #85827b;
+  --rule: #e0ded8; --grid: #eae8e3; --accent: #2f4a6d; --chip: #ecebe6; --chip-on: #1d1b18; --chip-on-ink: #fcfcfb;
+  --pos: #1f6e4a; --pos-bg: #e3f1e9;
+  /* Series. E keeps chart v3's purple, G stays ink as in chart v3; F and G+ are re-stepped so all four separate under
+     colour-blind simulation (validated all-pairs). References are neutral so colour belongs to the routers. */
+  --s-e: #8e5bd0; --s-f: #d95926; --s-g: #24201c; --s-gp: #1f8f6a;
+  --s-ref: #a7a39c; --s-oracle: #c6c2ba; --s-target: #9d998f;
+  --font-ui: "Public Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f0f0e; --surface: #161615; --ink: #ece9e4; --ink-2: #b4b0a9; --muted: #8b877f;
+    --rule: #2c2b29; --grid: #232220; --accent: #9db4d6; --chip: #22211f; --chip-on: #ece9e4; --chip-on-ink: #161615;
+    --pos: #7fd3a8; --pos-bg: #16302a;
+    --s-e: #9d7ee6; --s-f: #e0683a; --s-g: #e3ded8; --s-gp: #2a9e76;
+    --s-ref: #6f6b65; --s-oracle: #4f4c48; --s-target: #77736c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f0f0e; --surface: #161615; --ink: #ece9e4; --ink-2: #b4b0a9; --muted: #8b877f;
+  --rule: #2c2b29; --grid: #232220; --accent: #9db4d6; --chip: #22211f; --chip-on: #ece9e4; --chip-on-ink: #161615;
+  --pos: #7fd3a8; --pos-bg: #16302a;
+  --s-e: #9d7ee6; --s-f: #e0683a; --s-g: #e3ded8; --s-gp: #2a9e76;
+  --s-ref: #6f6b65; --s-oracle: #4f4c48; --s-target: #77736c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 14px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+header { display: flex; flex-direction: column; gap: 4px; }
+h1 { font-size: 1.55rem; font-weight: 700; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.sub { color: var(--ink-2); margin: 0; max-width: 75ch; }
+.sub code, .mono { font-family: var(--font-data); font-size: 0.86em; }
+
+.views { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+.group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.group-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 2px; }
+.seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; border-right: 1px solid var(--rule); background: transparent; color: var(--ink-2); padding: 7px 12px;
+  font: 500 0.88rem var(--font-ui); cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--chip-on); color: var(--chip-on-ink); }
+
+.controls { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--rule); background: var(--chip);
+  color: var(--ink-2); border-radius: 999px; padding: 5px 11px 5px 8px; font: 500 0.85rem var(--font-ui); cursor: pointer; }
+.chip svg { flex: none; }
+.chip[aria-pressed="false"] { background: transparent; color: var(--muted); }
+.chip[aria-pressed="false"] svg { opacity: 0.35; }
+.chip[aria-pressed="true"] { color: var(--ink); border-color: var(--ink-2); }
+.btn { border: 1px solid var(--rule); background: transparent; color: var(--ink-2); border-radius: 6px; padding: 5px 10px;
+  font: 500 0.82rem var(--font-ui); cursor: pointer; }
+.btn:hover, .chip:hover, .seg button:hover { color: var(--ink); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hint { color: var(--muted); font-size: 0.8rem; }
+.spacer { flex: 1 1 auto; }
+
+figure { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 10px 10px 12px; }
+#plot { width: 100%; height: clamp(380px, 62vw, 640px); }
+figcaption { color: var(--ink-2); font-size: 0.82rem; padding: 6px 6px 0; display: flex; flex-direction: column; gap: 4px; max-width: 110ch; }
+figcaption .note { color: var(--ink); }
+
+.tablebox { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.tablebox h2 { font-size: 1rem; margin: 0; }
+.tablebox p { margin: 0; color: var(--ink-2); font-size: 0.84rem; max-width: 100ch; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: 0.84rem; }
+th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+th { font-weight: 600; color: var(--ink-2); font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.05em; }
+td.num { font-family: var(--font-data); font-size: 0.8rem; }
+td .ci { color: var(--muted); }
+tr.dim td { opacity: 0.4; }
+tr.group-start td { border-top: 2px solid var(--rule); }
+.swatch { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+.pill { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--pos-bg); color: var(--pos);
+  font: 600 0.7rem var(--font-ui); letter-spacing: 0.02em; }
+footer { color: var(--muted); font-size: 0.78rem; }
+@media (max-width: 640px) { h1 { font-size: 1.3rem; } .hint { display: none; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Router Pareto Explorer</h1>
+    <p class="sub">Quality against cost on dev for the four routers: E (rules), F (trained), G (Jev) and G+ (bolstered Jev), with the fixed configs, the random-mixture envelope and the hindsight oracle. The numbers are chart v3's, from <code>figures/pareto.json</code> and <code>figures/pareto_tasks.json</code>.</p>
+  </header>
+
+  <nav class="views" aria-label="Panel">
+    <div class="group"><span class="group-label">Mix</span><div class="seg" id="mixSeg"></div></div>
+    <div class="group"><span class="group-label">Task</span><div class="seg" id="taskSeg"></div></div>
+  </nav>
+
+  <section class="controls" aria-label="Chart controls">
+    <div class="row">
+      <span class="group-label">Routers</span>
+      <div class="group" id="routerChips"></div>
+      <span class="spacer"></span>
+      <div class="group" id="presets"></div>
+    </div>
+    <div class="row">
+      <span class="group-label">References</span>
+      <div class="group" id="refChips"></div>
+      <span class="group-label">Layers</span>
+      <div class="group" id="layerChips"></div>
+    </div>
+    <div class="row">
+      <span class="group-label">Cost axis</span>
+      <div class="seg" id="axisSeg"></div>
+      <button class="btn" id="zoomBusy" type="button">Zoom to $2–$15</button>
+      <button class="btn" id="zoomReset" type="button">Reset zoom</button>
+      <span class="spacer"></span>
+      <span class="hint">Drag to zoom, scroll to zoom, double-click to reset. Hover any point for its numbers.</span>
+    </div>
+  </section>
+
+  <figure>
+    <div id="plot" role="img" aria-label="Quality against cost per 1,000 requests for the selected panel"></div>
+    <figcaption id="caption"></figcaption>
+  </figure>
+
+  <section class="tablebox" id="tableBox" aria-live="polite"></section>
+
+  <footer>Dev split, run 0. Intervals are percentile 95% from <span id="resamples"></span> resamples of source groups within each task. List prices <span id="prices"></span>.</footer>
+</div>
+
+<!-- jsDelivr, not cdnjs: cdnjs lists Plotly 2.35.2 but serves none of its files. -->
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<script>
+const DATA = /*DATA*/null;
+
+const ROUTERS = [
+  { key: "rules", short: "E", token: "--s-e", step: "square", point: "diamond", dash: "solid" },
+  { key: "trained", short: "F", token: "--s-f", step: "triangle-up", point: "triangle-down", dash: "dash" },
+  { key: "jev", short: "G", token: "--s-g", step: "circle", point: "cross", dash: "dashdot" },
+  { key: "jev_bolstered", short: "G+", token: "--s-gp", step: "x", point: "pentagon", dash: "dot" },
+];
+const REFS = [
+  { key: "configs", label: "Configs A, B, sonnet, opus_low" },
+  { key: "envelope", label: "C: random-mixture envelope" },
+  { key: "oracle", label: "D: hindsight oracle" },
+  { key: "targets", label: "Quality targets" },
+];
+const LAYERS = [
+  { key: "intervals", label: "95% intervals" },
+  { key: "labels", label: "Target labels" },
+  { key: "steps", label: "Step markers" },
+];
+const PRESETS = [
+  { label: "All four", on: ["rules", "trained", "jev", "jev_bolstered"] },
+  { label: "G vs G+", on: ["jev", "jev_bolstered"] },
+  { label: "Jev vs E", on: ["rules", "jev", "jev_bolstered"] },
+  { label: "E vs F", on: ["rules", "trained"] },
+];
+const VIEW_SLUGS = { realistic: "realistic", uniform: "uniform", ifeval: "ifeval", banking77: "banking77", mmlu_pro: "mmlu-pro", mbppplus: "mbpp-plus" };
+const SLUG_VIEWS = Object.fromEntries(Object.entries(VIEW_SLUGS).map(([k, v]) => [v, k]));
+
+const state = {
+  view: "realistic",
+  routers: { rules: true, trained: true, jev: true, jev_bolstered: true },
+  refs: { configs: true, envelope: true, oracle: true, targets: true },
+  layers: { intervals: false, labels: true, steps: true },
+  axis: "log",
+  zoom: null, // null = autoscale; otherwise [xmin, xmax] in dollars
+  rev: 0,
+};
+try {
+  const saved = JSON.parse(localStorage.getItem("pareto-explorer") || "null");
+  if (saved) for (const k of ["routers", "refs", "layers"]) Object.assign(state[k], saved[k] || {});
+  if (saved && (saved.axis === "log" || saved.axis === "linear")) state.axis = saved.axis;
+} catch (e) { /* storage unavailable: defaults stand */ }
+function save() {
+  try { localStorage.setItem("pareto-explorer", JSON.stringify({ routers: state.routers, refs: state.refs, layers: state.layers, axis: state.axis })); } catch (e) {}
+}
+
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const pct = (x, d = 1) => (x * 100).toFixed(d) + "%";
+const money = (x) => "$" + (x >= 10 ? x.toFixed(1) : x.toFixed(2));
+const pts = (x) => (x >= 0 ? "+" : "−") + Math.abs(x * 100).toFixed(1);
+// An end at exactly 0 (a fall-back to A) touches 0, so it doesn't exclude it; the tolerance absorbs float dust.
+const excludesZero = (m) => m[1] > 1e-9 || m[2] < -1e-9;
+
+// Segments are straight lines in linear cost (as chart v3 draws them), so sample each one before a log axis bends it.
+function densify(points) {
+  const out = { x: [], y: [] };
+  for (let i = 0; i < points.length; i++) {
+    const [c, q] = points[i];
+    if (i > 0) {
+      const [c0, q0] = points[i - 1];
+      for (let k = 1; k < 16; k++) { const t = k / 16; out.x.push(c0 + (c - c0) * t); out.y.push(q0 + (q - q0) * t); }
+    }
+    out.x.push(c); out.y.push(q);
+  }
+  return out;
+}
+
+function glyph(symbol, dash, color, size = 26) {
+  const dashes = { solid: "", dash: "5 3", dashdot: "6 2 1.5 2", dot: "1.5 2.5" };
+  const m = { square: '<rect x="9.5" y="2.5" width="7" height="7" />', "triangle-up": '<path d="M13 2 L17 9.5 L9 9.5 Z" />',
+    circle: '<circle cx="13" cy="6" r="3.6" />', x: '<path d="M10 3 L16 9 M16 3 L10 9" stroke-width="2.2" fill="none" />',
+    dot: '<circle cx="13" cy="6" r="3.6" />', line: "" }[symbol] || "";
+  const line = dash === null ? "" : `<line x1="1" y1="6" x2="25" y2="6" stroke-width="2" stroke-dasharray="${dashes[dash] || ""}" />`;
+  return `<svg width="${size}" height="12" viewBox="0 0 26 12" aria-hidden="true" style="color:${color}"><g stroke="currentColor" fill="currentColor">${line}${m}</g></svg>`;
+}
+
+function buildControls() {
+  const mixSeg = document.getElementById("mixSeg"), taskSeg = document.getElementById("taskSeg");
+  for (const [key, v] of Object.entries(DATA.views)) {
+    const b = document.createElement("button");
+    b.type = "button"; b.id = "view-" + key; b.textContent = v.title; b.dataset.view = key;
+    b.addEventListener("click", () => { location.hash = VIEW_SLUGS[key]; });
+    (v.kind === "mix" ? mixSeg : taskSeg).appendChild(b);
+  }
+  const rc = document.getElementById("routerChips");
+  for (const r of ROUTERS) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.id = "chip-" + r.key; b.dataset.router = r.key;
+    b.addEventListener("click", () => { state.routers[r.key] = !state.routers[r.key]; save(); render(); });
+    rc.appendChild(b);
+  }
+  const pr = document.getElementById("presets");
+  PRESETS.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "btn"; b.id = "preset-" + i; b.textContent = p.label;
+    b.addEventListener("click", () => { for (const r of ROUTERS) state.routers[r.key] = p.on.includes(r.key); save(); render(); });
+    pr.appendChild(b);
+  });
+  const mk = (host, list, bucket) => list.forEach((it) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.id = bucket + "-" + it.key; b.dataset.key = it.key; b.dataset.bucket = bucket;
+    b.addEventListener("click", () => { state[bucket][it.key] = !state[bucket][it.key]; save(); render(); });
+    host.appendChild(b);
+  });
+  mk(document.getElementById("refChips"), REFS, "refs");
+  mk(document.getElementById("layerChips"), LAYERS, "layers");
+  const ax = document.getElementById("axisSeg");
+  for (const [k, label] of [["log", "Log"], ["linear", "Linear"]]) {
+    const b = document.createElement("button");
+    b.type = "button"; b.id = "axis-" + k; b.textContent = label;
+    b.addEventListener("click", () => { state.axis = k; state.zoom = null; state.rev++; save(); render(); });
+    ax.appendChild(b);
+  }
+  document.getElementById("zoomBusy").addEventListener("click", () => { state.zoom = [2, 15]; state.rev++; render(); });
+  document.getElementById("zoomReset").addEventListener("click", () => { state.zoom = null; state.rev++; render(); });
+  document.getElementById("resamples").textContent = DATA.meta.resamples.toLocaleString("en-US");
+  document.getElementById("prices").textContent = DATA.meta.prices;
+}
+
+function paintControls() {
+  const v = DATA.views[state.view];
+  document.querySelectorAll("#mixSeg button, #taskSeg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === state.view)));
+  for (const r of ROUTERS) {
+    const b = document.getElementById("chip-" + r.key);
+    b.setAttribute("aria-pressed", String(state.routers[r.key]));
+    b.innerHTML = glyph(r.step, r.dash, css(r.token)) + `<span>${DATA.labels[r.key]}</span>`;
+  }
+  const refGlyph = { configs: glyph("dot", null, css("--s-ref"), 14), envelope: glyph("line", "solid", css("--s-ref")),
+    oracle: glyph("line", "solid", css("--s-oracle")), targets: glyph("line", "dot", css("--s-target")) };
+  for (const it of REFS) {
+    const b = document.getElementById("refs-" + it.key);
+    const off = it.key === "targets" && v.kind !== "mix";
+    b.disabled = off; b.title = off ? "Quality targets are set for the two mixes only (Amendment A7)" : "";
+    b.setAttribute("aria-pressed", String(state.refs[it.key] && !off));
+    b.innerHTML = refGlyph[it.key] + `<span>${it.label}</span>`;
+  }
+  for (const it of LAYERS) {
+    const b = document.getElementById("layers-" + it.key);
+    const off = it.key === "labels" && v.kind !== "mix";
+    b.disabled = off;
+    b.setAttribute("aria-pressed", String(state.layers[it.key] && !off));
+    b.innerHTML = `<span>${it.label}</span>`;
+  }
+  ["log", "linear"].forEach((k) => document.getElementById("axis-" + k).setAttribute("aria-pressed", String(state.axis === k)));
+}
+
+function errorBars(list, axis, on, color) {
+  if (!on) return { visible: false };
+  const i = axis === "x" ? "c" : "q";
+  return { type: "data", symmetric: false, array: list.map((d) => d[i][2] - d[i][0]), arrayminus: list.map((d) => d[i][0] - d[i][1]),
+    color, thickness: 1.4, width: 0 };
+}
+
+function traces(v) {
+  const T = [], ink2 = css("--ink-2");
+  const fellBack = {};
+  if (v.kind === "mix") for (const r of ROUTERS) for (const o of v.routers[r.key].ops) if (o.fell_back) (fellBack[r.short] ||= []).push(o.target);
+
+  if (state.refs.oracle) {
+    const d = densify(v.oracle);
+    T.push({ x: d.x, y: d.y, mode: "lines", line: { color: css("--s-oracle"), width: 2.5 }, hoverinfo: "skip", name: "D" });
+    T.push({ x: v.oracle.map((p) => p[0]), y: v.oracle.map((p) => p[1]), mode: "markers", marker: { size: 10, opacity: 0 },
+      hovertext: v.oracle.map((p) => `<b>D: hindsight oracle</b><br>quality ${pct(p[1])}<br>${money(p[0])} per 1,000 requests`), hoverinfo: "text", name: "D" });
+  }
+  if (state.refs.envelope) {
+    const d = densify(v.envelope);
+    T.push({ x: d.x, y: d.y, mode: "lines", line: { color: css("--s-ref"), width: 4 },
+      hovertext: d.x.map((x, i) => `<b>C: random-mixture envelope</b><br>quality ${pct(d.y[i])}<br>${money(x)} per 1,000 requests`), hoverinfo: "text", name: "C" });
+  }
+  for (const r of ROUTERS) {
+    if (!state.routers[r.key]) continue;
+    const part = v.routers[r.key], color = css(r.token), label = DATA.labels[r.key];
+    const d = densify(part.steps);
+    T.push({ x: d.x, y: d.y, mode: "lines", line: { color, width: 2, dash: r.dash }, hoverinfo: "skip", name: r.short });
+    T.push({ x: part.steps.map((s) => s[0]), y: part.steps.map((s) => s[1]), mode: "markers",
+      marker: { symbol: r.step, size: state.layers.steps ? 7 : 12, color, opacity: state.layers.steps ? 1 : 0, line: { width: r.step === "x" ? 0 : 1, color: css("--surface") } },
+      hovertext: part.steps.map((s) => `<b>${label}</b><br>${s[2] === null ? "always A (the walk's start)" : "step at threshold " + s[2].toFixed(4)}<br>quality ${pct(s[1])}<br>${money(s[0])} per 1,000 requests`),
+      hoverinfo: "text", name: r.short });
+    if (v.kind !== "mix") continue;
+    const ops = part.ops.filter((o) => !o.fell_back);
+    if (!ops.length) continue;
+    T.push({
+      x: ops.map((o) => o.c[0]), y: ops.map((o) => o.q[0]), mode: state.layers.labels ? "markers+text" : "markers",
+      marker: { symbol: r.point, size: 15, color, line: { width: 2, color: css("--surface") } },
+      text: ops.map((o) => `${r.short} ${o.target}`), textposition: "top right", textfont: { family: css("--font-ui"), size: 11, color: ink2 },
+      error_x: errorBars(ops, "x", state.layers.intervals, color), error_y: errorBars(ops, "y", state.layers.intervals, color),
+      hovertext: ops.map((o) => {
+        const m = o.matched ? `<br>vs envelope at matched cost: ${pts(o.matched[0])} pts (${pts(o.matched[1])} to ${pts(o.matched[2])})${excludesZero(o.matched) ? " · excludes 0" : ""}` : "";
+        return `<b>${label} · ${o.target} target</b><br>threshold ${o.threshold.toFixed(4)}${o.certified ? ` · ${o.certified} of ${o.tried} steps tried certified` : ""}` +
+          `<br>quality ${pct(o.q[0])} (${pct(o.q[1])} to ${pct(o.q[2])})<br>${money(o.c[0])} per 1,000 (${money(o.c[1])} to ${money(o.c[2])})` +
+          `<br>saves ${pct(o.save_share)} against A (${money(o.save_per_1k)} per 1,000)${m}`;
+      }),
+      hoverinfo: "text", cliponaxis: false, name: r.short + " points",
+    });
+  }
+  if (state.refs.configs) {
+    const cs = v.configs;
+    T.push({
+      x: cs.map((c) => c.c[0]), y: cs.map((c) => c.q[0]), mode: "markers+text",
+      marker: { symbol: "circle", size: 11, color: css("--s-ref"), line: { width: 2, color: css("--surface") } },
+      text: cs.map((c) => c.label), textposition: cs.map((c) => (c.key === "opus" ? "middle right" : c.key === "haiku" ? "bottom right" : "bottom center")),
+      textfont: { family: css("--font-ui"), size: 12, color: css("--ink") },
+      error_x: errorBars(cs, "x", state.layers.intervals, css("--s-ref")), error_y: errorBars(cs, "y", state.layers.intervals, css("--s-ref")),
+      hovertext: cs.map((c) => {
+        const fb = c.key === "opus" && Object.keys(fellBack).length
+          ? "<br>falls back here: " + Object.entries(fellBack).map(([k, t]) => `${k} at ${t.join(", ")}`).join("; ") : "";
+        return `<b>${c.label}</b> (fixed config)<br>quality ${pct(c.q[0])} (${pct(c.q[1])} to ${pct(c.q[2])})<br>${money(c.c[0])} per 1,000 (${money(c.c[1])} to ${money(c.c[2])})${fb}`;
+      }),
+      hoverinfo: "text", cliponaxis: false, name: "configs",
+    });
+  }
+  return T;
+}
+
+function yRangeFor(v, xmin, xmax) {
+  const ys = [];
+  const take = (c, q) => { if (c >= xmin && c <= xmax) ys.push(q); };
+  if (state.refs.envelope) { const d = densify(v.envelope); d.x.forEach((x, i) => take(x, d.y[i])); }
+  if (state.refs.configs) v.configs.forEach((c) => take(c.c[0], c.q[0]));
+  for (const r of ROUTERS) if (state.routers[r.key]) v.routers[r.key].steps.forEach((s) => take(s[0], s[1]));
+  if (state.refs.oracle) v.oracle.forEach((p) => take(p[0], p[1]));
+  if (!ys.length) return null;
+  const lo = Math.min(...ys), hi = Math.max(...ys), pad = Math.max(0.006, (hi - lo) * 0.12);
+  return [lo - pad, hi + pad];
+}
+
+function layout(v) {
+  const ink = css("--ink"), ink2 = css("--ink-2"), grid = css("--grid"), surface = css("--surface"), font = css("--font-ui");
+  const log = state.axis === "log";
+  const x = {
+    type: log ? "log" : "linear", title: { text: "Cost per 1,000 requests, list price" + (log ? " (log scale)" : ""), font: { size: 12, color: ink2 } },
+    gridcolor: grid, zeroline: false, linecolor: css("--rule"), tickfont: { color: ink2, family: css("--font-data"), size: 11 },
+    ...(log ? { tickvals: [0.1, 0.2, 0.3, 0.5, 1, 2, 3, 5, 10, 20, 30], ticktext: ["$0.1", "", "$0.3", "", "$1", "", "$3", "", "$10", "", "$30"] } : { tickprefix: "$" }),
+  };
+  const y = { title: { text: v.kind === "mix" ? "Mix-weighted quality" : "Quality", font: { size: 12, color: ink2 } },
+    tickformat: ".0%", gridcolor: grid, zeroline: false, linecolor: css("--rule"), tickfont: { color: ink2, family: css("--font-data"), size: 11 } };
+  if (state.zoom) {
+    x.range = log ? state.zoom.map(Math.log10) : state.zoom.slice();
+    const yr = yRangeFor(v, state.zoom[0], state.zoom[1]);
+    if (yr) y.range = yr;
+  }
+  const shapes = [], annotations = [];
+  if (v.kind === "mix" && state.refs.targets) for (const t of v.targets) {
+    shapes.push({ type: "line", xref: "paper", x0: 0, x1: 1, y0: t.q, y1: t.q, line: { color: css("--s-target"), width: 1, dash: "dot" }, layer: "below" });
+    annotations.push({ xref: "paper", x: 1, xanchor: "left", y: t.q, yanchor: "middle", text: t.name, showarrow: false, font: { size: 11, color: ink2, family: css("--font-data") } });
+  }
+  return {
+    paper_bgcolor: surface, plot_bgcolor: surface, font: { family: font, color: ink },
+    margin: { l: 62, r: 46, t: 12, b: 52 }, xaxis: x, yaxis: y, shapes, annotations, showlegend: false,
+    hovermode: "closest", hoverdistance: 18, dragmode: "zoom",
+    hoverlabel: { bgcolor: surface, bordercolor: css("--rule"), font: { family: font, size: 12, color: ink }, align: "left" },
+    uirevision: state.view + ":" + state.axis + ":" + state.rev,
+  };
+}
+
+function caption(v) {
+  const cap = document.getElementById("caption");
+  const parts = [];
+  if (v.note) parts.push(`<span class="note">${v.note}</span>`);
+  if (v.kind === "mix") {
+    const fb = [];
+    for (const r of ROUTERS) for (const o of v.routers[r.key].ops) if (o.fell_back) fb.push(`${r.short} at ${o.target}`);
+    parts.push("Large markers are operating points, chosen on dev by each router's walk at the 100%, 99% and 97% targets." +
+      (fb.length ? ` Falling back to A (drawn at A: opus): ${fb.join(", ")}.` : ""));
+  } else {
+    parts.push(`${v.items} dev items. Each task has its own envelope and oracle. There are no quality targets per task, so the routers' steps are drawn with no operating points (Amendment A7).`);
+  }
+  parts.push("G's and G+'s costs include Jev's overhead per request, and E's and F's have none. Differences between routers are judged by the paired intervals in table v3, not by whether intervals overlap.");
+  cap.innerHTML = parts.map((p) => `<span>${p}</span>`).join("");
+}
+
+function table(v) {
+  const box = document.getElementById("tableBox");
+  if (v.kind !== "mix") {
+    const rows = v.configs.map((c) => `<tr><td>${c.label}</td><td></td><td class="num">${pct(c.q[0])} <span class="ci">(${pct(c.q[1])} to ${pct(c.q[2])})</span></td><td class="num">${money(c.c[0])} <span class="ci">(${money(c.c[1])} to ${money(c.c[2])})</span></td></tr>`).join("");
+    box.innerHTML = `<h2>Fixed configs on ${v.title}</h2><p>Per-task readings carry no verdicts; they show where each config sits.</p>
+      <div class="scroll"><table><thead><tr><th>Config</th><th></th><th>Quality (95% interval)</th><th>$ per 1,000 (95% interval)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    return;
+  }
+  let rows = "";
+  for (const r of ROUTERS) {
+    v.routers[r.key].ops.forEach((o, i) => {
+      const dim = state.routers[r.key] ? "" : " dim";
+      const name = i === 0 ? `<span class="swatch">${glyph(r.step, r.dash, css(r.token), 22)}${DATA.labels[r.key]}</span>` : "";
+      const thr = o.fell_back ? "falls back to A" : o.threshold.toFixed(4);
+      const m = o.matched ? `${pts(o.matched[0])} <span class="ci">(${pts(o.matched[1])} to ${pts(o.matched[2])})</span>${excludesZero(o.matched) ? '<span class="pill">excludes 0</span>' : ""}` : "—";
+      rows += `<tr class="${i === 0 ? "group-start" : ""}${dim}"><td>${name}</td><td>${o.target}</td><td class="num">${thr}</td>` +
+        `<td class="num">${pct(o.q[0])} <span class="ci">(${pct(o.q[1])} to ${pct(o.q[2])})</span></td>` +
+        `<td class="num">${money(o.c[0])} <span class="ci">(${money(o.c[1])} to ${money(o.c[2])})</span></td>` +
+        `<td class="num">${pct(o.save_share)}</td><td class="num">${m}</td></tr>`;
+    });
+  }
+  box.innerHTML = `<h2>Operating points, ${v.title.toLowerCase()}</h2>
+    <p>Each router's certified threshold at each target. The last column is the paired difference from the envelope at the router's own cost, in points; descriptive, with no multiplicity correction (A15 item 14). Hidden routers are dimmed.</p>
+    <div class="scroll"><table><thead><tr><th>Router</th><th>Target</th><th>Threshold</th><th>Quality (95% interval)</th><th>$ per 1,000 (95% interval)</th><th>Saves vs A</th><th>vs envelope, pts (95% interval)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function render() {
+  const v = DATA.views[state.view];
+  paintControls();
+  Plotly.react("plot", traces(v), layout(v), {
+    responsive: true, displaylogo: false, scrollZoom: true,
+    modeBarButtonsToRemove: ["toImage", "lasso2d", "select2d", "autoScale2d"],
+  });
+  caption(v);
+  table(v);
+}
+
+function fromHash() {
+  const slug = location.hash.replace(/^#/, "");
+  const view = SLUG_VIEWS[slug] || "realistic";
+  if (view !== state.view) { state.view = view; state.zoom = null; }
+  render();
+}
+
+buildControls();
+window.addEventListener("hashchange", fromHash);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+fromHash();
+</script>
+</body>
+</html>
