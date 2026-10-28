@@ -37,6 +37,8 @@ uv run python -m analysis.check_jev_settings | grep -E "^FAIL|checks"
 uv run python -m analysis.check_jev_call | grep -E "^FAIL|checks"
 # G+'s scoring (A15 items 7 and 9): answers to features to router scores, on synthetic answers and weights.
 uv run python -m analysis.check_jev_plus | grep -E "^FAIL|checks"
+# G+'s fit, the train signal check and D6 (A15 items 7, 10 and 19): synthetic benchmark, store and stored records.
+uv run python -m analysis.check_jev_fit | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
   uv run python -m analysis.check_simulator | grep -E "^FAIL|checks"
   uv run python -m analysis.check_stage4 | grep -E "^FAIL|checks"
