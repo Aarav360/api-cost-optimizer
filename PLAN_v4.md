@@ -1027,7 +1027,7 @@ Nine records from Stage 6's branch review, made after G's and G+'s record (A15 i
     - **The gates' answer reader** selects only the item ID, config, run, answer and stop reason from `results/dev_matrix.sqlite`, which also holds `success`, `quality`, `parsed` and `detail`. A check confirms that no outcome column reaches gate code, so the rule is enforced in the query, not only by convention.
 3. **The stop and schema checks.**
     - **The stop check** rejects any stop other than `end_turn`. It is always right when it rejects: the grader fails every such stop (A1 item 1), and a live system sees the same signal.
-        - Run 0 on train and dev has three such stops in 6,549 rows: `opus` and `opus_low` refused `mmlu_pro:6586`, and `sonnet` hit its cap on `mmlu_pro:9170`. `haiku` has none.
+        - Run 0 on train and dev has three such stops in 5,949 rows: `opus` and `opus_low` refused `mmlu_pro:6586`, and `sonnet` hit its cap on `mmlu_pro:9170`. `haiku` has none.
         - So the check never fires in a cascade that starts at `haiku`. It fires in router-started cascades that start at `opus_low` or `sonnet` on those items.
     - **The schema check** rejects a structured answer that doesn't parse or doesn't match its schema. It can't fire on this benchmark: structured outputs constrain every `end_turn` answer to its schema, and IFEval and MBPP+ have no schema. It is kept and reported, and it gets no curve of its own.
 4. **The code check.** It applies when the request has a line starting `assert`, and passes otherwise. Each of the 250 MBPP+ train and dev prompts has exactly one such line, and no other prompt has any.
@@ -1037,7 +1037,7 @@ Nine records from Stage 6's branch review, made after G's and G+'s record (A15 i
         - 9 of the 250 example tests call `math.isclose` (8) or `sys.getsizeof` (1). A correct answer that never imports `math` would crash in the gate, be rejected and pay for `opus` for nothing.
         - The module names are read from the prompt, which a gate may read.
     - **Verdicts.** It passes on a clean exit within the limits. No code block, or an empty one, rejects, as in the grader. A sandbox (Docker) failure is retried and never becomes a verdict.
-    - **What a pass means:** not that the hidden tests pass. The hidden tests are lists of inputs checked by an assertion helper, not `assert` lines. The example `assert` appears verbatim in none of the 143 train items' hidden tests, while its input is among the hidden inputs for 135 of them, by exact match of the literal arguments.
+    - **What a pass means:** not that the hidden tests pass. The hidden tests are lists of inputs checked by an assertion helper, not `assert` lines. The example `assert` appears verbatim in none of the 143 train items' hidden tests, while its input is among the hidden inputs for 140 of them, by exact match of the literal arguments.
 5. **The Jev gate.** One call per answer, to `jev-1.14.0` (A13).
     - **The Jev state:** `{"request": {"prompt": …, "output_schema": …}, "answer": "<the answer's final text>"}`, serialized as in A15 item 8: `request` before `answer`, and a missing schema as null.
     - **Three Noul statements:**
@@ -1258,7 +1258,7 @@ Nine records from Stage 6's branch review, made after G's and G+'s record (A15 i
     1. **The smoke test, before the settings commit,** on made-up answers to real train prompts from all four tasks. It measures or confirms:
         - the Jev gate's fixed overhead and byte budget, from minimal calls (A16 item 8), and that the frozen `parse_answers` accepts the three statement IDs
         - that the batch path accepts the Sonnet gate's enum schema, on a tiny made-up batch
-        - the Sonnet gate's cost per check on prompts from all four tasks. Banking77's prompts are about 4× as long as MMLU-Pro's, and how much Sonnet thinks depends on the question.
+        - the Sonnet gate's cost per check on prompts from all four tasks. Banking77's prompts are about 3.4× as long as MMLU-Pro's, in mean input tokens, and how much Sonnet thinks depends on the question.
         - that the code check passes and fails as expected on made-up code, the import rule and an empty block included
 
        Only a mechanical failure may change anything, and each fix is recorded. Nothing changes because of a verdict.

@@ -2,7 +2,8 @@
 # The repo's fast checks, run before every commit and by hand from the project root:  .githooks/pre-commit
 # Turn the hook on once per clone:  git config core.hooksPath .githooks
 # CI (.github/workflows/check.yml) runs the same checks except the ones in the results/ block at the end
-# (check_jev_dev, check_jev_comparisons, check_simulator, check_stage4, check_trained_dev, check_trained_diagnostics), which need the dev results matrix in
+# (check_jev_dev, check_jev_comparisons, check_simulator, check_stage4, check_trained_dev, check_trained_diagnostics,
+# check_gates_design), which need the dev results matrix in
 # results/ (not committed); several others also have a section that runs only where results/ or the model snapshot is
 # present. check_collect, check_sandbox and check_evaluators need Docker and take minutes, so they stay manual (README,
 # "Running it").
@@ -81,4 +82,8 @@ if [ -f results/dev_matrix.sqlite ]; then
   uv run python -m analysis.check_learning_curve | grep -E "^FAIL|checks"
   # The diagnostics (A11 items 12, 13): task rates, concordance, same-target comparisons (about 10 s).
   uv run python -m analysis.check_trained_diagnostics | grep -E "^FAIL|checks"
+  # Amendment A17's design-review facts (stops, assert lines, hidden-test inputs, rescue rates, the longest answer, the
+  # sandbox's run times, the provenance claim) recomputed from the stored train and dev rows, train's hidden tests and
+  # chart v0, against the plan's text. No gate, no model.
+  uv run python -m analysis.check_gates_design | grep -E "^FAIL|checks"
 fi
