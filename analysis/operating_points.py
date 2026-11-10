@@ -21,7 +21,7 @@ from typing import Any
 
 from analysis.bootstrap import RESAMPLES, SEED
 from analysis.references import TARGETS
-from analysis.router_names import NAMED_ROUTERS
+from analysis.router_names import CASCADES, NAMED_ROUTERS
 from analysis.walk import ALL_STEPS_UP_TO, QUANTILE_STEPS, Step, Walk
 from harness.client import PROJECT_ROOT
 
@@ -120,22 +120,23 @@ def section_hash(section: dict[str, Any]) -> str:
 
 def check_sections(path: Path = OPERATING_POINTS_FILE, required: Collection[str] = ()) -> None:
     """Refuses (OperatingPointsError) a file with a section for anything but the routers an amendment names
-    (`NAMED_ROUTERS`), with F-train and every diagnostic among them, or a file that isn't there or isn't an object.
+    (`NAMED_ROUTERS`) and the fifteen cascades it names (`CASCADES`, A17 item 25), with F-train and every diagnostic
+    among them, or a file that isn't there or isn't an object.
 
-    `required` names sections that must also be present, each itself a named router: Stage 5 asks for F's once F is
+    `required` names sections that must also be present, each itself a named router or cascade: Stage 5 asks for F's once F is
     walked (`required=(NAMED_ROUTERS[E], NAMED_ROUTERS[F])`). By default no section is required, so a file with
     E's alone passes.
     """
     if not path.exists():
         raise OperatingPointsError(f"there is no file at {path}")
-    allowed = set(NAMED_ROUTERS.values())
+    allowed = {*NAMED_ROUTERS.values(), *CASCADES}
     if unnamed := sorted(set(required) - allowed):
         raise OperatingPointsError(
-            f"required sections {unnamed} are not routers an amendment names ({sorted(allowed)})"
+            f"required sections {unnamed} are not routers or cascades an amendment names ({sorted(allowed)})"
         )
     sections = _read_file(path)
     if extra := sorted(set(sections) - allowed):
-        raise OperatingPointsError(f"{path} has sections {extra}, which are not routers an amendment names "
+        raise OperatingPointsError(f"{path} has sections {extra}, which are not routers or cascades an amendment names "
                                    f"({sorted(allowed)}); F-train and the diagnostics never get one")  # fmt: skip
     if missing := sorted(set(required) - set(sections)):
         raise OperatingPointsError(f"{path} has no section for {missing}; it holds {sorted(sections)}")
