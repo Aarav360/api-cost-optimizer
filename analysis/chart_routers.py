@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from analysis.bootstrap import Bootstrap
 from analysis.dev_diagnostic import dev_diagnostic
 from analysis.matrix import Matrix
-from analysis.router_names import G_PLUS, LABELS, NAMED_ROUTERS, E, F, G
+from analysis.router_names import FREE_GATE, G_PLUS, JEV_GATE, LABELS, NAMED_ROUTERS, SONNET_GATE, E, F, G
 from analysis.router_table import RouterScoreTable
 from analysis.rules_table import dev_table
 from analysis.rules_walk import dev_walks
@@ -35,6 +35,8 @@ from analysis.walk import Walk
 
 # A label's place beside an operating point's cross: points right and up from the cross, and the alignment.
 Offset = tuple[int, int, str]
+# A matplotlib line style: a name, or an offset and an on-off pattern in points.
+LineStyle = str | tuple[float, tuple[float, ...]]
 
 
 @dataclass(frozen=True)
@@ -42,7 +44,7 @@ class RouterStyle:
     color: str  # hex, for the line, the markers and the crosses
     marker: str  # matplotlib marker of the steps
     point_marker: str  # matplotlib marker of the operating points' centres
-    linestyle: str  # matplotlib line style of the steps' line
+    linestyle: LineStyle  # matplotlib line style of the steps' line
     # Operating-point labels by (mix, label), placed by eye on the committed figure and checked against it, so a
     # different walk needs them moved; a label not listed sits just below right of its cross.
     point_offsets: dict[tuple[str, str], Offset] = field(default_factory=dict)
@@ -99,6 +101,20 @@ G_PLUS_STYLE = RouterStyle(
         ("uniform", "100%"): (30, -60, "left"),
     },
 )  # fmt: skip
+
+# The cascades' styles (A17 items 8 and 23), reserved before any cascade number exists. There is one per gate, and it is
+# the gate's everywhere: the pure cascade `haiku/free` (a point with a cross), `haiku/Jev` and `haiku/Sonnet` on the
+# headline figure, and a router's `/free`, `/Jev` and `/Sonnet` lines on the router-started figure. The router alone
+# keeps its own style. The headline holds ten colours (the configs' blue, the envelope's orange, the oracle's green,
+# the four routers' and these three), and ten colours do not fit in the colour space 15 apart under every simulated
+# vision with room to spare: only black, a pale lavender and a bright green sit that far from the other seven and from
+# each other. The three are those, and each style also has a marker, a point marker and a line of its own, so no
+# series rests on colour alone. `check_jev_names` measures the distances.
+CASCADE_STYLES = {
+    FREE_GATE: RouterStyle(color="#000000", marker="h", point_marker="*", linestyle=(0, (3, 1, 1, 1, 1, 1))),
+    JEV_GATE: RouterStyle(color="#50f000", marker="<", point_marker="H", linestyle=(0, (5, 1))),
+    SONNET_GATE: RouterStyle(color="#cca4f8", marker=">", point_marker="8", linestyle=(0, (3, 5, 1, 5))),
+}
 
 
 @dataclass(frozen=True)
