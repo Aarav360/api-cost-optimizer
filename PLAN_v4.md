@@ -5,7 +5,7 @@
 | Version | v4 |
 | Status | Final — frozen before Stage 0, then changed only by the amendments below |
 | Date | 2026-10-12 |
-| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed, and A8, Stage 3 decisions; 2026-10-20: Amendment A9, Stage 4 decisions, and A10, the Stage 4 review's records; 2026-10-21: Amendment A11, Stage 5 decisions; 2026-10-23: Amendment A12, the Stage 5 review's records; 2026-10-25: Amendment A13, Jev pinned to 1.14.0; 2026-10-27: Amendment A14, a bolstered Jev router proposed, A15, Stage 6 decisions, and A16, the Stage 6 review's records |
+| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed, and A8, Stage 3 decisions; 2026-10-20: Amendment A9, Stage 4 decisions, and A10, the Stage 4 review's records; 2026-10-21: Amendment A11, Stage 5 decisions; 2026-10-23: Amendment A12, the Stage 5 review's records; 2026-10-25: Amendment A13, Jev pinned to 1.14.0; 2026-10-27: Amendment A14, a bolstered Jev router proposed, A15, Stage 6 decisions, and A16, the Stage 6 review's records; 2026-11-10: Amendment A17, Stage 7 decisions |
 | Supersedes | [PLAN_v3.md](docs/history/PLAN_v3.md) — earlier versions in [docs/history/](docs/history/) |
 
 ## What changed from v3
@@ -43,6 +43,7 @@
 | v4-A14 | 2026-10-27 | Amendment A14: a bolstered Jev router (G+) proposed for Stage 6: concrete model descriptions, worked examples from train, three phrasings, difficulty statements, a calibration fitted on train |
 | v4-A15 | 2026-10-27 | Amendment A15: Stage 6 decisions: G (zero-shot Noul) and G+ (bolstered, calibrated on train) on dev; one Jev call per request; a settings commit before any benchmark call and a freeze commit before any dev call; Stage 8's noise check; chart v3 |
 | v4-A16 | 2026-10-27 | Amendment A16: Stage 6 review: the files the two freezes hash; findings in them recorded, not fixed; dev latency's machine, network and times; the split of `routers/jev.py`; client behaviour and the refusal rule; the byte budgets and their margin |
+| v4-A17 | 2026-11-10 | Amendment A17: Stage 7 decisions: three free checks, the Jev gate and a low-effort Sonnet gate; fifteen cascades, pure and router-started, escalating straight to `opus`; pure cascades walk their cutoff, router-started ones walk their router with the cutoff fixed on train by Youden's J; the Sonnet gate on train too; a settings commit and a freeze commit; chart v4; Stage 8's drift checks and live replay; the commercial router dropped |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -1002,6 +1003,468 @@ Nine records from Stage 6's branch review, made after G's and G+'s record (A15 i
     - **The margin on test.** The longest train prompt is 2,953 serialized bytes and the longest dev prompt 2,690, so G+'s margin over train's longest is 3,027 bytes (G's is 26,679) and no train or dev prompt was cut. A test prompt over 5,980 serialized bytes would be cut for G+, so Stage 8 could cut a long test prompt. The truncation count is reported (item 17.4).
 9. **Item 19 says the latency "isn't re-checked", and the hook's comment said it is.** Both are true of different things. The measurement is not repeated: it depends on the machine and the network. Every latency figure in item 19, though, is recomputed from train's stored responses by `analysis/check_jev_freeze.py` and compared with the record, as dev's are by `analysis/check_jev_comparisons.py` and `analysis/check_stage6.py`. The hook's comment now says "recomputed from the stored records".
 
+## Amendment A17 — Stage 7 decisions: gates and cascades (2026-11-10)
+
+**Provenance.** Stage 7's decisions come from a design review held after A16 and before any Stage 7 code, and before any Jev, Sonnet or code-check call on a benchmark answer. The review read train outcomes (among them item 9's rescue rates), the MBPP+ train items' hidden tests, train and dev prompts, answer lengths, token counts and stop reasons, the grader's sandbox run times, and the dev numbers Stages 3–6 recorded. One query during the review printed dev's success counts per task and config. Those are the per-task config qualities chart v0 already published in `figures/pareto_tasks.json`, so no new dev outcome was computed. `analysis/check_gates_design.py` (item 27) recomputes every train and dev fact quoted here.
+
+**What stands.** They change no frozen file, threshold or operating point of E, F, G or G+, so A9 items 17 and 18, A10, A11 items 19 to 21, A12, A15 items 19 and 20, and A16 stand.
+
+**Scope.** They settle §9's gates and cascades and §10's experiment I, and they drop the commercial router (§8 3d; item 24). They amend A1 items 3 and 4 (item 12) and depart from §13's storage and layout (items 14 and 19). Applied in §8, §9, §10, §12, §13, §14 and `GLOSSARY.md`.
+
+**Records filled in later.** Item 28, the freeze record, in the freeze commit; item 29, the cascades' operating points, when Stage 7 finishes.
+
+1. **Five gates; three dropped** (§9).
+    - **The free checks:** the stop check, the schema check and the code check. They cost nothing per call.
+    - **The paid gates:** the Jev gate and the Sonnet gate.
+    - **Dropped:**
+        - **Token log-probabilities.** The API doesn't return them.
+        - **Self-consistency.** Already extension X2 (v4 change 3).
+        - **Model-written tests for the code check.** Not for cost: a test written by `haiku` costs about what its MBPP+ answer does, about $0.0002. They would need new model calls on train, dev and test, each with its own freeze. The prompt already carries a free test. And a model-written test gets its expected values from a model, so when it fails it can't say whether the code or the test is wrong.
+2. **What a gate sees** (§9's leakage rule).
+    - **The answer** is its final text (`answer_text`, text blocks only) plus the API's stop reason. Thinking, token counts, latency and the config's name are excluded, so no gate can start reading, say, answer length without a decision to allow it.
+    - **The stop reason belongs to the answer.** It is the API's own field, a live system sees it, and it carries nothing from the benchmark.
+    - **The leakage rule stands:** no expected answer, hidden test, `meta` or task.
+    - **The gates' answer reader** selects only the item ID, config, run, answer and stop reason from `results/dev_matrix.sqlite`, which also holds `success`, `quality`, `parsed` and `detail`. A check confirms that no outcome column reaches gate code, so the rule is enforced in the query, not only by convention.
+3. **The stop and schema checks.**
+    - **The stop check** rejects any stop other than `end_turn`. It is always right when it rejects: the grader fails every such stop (A1 item 1), and a live system sees the same signal.
+        - Run 0 on train and dev has three such stops in 6,549 rows: `opus` and `opus_low` refused `mmlu_pro:6586`, and `sonnet` hit its cap on `mmlu_pro:9170`. `haiku` has none.
+        - So the check never fires in a cascade that starts at `haiku`. It fires in router-started cascades that start at `opus_low` or `sonnet` on those items.
+    - **The schema check** rejects a structured answer that doesn't parse or doesn't match its schema. It can't fire on this benchmark: structured outputs constrain every `end_turn` answer to its schema, and IFEval and MBPP+ have no schema. It is kept and reported, and it gets no curve of its own.
+4. **The code check.** It applies when the request has a line starting `assert`, and passes otherwise. Each of the 250 MBPP+ train and dev prompts has exactly one such line, and no other prompt has any.
+    - **What it runs:** the grader's extraction (the last fenced `python` block, else the last unlabeled one), then the prompt's `assert` line, in the grader's sandbox at 20 s and 512 MB for every request. The grader's 3 GB for `mbppplus:255` is keyed on an item ID, which a gate can't know.
+    - **The import rule.** Before the `assert`, each standard-library module the line names is imported.
+        - The grader adds the hidden tests' imports, which a gate can't see.
+        - 9 of the 250 example tests call `math.isclose` (8) or `sys.getsizeof` (1). A correct answer that never imports `math` would crash in the gate, be rejected and pay for `opus` for nothing.
+        - The module names are read from the prompt, which a gate may read.
+    - **Verdicts.** It passes on a clean exit within the limits. No code block, or an empty one, rejects, as in the grader. A sandbox (Docker) failure is retried and never becomes a verdict.
+    - **What a pass means:** not that the hidden tests pass. The hidden tests are lists of inputs checked by an assertion helper, not `assert` lines. The example `assert` appears verbatim in none of the 143 train items' hidden tests, while its input is among the hidden inputs for 135 of them, by exact match of the literal arguments.
+5. **The Jev gate.** One call per answer, to `jev-1.14.0` (A13).
+    - **The Jev state:** `{"request": {"prompt": …, "output_schema": …}, "answer": "<the answer's final text>"}`, serialized as in A15 item 8: `request` before `answer`, and a missing schema as null.
+    - **Three Noul statements:**
+        - `jev_gate_correct`: "This answer correctly and completely addresses the request." (§9's wording)
+        - `jev_gate_follows`: "This answer is fully correct and follows every instruction in the request."
+        - `jev_gate_mistake`: "This answer contains at least one mistake.", read as 1 − p.
+
+      "Follows every instruction" catches IFEval-style omissions; "at least one mistake" catches wrong labels and wrong code.
+    - **The gate score:**
+        1. Clip each answer to [0.005, 0.995] (A15 item 7).
+        2. Invert `mistake`.
+        3. Average the three on the log-odds scale.
+        4. Turn the mean back into a probability.
+
+      Clipping is symmetric, so clipping before or after the inversion gives the same score. Jev rounds to two decimals and can return exactly 0.00 or 1.00, whose log-odds are infinite without the clip.
+    - **Zero-shot, with no past examples.** The leakage rule doesn't forbid train examples, and G+ used them. But past answers wouldn't fit beside a long answer in the byte budget, and zero-shot is the plan's question.
+    - **No fit.** A pure cascade's walk uses only the order of the scores, so a fit would only reweight the three phrasings.
+    - **The byte budget** follows A15 item 8 and is measured in the smoke test (item 20). A cut keeps the head and tail, of the answer first, then of the prompt, and every cut is counted.
+        - The longest train or dev answer is 15,711 characters (15,941 serialized bytes; `ifeval:1531`, `haiku`, train).
+        - With the longest train prompt (2,953 serialized bytes) and A16 item 8's 1,922-byte schema reserve, that comes to about 21 KB, under G's budget of 29,632 bytes.
+        - So no cut is expected on train or dev, provided the gate's measured budget comes out near G's.
+    - **Refusals and run stops.**
+        - A refusal, by A16 item 7's rule (a 200 that doesn't answer all three questions in the right form), is a rejection, and it is counted.
+        - A run stop, a 4xx the client doesn't retry or the retry cap reached, halts the offline collection, which resumes later (A15 item 9). A run stop never becomes a verdict.
+    - **The client** is the frozen `JevClient` and `parse_answers` of `routers/jev.py`, with the client settings of `routers/jev_settings.json`, imported and read unedited.
+6. **The Sonnet gate.**
+    - **The call:**
+        - `claude-sonnet-5-5` (`configs/models.yaml`) at low effort
+        - thinking left out of the request, so it is adaptive. Sonnet 5.5 rejects a request that disables it, so effort is the only control.
+        - no `temperature` and no refusal fallbacks (A1 item 1)
+        - no `cache_control`, since the cost model prices each call on its own (A8 item 2; caching belongs to S1)
+        - no system prompt, as in the collection run
+        - the returned model ID logged
+    - **One user message**, whose `<output_schema>` block appears only when the request has a schema:
+
+      ```text
+      You are checking another model's answer to a request. Judge whether the answer is fully correct: it answers what was asked, every fact, calculation, label or piece of code in it is right, and it follows every instruction in the request, including any rules about format, length or wording.
+
+      <request>
+      {prompt}
+      </request>
+      <output_schema>
+      {the request's output schema as JSON}
+      </output_schema>
+      <answer>
+      {answer}
+      </answer>
+
+      Give the probability, from 0 to 100, that the answer is fully correct.
+      ```
+    - **The output schema:** `{"type": "object", "properties": {"probability_correct": {"type": "integer", "enum": [0, 1, …, 100]}}, "required": ["probability_correct"], "additionalProperties": false}`.
+        - An enum, because structured outputs don't support `minimum` and `maximum`. The Python SDK strips them and checks client-side; the batch path doesn't.
+        - One number can't contradict itself, as "correct, confidence 30" would.
+        - No reasoning field (A3 item 2).
+    - **The gate score** is `probability_correct` ÷ 100.
+    - **`max_tokens` is 16,000,** the `sonnet` config's own cap. A cap stop is a rejection, and the hardest checks think longest, so a tight cap would quietly turn them into escalations. Only generated tokens are billed (A3 item 3).
+    - **Failures:** a refusal, a cap stop or an unparseable result is a rejection. It is counted and charged its billed tokens.
+    - **Why low effort.**
+        - Effort doesn't change input cost. On Banking77 the input alone is about 2,000 tokens, about $0.004, already what `sonnet` charges to answer.
+        - Effort changes thinking. 1,000 thinking tokens cost $0.01, more than `opus` charges to answer an MMLU-Pro item ($0.0084, A7 item 1), and a gate that costs as much as escalating can't save money.
+        - The price is a weaker verifier on checks that need reasoning, so the write-up says Jev was compared with a low-effort verifier. The Sonnet-gated cascades are expected to lose on cost anyway: they are the comparison.
+    - **Known noise, reported and not fixed:** on Banking77 items where several labels fit (A3 item 6), the gate may accept a reasonable label that the answer key rejects.
+7. **Which answers get gated.**
+    - **Run 0 only.** Runs 1 and 2 feed only the flip rate (A6 item 1).
+    - **The free checks** run on every train and dev answer of every config.
+    - **Paid gates judge only answers that pass every free check.**
+        - An answer that fails one gets no Jev or Sonnet call and counts as a free-check rejection.
+        - No policy reads a paid gate's verdict on such an answer. What's given up is a diagnostic of whether Jev would have caught what the code check caught, which would matter only where code can't be run.
+        - This narrows A1 item 4's "on every answer".
+    - **The Jev gate** judges every config's passing answers on train and dev. `opus`'s dev answers are judged for the metrics and plots only, since no policy gates `opus`.
+    - **The Sonnet gate** judges `haiku`'s, `sonnet`'s and `opus_low`'s passing answers on train and dev (item 12), never `opus`'s.
+8. **Fifteen cascades** (§9; §10's experiment I).
+    - **Pure cascades** start at `haiku`: `haiku/free`, `haiku/Jev` and `haiku/Sonnet`.
+    - **Router-started cascades** start at a router's pick: E, F, G and G+, each with `/free`, `/Jev` and `/Sonnet`, from `E/free` to `G+/Sonnet`.
+    - **Free checks come first in every cascade.** A failed free check escalates at once, with no paid gate call. A pass goes on to the cascade's paid gate, if it has one. A failed free check almost always means a wrong answer, and the stop check is always right when it rejects.
+    - **The free-checks-only cascades are baselines.** Without them, a paid gate's gain can't be separated from the free MBPP+ example test, and MBPP+ carries 65% of the realistic mix (A5 item 6).
+    - **All four routers start cascades.** Simulating them costs no call, and picking one after chart v3 would be choosing on dev.
+    - **An item a router sends to `opus`** goes straight to `opus`, with no gate.
+9. **A rejected answer goes straight to `opus`** (§9).
+    - **At most one escalation:** the start config's answer, then `opus`'s if that answer is rejected. `opus`'s answer is always accepted.
+    - **Why, from train.**
+        - A gated step before `opus` saves money only while its gate rejects fewer of that config's answers than 1 − (that config's cost ÷ `opus`'s cost). From A8 item 1's mean dev costs, that limit is about 52% (uniform) and 53% (realistic) for `sonnet`, and about 20% and 18% for `opus_low`.
+        - Of the 139 train items `haiku` fails, `sonnet` answers 50 correctly (36%) and `opus_low` 70 (50%). A gate that works would reject more of their answers than either limit allows.
+        - Each extra step also adds a chance to pass a wrong answer, and adds latency.
+        - One cutoff per cascade keeps the Stage 4 walk unchanged.
+    - **A departure from §9's "next config up" diagram,** allowed by A8 item 4's permission to skip configs.
+10. **Tuning a pure cascade: the walk over its gate's cutoff** (A9 items 9 and 10).
+    - **Steps:** the gate scores of `haiku`'s dev answers that pass the free checks, under A9 item 9's rule: each distinct value if there are 24 or fewer, otherwise the 0%, 5%, …, 95% quantiles with duplicates removed, at most 20. They come from the gate-score table before any outcome is looked up.
+    - **The walk** starts at A and tries cutoffs from the strictest to the most lenient. An answer is accepted when its gate score is at least the cutoff. The operating point is the cheapest certified step, or A where nothing cheaper is certified ("falls back to A").
+    - **The free-checks-only cascade is its own policy, not the walk's last step.** At the lowest cutoff the gate is still called and paid for: the Sonnet gate adds about $2–3 per 1,000 requests. And a test answer scoring below dev's lowest score is rejected.
+    - **The strictest step may cost a little less than A.** For the Jev gate on the realistic mix, about $0.29 for `haiku`, plus about $0.04 for the gate, plus 95% of A's $8.04, comes to about $7.97. That's harmless: the operating point is the cheapest certified step either way.
+    - **`haiku/free` has a single step,** so its walk is A, then that step.
+11. **Tuning a router-started cascade: the router's walk, with the gate's cutoff fixed.**
+    - **Steps:** the router's own steps, from its existing router-score table (A9 item 9), exactly as in Stages 4–6. At each step:
+        1. The router picks the start config.
+        2. Its answer goes through the free checks.
+        3. It then goes through the paid gate at that gate's fixed cutoff (item 12).
+        4. A rejected answer goes to `opus`.
+
+      Only the trace builder is new.
+    - **A clean comparison.** A router alone and the same router with a gate walk the same steps, so E against `E/Jev` can be compared step by step. Because the gate catches some mistakes, the walk can certify further down.
+    - **Rejected:**
+        - **Walking the gate with the router fixed.** At the router's own operating point, the gate can only add cost, and any more aggressive fixed point would be arbitrary.
+        - **One shared dial for both.** It needs router scores and gate scores calibrated alike, and neither G's router scores nor the gates' scores are.
+        - **Every (threshold, cutoff) pair.** The cheapest pair that clears is the luckiest of many (A9 item 9). A Bonferroni-sized margin over about 400 pairs is about 3.4 standard errors, which shuts out the 99% target.
+        - **Paired quantiles along a diagonal, or its mirror.** The walk needs its steps ordered from safe to risky. The diagonal pairs an aggressive router with a lenient gate at one end, and its mirror ends in steps that are expensive rather than risky.
+12. **The fixed cutoffs: Youden's J on train, with the Sonnet gate run on train** (amends A1 items 3 and 4).
+    - **The rule.** For each paid gate, the cutoff that maximizes the share of wrong answers rejected minus the share of right answers rejected.
+        - It's pooled over `haiku`'s, `sonnet`'s and `opus_low`'s train answers that pass the free checks.
+        - Ties go to the stricter cutoff.
+        - That gives one cutoff per paid gate, shared by all four routers.
+    - **Why train, for both gates.** Only this treats the two gates alike.
+        - If the Sonnet gate's cutoff were set at 50 without data, a Jev-against-Sonnet gap in router-started cascades would be mixed up with "fitted on train against picked at 50".
+        - With both at their midpoints, the Jev gate at 0.5 could accept nearly everything.
+        - So the Sonnet gate runs on train too: about 991 items × 3 configs at about $0.002 a check through the Batches API, about $6.50.
+    - **Why Youden's J.**
+        - It has no free parameter and reads only train.
+        - "More likely wrong than right" rejects almost nothing at train's success rates.
+        - A cost-aware rule would need a dollar value for a lost success, which only a quality target supplies. A target-aware rule would need one cutoff per target, while the cutoff is fixed once.
+    - **Its weakness, stated in the write-up.** It weighs a missed wrong answer the same as a rejected right one, so at the 99% and 100% targets a stricter cutoff might certify further down the walk. The walk's guarantee holds whatever cutoff is fixed: a lenient or strict cutoff costs efficiency, not validity.
+    - **A1 item 4** said the Sonnet verifier runs on dev answers only. It now runs on train and dev (and on test in Stage 8), and an 80-answer sample of train answers through the standard API measures its latency and noise (items 16 and 17).
+    - **A1 item 3** said gate cutoffs need frontier outcomes and so are selected on dev. Youden's J needs no `opus` outcome, which is why the fixed cutoffs can come from train. Pure cascades still walk their cutoffs on dev.
+    - **The code that computes the cutoffs is in the settings commit,** before any train verdict exists. A hook check recomputes both cutoffs from the hashed train responses (item 20).
+13. **The gate-score table** (as A9 item 3 is for router scores).
+    - **One row per (item, config) answer of a split:**
+        - the free checks' verdicts
+        - each paid gate's score, or none
+        - each call's overhead in dollars at list price
+        - the refusal flag
+    - **Who reads it.** Walks, traces and metrics read only the table, never a gate. Tables are built from the stored records through the gates' own parsers.
+    - **Refused whole** if it:
+        - misses or repeats an answer
+        - has a gate score that isn't a number from 0 to 1
+        - has a paid gate's score on an answer that failed a free check
+        - has an overhead that is negative or not finite
+14. **Storage: JSON Lines under `results/gates/`,** uncommitted, as `results/jev/` is. This departs from §13's "SQLite: … gate verdicts"; `results/jev/` set the precedent.
+    - **`free_checks_{split}.jsonl`:** the three checks per answer. A code-check record carries the return code, a timeout flag, the duration, the last line of stderr, the image digest and a timestamp.
+    - **`jev_gate_{split}.jsonl`:** A15 item 9's fields per call:
+        - the whole response
+        - the model ID, usage, request ID and server `Date`
+        - the successful attempt's time, the attempts and the failed attempts
+        - the new-connection flag and the refusal flag
+        - the body's sha256
+
+      The noise pass sits in the train file as `pass: 2`.
+    - **The Sonnet gate:**
+        - `sonnet_gate_{split}.jsonl`: the `custom_id`, the batch ID, the whole result and the request's sha256
+        - `sonnet_gate_latency.jsonl`: the 80 standard-API calls with their times
+        - `sonnet_batches.json`: each batch ID, written as the batch is created
+    - **Keys.** Every record names its `item_id`, `config`, `run` (0), `gate` and `pass`. A Sonnet `custom_id` is the item ID with `:` replaced by `-`, then the config, the run and `sg`, e.g. `mmlu_pro-4346_opus_low_r0_sg` (A6 item 5).
+    - **Smoke and test files.** Smoke records go in `*_smoke.jsonl`. Test records go in `*_test.jsonl`, written only after Stage 8's unlock.
+    - **A hook check** fails if any record names an item that isn't among the reader's train and dev items, so it never needs a list of test IDs.
+    - **The Sonnet batches** carry A6 item 6's safeguards:
+        - each batch ID is saved as soon as the batch is created
+        - only errored or expired requests are resubmitted
+        - submission is refused above the cap (item 18)
+        - results are keyed by `custom_id` (A1 item 5)
+15. **What a trace pays** (A8 items 2 and 4).
+    - **A cascade's trace** lists the configs called (the start config, then `opus` if its answer was rejected) and its overhead: the router's (A9 item 3), plus each paid gate call made.
+    - **The Jev gate:** the successful attempt's input tokens at $0.042 per million (A15 item 10).
+    - **The Sonnet gate:** its billed tokens at 2026-10-12's list prices, $2 per million input and $10 per million output, with thinking billed as output. The batch discount it was collected with is ignored. A refused call is charged what it was billed.
+    - **The free checks:** $0. That ignores a little CPU, as A11 item 11 says of F.
+    - **What isn't charged.** An answer a free check rejects pays no paid gate, and an item a router sends straight to `opus` pays its router only.
+16. **Estimated latency** (A8 item 4), for every policy, A to G+ included. It fills §10's "estimated p50 latency" column.
+    - **Per item,** the sum along its trace of:
+        - the pilot median for its task and each config called (A7 item 1)
+        - the router's median: E's and F's as measured, G's and G+'s from their stored calls
+        - each gate call's median: the Jev gate's from its stored calls, the code check's timed locally, the Sonnet gate's from the latency sample
+    - **The Sonnet latency sample:** 80 of `haiku`'s train answers that pass the free checks, 20 per task. They are sent through the standard API one at a time after the train batch finishes, and the first call is left out. About $0.40.
+    - **Reported:** the mix-weighted median of the per-item sums.
+        - It is an estimate: summing medians ignores that escalated items run longer.
+        - Stage 8's live replay (item 26) is the real check.
+    - **Conditions.** The machine, network, dates and times are recorded as each collection runs (A16 item 3), with the first call and every reconnect reported separately.
+17. **Noise and drift.**
+    - **The Jev gate's noise sample:** 100 of `haiku`'s train answers, 25 per task, drawn by item 20's rule, sent a second time after the train collection.
+        - D6, per config, is the mean absolute difference between the two passes, on the gate score as a probability (after the averaging).
+        - The mean signed difference, the shift, is reported beside it.
+    - **The Sonnet gate's drift check:** the latency sample's 80 standard-API scores against the same answers' train batch scores.
+        - D6 is measured on the score ÷ 100, with a floor of 0.01, since whole-number scores can repeat exactly. The shift is reported beside it.
+        - There is no separate second pass.
+        - This mixes the Batches and standard APIs, as Stage 8 also does.
+    - **Why the Sonnet gate too.** It is the only Anthropic call made on test weeks after dev's run. The configs' test answers were collected with dev's, so they can't drift. The gate's verdicts can, and a pinned model ID doesn't pin the refusal classifiers.
+    - **Stage 8's checks** are in item 26.
+18. **Cost and caps.**
+    - **Stage 7's projection, about $14:**
+        - the Sonnet gate, about $6.50 on train and about $5 on dev at batch prices
+        - the Jev gate, about $0.40–0.80
+        - the latency sample, about $0.40
+
+      It is projected from the smoke test's measured cost per call, as A6 item 6 did.
+    - **Stage 7's gate calls are capped at $25.** Collection refuses to submit above the cap (A6 item 6). At about 1.8× the projection, it catches a misconfigured effort level without blocking a normal run.
+    - **Stage 8's caps:** $25 for its gate calls (the Sonnet gate on test is about 2,200 checks, about $5), and $10 for the live replay (item 26).
+    - **The whole project** is projected at about $60 of the $150 ceiling.
+19. **Code layout** (§13; A9 item 8). The gates are deployable, so they go in `routers/`, as A9 item 8 expected Stage 7 to do. This departs from §13's `gates/` folder.
+    - **`routers/sandbox.py`:** `harness/sandbox.py`'s code, moved.
+        - `harness/sandbox.py` re-exports it, so `harness/evaluators.py` is untouched, `routers/` still imports nothing from `harness/`, and `python -m harness.sandbox --build` keeps working.
+        - The Dockerfile's path resolves the same from `routers/`.
+        - `harness/sandbox.py` has no freeze hash anywhere.
+        - Rerunning `harness/check_sandbox.py` (377 of 377 reference solutions and 18 escape checks) shows the grader unchanged.
+    - **`routers/gates.py`:** the free checks.
+    - **`routers/jev_gate.py`:** the Jev gate's call building and gate score, importing the frozen client and parser (item 5).
+    - **`routers/sonnet_gate.py`:** the Sonnet gate's request and gate score, through the Anthropic SDK, never through `harness/client.py`.
+    - **`routers/gate_settings.json`:**
+        - the statements and their IDs, the clip and the byte budget
+        - the verifier's prompt, schema, effort and `max_tokens`
+        - the refusal rules
+        - the noise samples' seed and drawing rule
+        - the 15 cascade shapes
+    - **`routers/cascade.py`:** one cascade decision (start config, free checks, gate verdict, escalation), shared by the trace builder and Stage 8.
+    - **In `analysis/`:**
+        - the gates' answer reader
+        - the collection scripts: the Jev gate's as `analysis/collect_jev.py` collects, and the Sonnet gate's through the Batches API
+        - the gate-score table, the walks and Youden's J
+        - the metrics, the latency estimate and the charts
+
+      mypy covers the new modules.
+20. **The order: a settings commit, then a freeze commit** (A15 item 13's pattern).
+    1. **The smoke test, before the settings commit,** on made-up answers to real train prompts from all four tasks. It measures or confirms:
+        - the Jev gate's fixed overhead and byte budget, from minimal calls (A16 item 8), and that the frozen `parse_answers` accepts the three statement IDs
+        - that the batch path accepts the Sonnet gate's enum schema, on a tiny made-up batch
+        - the Sonnet gate's cost per check on prompts from all four tasks. Banking77's prompts are about 4× as long as MMLU-Pro's, and how much Sonnet thinks depends on the question.
+        - that the code check passes and fails as expected on made-up code, the import rule and an empty block included
+
+       Only a mechanical failure may change anything, and each fix is recorded. Nothing changes because of a verdict.
+    2. **The settings commit, before any gate call on a train or dev answer.** It holds:
+        - `routers/gate_settings.json` (item 19)
+        - every gate's import closure, `routers/sandbox.py` and `routers/cascade.py` included
+        - the sandbox Dockerfile's sha256 and the image's digest (`api-cost-optimizer-sandbox:py3.13.13-numpy2.5.4`). These go here rather than at the freeze, because train's code-check verdicts come straight after this commit.
+        - the noise samples' drawing rule: with seed 2026, a seeded order of `haiku`'s train answers per task, taking the first 25 (Jev gate) or 20 (Sonnet gate) that pass the free checks. The lists themselves can't be fixed yet, since which MBPP+ answers pass isn't known until the code check runs on train.
+        - the code that computes the cutoffs (item 12)
+
+       This commit is the gates' freeze, since nothing in a gate is fitted.
+    3. **The train work, in order:**
+        1. the free checks on train
+        2. the Jev gate on train, then its noise pass
+        3. the Sonnet gate's train batch, then the 80 latency calls
+        4. the train signal checks (item 21)
+        5. the two cutoffs
+    4. **The freeze commit, before any dev gate verdict.** It holds:
+        - the two cutoffs
+        - the noise lists the rule produced
+        - the train records
+        - item 28, with every hash
+    5. **The dev work, in order:**
+        1. the free checks, the Jev gate and the Sonnet gate's batch on dev
+        2. dev's gate-score tables
+        3. the 15 walks and their sections
+        4. the comparisons and metrics (items 21 and 22)
+        5. chart and table v4 (item 23)
+        6. item 29, with the whole operating-points file's hash
+    6. **Provable order.**
+        - The first train Jev call's server `Date` and the train batch's `created_at` come after the settings commit's time.
+        - Dev's first `Date` and `created_at` come after the freeze commit's time.
+        - Code-check records are stamped.
+        - No commit holding a dev gate verdict or a dev cascade number comes before the freeze commit.
+    7. **After the freeze,** an edit to a hashed file means re-selecting, under a new amendment, every cascade whose import closure holds that file (A10 item 1's phrasing). `routers/cascade.py` and the sandbox are in all 15.
+21. **Gate metrics and calibration** (§9).
+    - **Measured on what the policy sees.** Each paid gate is measured on the answers that pass the free checks, and the free checks get a row of their own.
+    - **The rates:**
+        - **False accept rate:** wrong answers accepted ÷ wrong answers.
+        - **False escalate rate:** right answers rejected ÷ right answers.
+        - Beside them go raw counts out of all answers: wrong answers accepted and right answers rejected. These convert straight into quality points lost and dollars spent; the rates conditioned on right or wrong don't.
+        - All are given per gate, config and task, at each operating point's cutoff and at the fixed cutoffs.
+    - **Within-task concordance** per paid gate and config, as the summary that needs no cutoff (A11 item 12).
+    - **The train signal check:** within-task concordance per config of the Jev gate, the Sonnet gate and the code check on train, against 0.5, as in A15 item 19.
+    - **Calibration plots:** per paid gate and config (the Jev gate four configs, the Sonnet gate three), on dev, with train as hollow markers (train has no `opus`).
+        - Gate score against success rate, in about 10 equal-count bins with 95% intervals.
+        - Tied scores stay in one bin, which allows uneven or fewer bins. The Sonnet gate's whole-number scores will tie heavily.
+        - The caption says why a cell is empty.
+22. **Comparisons on dev** (as A11 item 13 and A15 item 14). They are descriptive, with no multiplicity correction.
+    - **What the gate adds:** each router-started cascade against its router alone (12).
+    - **What the router adds:** each router-started cascade against the pure cascade with the same gate (12).
+    - **What a paid gate adds over the free checks:** `haiku/Jev` and `haiku/Sonnet` against `haiku/free`, and each router's `/Jev` and `/Sonnet` against its `/free` (10).
+    - **The Jev gate against the Sonnet gate:** `haiku/Jev` against `haiku/Sonnet`, and each router's `/Jev` against its `/Sonnet` (5), on the three configs both gates judge.
+    - **Cascades against routers:** each pure cascade against each router alone (12). These are the plan's own questions: whether "cascades might lose to plain routing once gate costs are counted" (§18), and whether "Jev may fit better as a gate than as a router" (§9). `haiku/Jev` against G and against G+ matter most.
+    - **Also:** each cascade's matched-cost difference from the envelope (A9 item 12), and per-task McNemar rows against A (A9 item 11).
+    - **Reading them.** 51 comparisons in each of the six mix-and-target cells make about 300 intervals each for cost and quality. Roughly one in twenty will exclude 0 by chance, so the write-up leads with the declared questions above, not with whichever intervals came out significant.
+23. **Chart v4 and table v4** (§12), overwriting chart v3's files (A8 item 10).
+    - **The headline figure:**
+        - It keeps the references and E's, F's, G's and G+'s operating-point crosses.
+        - The routers' step lines move to the router-started figure.
+        - It adds `haiku/free` as a point with a cross, and `haiku/Jev` and `haiku/Sonnet` as step curves with crosses at their operating points.
+    - **The router-started figure** (new): one panel per router and mix. Each panel has four lines on the same steps (the router alone, `/free`, `/Jev` and `/Sonnet`), crosses at the operating points, and A and the envelope for reference.
+    - **The per-task figure** adds the pure cascades' curves, with no operating points (A7 item 2).
+    - **The calibration figure** (new): item 21's plots.
+    - **The explorer** is rebuilt from v4's JSON files, with each cascade switchable on and off. `analysis/check_explorer.py` keeps it in sync.
+    - **Styles:** every new series is colorblind-safe and held at least 15 apart in OKLab from every other series on its figure, by the existing check.
+    - **Table v4:** Stage 7's numbers go in `figures/table_v4.json`, leaving v1's to v3's keys pinned so Stages 4–6's record checks keep passing. It holds:
+        - per cascade, mix and target, a row in table v1's style (A9 item 15), with the cutoff (or the router's threshold and the fixed cutoff) and the escalation rate in the routing mix
+        - the gate metrics (item 21)
+        - estimated p50 latency for every policy (item 16)
+        - the comparisons (item 22)
+        - A7 item 2's warnings for IFEval and MBPP+
+24. **§10: the experiments and the final table.**
+    - **I becomes the two cascade families** of item 8.
+    - **H, the commercial router, is dropped.** This answers §8 3d's "decide before Stage 8".
+        - OpenRouter Auto routes to other providers' models, outside A1's Anthropic-only lineup, so its picks don't map onto the results matrix.
+        - It would need live calls on dev and test, with their own prices and drift.
+        - §8 3d marks it optional.
+        - Even restricted to Claude models, it picks a model, not an effort level, so it can't tell `opus` from `opus_low`.
+        - This echoes A11 item 14's reason for leaving out RouteLLM: Jev is the outside comparison that matters.
+    - **The final results table gains a G+ row,** since the table predates A15.
+    - **Its "best cascade" row is chosen on dev by a declared rule:** the cascade with the highest mean dev savings against A over its six operating points.
+        - "Falls back to A" counts as 0.
+        - Ties go to a pure cascade, then to the cheaper gate.
+        - Choosing on dev and reporting on test is unbiased for the chosen cascade. The luck of picking the best of 15 stays on dev, and test's number is fresh.
+        - The per-policy test tables still show all 15.
+        - The rule is fixed here, before any dev cascade number exists.
+25. **Vocabulary.** `GLOSSARY.md` adds:
+    - **answer:** the final text plus the stop reason, excluding thinking, token counts, latency and the config's name
+    - **free check**, **paid gate**, **gate score**, **cutoff** (an entry of its own; until now it appeared only in _Avoid_ lines), **gate-score table**
+    - **pure cascade** and **router-started cascade**
+    - **false accept** and **false escalate**
+
+    The Gate entry's _Avoid_ line names the Sonnet gate.
+
+    **Labels and section keys.**
+    - Pure cascades are `haiku/free`, `haiku/Jev` and `haiku/Sonnet`; router-started ones run from `E/free` to `G+/Sonnet`. A to D stay the references' letters.
+    - Section keys are `cascade_{start}_{gate}`, with `start` one of `haiku`, `rules`, `trained`, `jev` or `jev_bolstered`, and `gate` one of `free`, `jev` or `sonnet`. They are named once, in `analysis/router_names.py` (A16 item 1).
+    - The operating-points allowlist (A11 item 13) adds the 15 sections.
+26. **Stage 8, specified now and built then** (as A11 item 17 and A15 item 17 did).
+    1. **The unlock** also verifies:
+        - item 28's hashes: the gate settings, every gate's import closure and the fixed cutoffs
+        - item 29's hash of the whole operating-points file
+        - the sandbox Dockerfile's hash and the image digest. Stage 8's MBPP+ grading runs in the same image, so this protects the grader too.
+    2. **Drift checks, before any test gate call:**
+        - **The Jev gate:** its noise sample is re-sent once, with D8 measured against Stage 7's first pass.
+        - **The Sonnet gate:** its 80 answers are re-sent once, with D8 measured against their train batch scores. D6 and D8 then measure the same kind of difference, standard API against batch, so a fixed gap between the two APIs shows up in both and can't trip the shift rule on its own.
+        - **The rule,** from A15 item 17, for both: refuse if a model ID isn't the pinned one, if D8 > 3 × D6, or if a config's mean signed difference exceeds D6 in size. Otherwise, report D6, D8, the shifts and the decisions that flip at each operating cutoff, and go on.
+    3. **A refusal's path.**
+        - **The Jev gate:** A15 item 11's documented substitution, with Vercel's AI Gateway as the candidate.
+        - **The Sonnet gate:** nothing can substitute for the same model ID, so a refusal means a new amendment that re-collects dev's Sonnet verdicts and re-selects the Sonnet cascades.
+    4. **Test verdicts, once, with the frozen code:**
+        - the free checks on every test answer
+        - the Jev gate on every config's passing answers
+        - the Sonnet gate on `haiku`'s, `sonnet`'s and `opus_low`'s passing answers, through the Batches API with item 14's safeguards and the $25 cap
+        - truncations, Jev refusals and verifier refusals reported
+
+       Test's cascades are built at the frozen cutoffs and thresholds, and their curves are descriptive.
+    5. **The live replay** (§9; §16), after test is scored offline.
+        - **Policies:** A, and the best cascade (item 24) at its realistic-mix 99% and 97% operating points, skipping one that falls back to A.
+        - **Items:** 100 test items, 25 per task, seeded with 2026 and drawn at the unlock.
+        - **How:** each policy runs end to end (router, model, free checks, gate, escalation) through the standard API, one request at a time, timed from the request to the answer returned.
+        - **Reported,** beside the offline estimates for the same 100 items: the median and p90 latency, the cost per request and the escalation rate. Quality is shown but not judged, since the answers are fresh draws.
+        - **Conditions:** the machine, network and times are recorded, with the first call and any reconnects reported separately. Live latency weeks after the pilot can differ through API load alone, not only through the estimate's error.
+        - **Cost:** about $3 at A7 item 1's per-item costs, capped at $10.
+27. **Checks and build order.**
+    - **CI** (synthetic, with no `results/`, network or Docker):
+        - the free checks' rules on made-up answers: stop reasons, a schema mismatch, reading the `assert` line and the modules it names
+        - the Jev gate's bodies equal hand-written JSON exactly. Hand-made responses give hand-worked gate scores (the clip, the inversion, the log-odds average). A refusal becomes a rejection, and a run stop stops. All of this against the fake Jev server.
+        - the Sonnet gate's request equals hand-written JSON exactly:
+            - the model and low effort
+            - no `temperature`, thinking setting or `cache_control`
+            - the enum schema and `max_tokens`
+        - The Sonnet gate's results parse to hand-worked scores. A refusal, a cap stop and an unparseable result are rejections.
+        - the batch collector against the fake backend:
+            - batch IDs saved on creation
+            - only errored or expired requests resubmitted
+            - submission refused above the cap
+            - results keyed by `custom_id`
+        - the cascade decision and traces on hand-worked synthetic tables, for both families, overheads included
+        - the walks' steps on synthetic gate-score tables
+        - Youden's J on hand-worked data, ties included
+        - each of the gate-score table's refusals, fed its bad case
+        - the gates' answer reader selects no outcome column, on a synthetic matrix
+        - the metrics, the tied bins and the latency estimate on hand-worked data
+        - the allowlist accepts the 15 sections. Chart styles are held 15 apart, and chart v3's output is unchanged by the prefactor.
+        - imports: no gate module imports `analysis/` or `harness/`, and a dummy key appears nowhere in storage
+    - **Hook only** (needs `results/`, Docker or both):
+        - `harness/check_sandbox.py` after the move, and the code check in the real sandbox on made-up code
+        - every gate record names a train or dev item
+        - every stored Jev body hash matches the frozen code, and every model ID is the pinned one
+        - gate-score tables rebuild from the stored records
+        - the noise lists rebuild from the rule, and both cutoffs recompute from the hashed train responses
+        - the walks reproduce their sections. Every certified step clears its target by its margin, and every captured fraction is at most 1.
+        - the settings commit is an ancestor of the freeze commit and its files are unchanged, and the first calls' times come after each commit
+        - items 28 and 29 equal their sources
+        - `analysis/check_gates_design.py` recomputes the train and dev facts this amendment quotes
+        - `results/gates/` holds no copy of a real key
+    - **No check calls Jev or the Anthropic API.**
+    - **Waves,** in parallel worktrees branched from `stage7-gates-cascades`, as in Stages 5 and 6. Each ticket owns its check script and wires it into the hook, and into CI where it needs no `results/`, network or Docker.
+        - **Wave 0:** this amendment, the glossary, the write-up notes and the spec, with one sub-issue per ticket. The notes are committed, since the researcher asked and the worktrees branch from this commit.
+        - **Wave 1:**
+            - first, the names prefactor: sections, labels, allowlist entries and chart styles
+            - then, in parallel:
+                - the sandbox move and the free checks
+                - the Jev gate
+                - the Sonnet gate and its batches
+                - the cascade decision, traces, walks and Youden's J
+                - the gates' answer reader and the gate-score table
+                - the metrics and the latency estimate
+                - `analysis/check_gates_design.py`
+        - **Wave 2:** the smoke test, then the settings commit.
+        - **Wave 3:** the train work, then the freeze commit with item 28.
+        - **Wave 4:** dev's collection, gate-score tables, walks and sections.
+        - **Wave 5, in parallel:**
+            - the comparisons and metrics
+            - chart and table v4, the calibration figure, the explorer, item 29 and the README
+        - **Then a Stage 7 review,** recorded in a later amendment as A16 recorded Stage 6's.
+28. **The freeze record** (item 20.4), written in the freeze commit, before any dev gate verdict. It will hold:
+    - the settings commit and its time
+    - the sha256 of every file the settings commit froze, the sandbox Dockerfile's hash and the image digest
+    - the Jev gate's identity and price, and the Sonnet gate's model and effort
+    - the two noise lists
+    - counts per config:
+        - answers checked
+        - free-check rejections by check
+        - paid gate calls
+        - refusals, truncations and retries
+    - the two cutoffs, with J and the shares of wrong and right answers rejected at each
+    - the train signal check
+    - D6 and the shift for both gates
+    - train latency, with its conditions
+    - the train calls' tokens and cost
+    - the hashes of the stored train records
+    - the first train Jev call's server `Date` and the train batch's `created_at`
+
+    `analysis/check_gates_freeze.py` compares each entry with its source.
+29. **Record.** The cascades' operating points on dev, written when Stage 7 finishes, as A15 item 20 did for G and G+. It will hold:
+    - a table of the 15 cascades, with savings against A and the share of resamples meeting the target, at the three targets under both mixes
+    - the best cascade by item 24's rule
+    - each cascade section's sha256, and that of the whole `routers/operating_points.json` (A9 item 13)
+    - dev's first Jev `Date` and the dev batch's `created_at`
+    - dev's latency conditions
+
+    `analysis/check_stage7.py` compares every number with the committed files.
+
 ---
 
 # 1. Goal
@@ -1309,12 +1772,12 @@ Shared decision rule: **pick the cheapest config on the ladder whose router scor
 ## Fairness rules
 
 - Routers see only the request, the prompt and its output schema: no `task_type`, `expected_answer`, or metadata (Amendment A9 item 1).
-- Router cost and latency are added to every request (for the rules router, $0 and a measured latency; Amendment A9 item 6).
+- Router cost and latency are added to every request (for the rules router, $0 and a measured latency; Amendment A9 item 6). A cascade's gate calls add theirs along its trace (Amendment A17 items 15 and 16).
 - Thresholds are selected before Stage 8 and never changed on test.
 
 ## Selecting operating thresholds
 
-For each headline quality target (§11), choose `t` where estimated quality **clears the target by a stated margin** — default: at least one standard error of the quality estimate, read as one paired standard error of the policy's quality difference from the frontier (Amendment A8 item 9). A threshold where dev quality only just meets the target would miss on test about half the time from noise alone. The same rule applies to gate cutoffs in cascades (§9).
+For each headline quality target (§11), choose `t` where estimated quality **clears the target by a stated margin** — default: at least one standard error of the quality estimate, read as one paired standard error of the policy's quality difference from the frontier (Amendment A8 item 9). A threshold where dev quality only just meets the target would miss on test about half the time from noise alone. The same rule applies to gate cutoffs in cascades (§9). A pure cascade walks its gate's cutoff; a router-started cascade walks its router's steps with the gate's cutoff fixed on train (Amendment A17 items 10–12).
 
 - Select on dev; for the trained router, on its out-of-fold router scores (cross-fitting, Amendment A5), which test reproduces by scoring each request with the fold model a hash of the request picks (Amendment A11 item 9). v4 also allowed cross-validation over train+dev; Amendment A1 drops it because the frontier config doesn't run on train, and every threshold replay needs frontier outcomes for the items it escalates. The larger 30% dev split offsets most of the lost precision.
 - Record the margin, selection method, and chosen thresholds before Stage 8.
@@ -1404,9 +1867,9 @@ Jev state: 16 past train requests, shown whole, each with every config's run-0 o
 - **One call per request per router.** Jev's answers aren't repeatable to the second decimal, and that noise is part of the policy. Averaging calls would triple the overhead charged on every request (Amendment A15 item 10).
 - **Jev's overhead per trace** is the call's input tokens at $0.042 per million: about $0.32–0.40 per 1,000 requests for G+, and far less for G.
 
-## 3d — Commercial router (optional)
+## 3d — Commercial router (dropped)
 
-Route dev prompts through one commercial router (e.g., OpenRouter Auto) and log its picks. Decide before Stage 8 whether it belongs in the final comparison; if so, run it on test once. It gives an external live reference point.
+The plan was to route dev prompts through one commercial router (e.g., OpenRouter Auto), log its picks, and decide before Stage 8 whether it belonged in the final comparison. It is dropped (Amendment A17 item 24). It routes to models outside A1's Anthropic-only lineup, and it picks a model, not an effort level, so its picks don't map onto the four configs. Jev is the outside comparison that matters.
 
 ---
 
@@ -1422,6 +1885,8 @@ Router picks starting config → model answers → gate ──pass──→ retu
 
 Cascades can recover from routing mistakes, **but only if the gate is good**. A gate that escalates too often costs more than always-frontier.
 
+Stage 7's cascades depart from the diagram in two ways (Amendment A17 items 8 and 9). Free checks run first in every cascade, and a rejected answer goes straight to the frontier, so there is at most one escalation. The fifteen cascades start either at `haiku` (pure cascades) or at a router's pick (router-started cascades).
+
 ## The leakage rule
 
 The gate receives only `(prompt, answer)` — never `expected_answer` or the benchmark's hidden tests. This is easy to violate by accident inside a harness that holds the answer key.
@@ -1432,30 +1897,32 @@ The gate receives only `(prompt, answer)` — never `expected_answer` or the ben
 |---|---|---|---|
 | Format / schema check | ~0 | structured output | catches only malformed answers |
 | Execute code / self-written tests | low | coding | must not use the benchmark's hidden tests |
-| Token log-probabilities | ~0 | providers that expose them | not universally available |
+| Token log-probabilities | ~0 | providers that expose them | dropped: Anthropic's API doesn't return them (Amendment A17 item 1) |
 | **Jev Noul:** "This answer correctly and completely addresses the request." | very low | any | the experiment |
-| Sonnet 5.5 verifier | medium-tier call; dev/test only (Amendment A1) | any | can eat the savings |
+| Sonnet 5.5 verifier | medium-tier call at low effort; train, dev and test (Amendment A17 items 6 and 12; A1 had dev and test only) | any | can eat the savings |
 
-The Sonnet verifier is a system component whose accuracy is measured against ground truth like any other gate; it is not an evaluator. It is the comparison for the Jev gate, and the fallback general-purpose gate if Jev access fails. The self-consistency gate is extension X2.
+The Sonnet verifier is a system component whose accuracy is measured against ground truth like any other gate; it is not an evaluator. It is the comparison for the Jev gate, and the fallback general-purpose gate if Jev access fails. The self-consistency gate is extension X2. Stage 7's five gates (the stop, schema and code checks, the Jev gate and the Sonnet gate), with their exact texts and rules, are Amendment A17 items 1–7.
 
 Jev may fit better as a gate than as a router: judging a `(question, answer)` pair is a bounded yes/no decision, which is what Noul is built for.
 
 ## Offline cascades
 
-Run each gate **once** on every train/dev `(item, config)` answer (the Sonnet verifier on dev only; Amendment A1) and store the verdict and probability. Cascades are then simulated offline:
+Run each gate **once** on every train/dev `(item, config)` answer of run 0 and store the verdict and gate score. Paid gates judge only answers that pass the free checks, and the Sonnet verifier judges `haiku`'s, `sonnet`'s and `opus_low`'s (Amendment A17 items 7 and 12; A1 had the Sonnet verifier on dev only). Cascades are then simulated offline:
 
 ```text
 cost    = router + Σ (model cost + gate cost) for each config tried
 quality = quality of the answer finally returned
 ```
 
-This is valid only when each escalation sends the **original prompt** and gets an independent answer. Passing earlier answers, errors, or feedback forward makes a new request that needs fresh calls. Simulated latency is the sum of sequential router, model, and gate latencies; a small live replay of the chosen policies checks cost and end-to-end latency. Test gate verdicts are generated only in Stage 8.
+This is valid only when each escalation sends the **original prompt** and gets an independent answer. Passing earlier answers, errors, or feedback forward makes a new request that needs fresh calls. Simulated latency is the sum of sequential router, model, and gate latencies (Amendment A17 item 16); a small live replay of the chosen policies checks cost and end-to-end latency (Amendment A17 item 26). Test gate verdicts are generated only in Stage 8.
 
 ## Gate metrics
 
 - **False accept rate:** passed a wrong answer (costs quality)
 - **False escalate rate:** rejected a correct answer (costs money)
-- **Calibration plot:** gate probability vs. actual success
+- **Calibration plot:** gate score vs. actual success
+
+Each paid gate is measured on the answers that pass the free checks, with raw counts beside the rates (Amendment A17 item 21).
 
 ---
 
@@ -1473,8 +1940,8 @@ Development experiments run offline from the dev matrix and stored gate verdicts
 | F | Trained router | curve |
 | G | Jev router, zero-shot Noul (Amendment A15) | curve |
 | G+ | Bolstered Jev router, calibrated on train (Amendment A15) | curve |
-| H | Commercial router *(live, optional)* | point |
-| I | Best router + cascade, per core gate | curves |
+| H | Commercial router: dropped (Amendment A17 item 24) | — |
+| I | Cascades: pure (from `haiku`) and router-started (from E, F, G, G+), each with free checks only, the Jev gate or the Sonnet gate (Amendment A17 item 8) | curves |
 | J | I + provider caching/batch *(stretch S1, modeled)* | curves |
 | K | + semantic cache / context optimizer *(stretch S2–S3)* | curves |
 
@@ -1488,9 +1955,10 @@ Final results table (test split, realistic mix; repeat for the uniform mix and p
 | E Rules | | | | | |
 | F Trained | | | | | |
 | G Jev | | | | | |
+| G+ Bolstered Jev | | | | | |
 | I Best cascade | | | | | |
 
-Show measured live-replay latency separately from the offline estimate.
+Show measured live-replay latency separately from the offline estimate. The best cascade is chosen on dev by Amendment A17 item 24's rule. Every cascade's test results are in the per-policy tables.
 
 ---
 
@@ -1531,13 +1999,14 @@ Quality
 - Chart v1 and table v1, which add the rules router: Amendment A9 items 14 and 15
 - Chart v2 and table v2, which add the trained router, and the learning-curve figure: Amendment A11 item 16
 - Chart v3 and table v3, which add the two Jev routers: Amendment A15 item 15
+- Chart v4 and table v4, which add the cascades, a router-started figure and a calibration figure: Amendment A17 item 23
 
 > For a given budget, what's the highest quality obtainable? For a required quality, what's the lowest cost?
 
 ## Supporting charts
 
 - Per-task quality vs. cost (where routing helps and where it hurts)
-- Gate calibration plots
+- Gate calibration plots (Amendment A17 item 21)
 - Routing mix at each chosen operating point
 
 ---
@@ -1548,7 +2017,7 @@ Quality
 |---|---|
 | Language | Python |
 | Model access | Anthropic API directly for all model tiers, with the Message Batches API for bulk runs (Amendment A1); Jev via TypeSafe's API (`POST /v1/systemone`, `jev-1.14.0`), called with the standard library's `http.client` (Amendment A15) |
-| Storage | SQLite: dev matrix, sealed test store, gate verdicts |
+| Storage | SQLite: dev matrix, sealed test store; JSON Lines: Jev responses and gate verdicts (Amendments A15 and A17) |
 | Analysis | scripts with numpy + matplotlib (Amendment A8; was pandas + notebooks) |
 | Trained router | `gte-modernbert-base` embeddings, run locally with PyTorch and `transformers`; scikit-learn for fitting only (Amendment A11) |
 | Stretch | FAISS or pgvector (S2); FastAPI proxy (S4); Streamlit or Next.js (S5) |
@@ -1561,12 +2030,14 @@ configs/models.yaml           pinned model versions + dated price snapshot
 harness/                      runner, evaluators
 routers/                      request, ladder, decision rule; rules.py, trained.py, jev.py (Amendment A9);
                               trained.py's settings and fold weights (Amendment A11);
-                              jev.py's settings and G+'s weights (Amendment A15)
-gates/                        schema.py, code_exec.py, jev_gate.py, verifier.py
+                              jev.py's settings and G+'s weights (Amendment A15);
+                              gates.py, jev_gate.py, sonnet_gate.py, gate_settings.json,
+                              cascade.py and sandbox.py (Amendment A17; was a gates/ folder)
 analysis/                     offline simulator, oracle LP, bootstrap, plots
 figures/                      charts on dev, each with a JSON of its numbers (Amendment A8)
 results/dev_matrix.sqlite
 results/jev/                  stored Jev responses, one per call (Amendment A15); not committed
+results/gates/                stored gate verdicts, one per check or call (Amendment A17); not committed
 results/test_sealed.sqlite    no analysis-code access until Stage 8
 ```
 
@@ -1587,7 +2058,7 @@ Run experiments at **every** stage on dev and update the Pareto chart each time.
 | 4 | Rules router (E) | on chart |
 | 5 | Trained router (F) | curve and operating points on chart v2; frozen in two commits, settings before any dev label is read, then the fold weights; diagnostics reported (Amendment A11) |
 | 6 | Jev routers: G (zero-shot) and G+ (bolstered) | curves and operating points on chart v3; settings frozen before any Jev call on a benchmark request, G+'s weights before any dev call; Jev latency and cost logged; diagnostics reported (Amendment A15) |
-| 7 | Gates + cascades (I) | gate verdicts stored (Jev, schema, code: train/dev; Sonnet verifier: dev); calibration plots; policies, thresholds, and margins selected and frozen |
+| 7 | Gates + cascades (I) | gate verdicts stored (free checks, Jev and the Sonnet verifier: train/dev; Amendment A17 item 7); calibration plots; the gates frozen in a settings commit before any gate call on a benchmark answer, and the fixed cutoffs, chosen on train, in a freeze commit before any dev verdict; the 15 cascades' curves and operating points on chart v4 on dev (Amendment A17) |
 | 8 | **Final evaluation** + write-up | sealed-store hash verified; test answers scored; router and gate calls on test run once; frozen policies evaluated with CIs under both mixes; small live replay checks cost and latency; README |
 
 **The project is complete at Stage 8.** Every added feature is measured against the previous best system.

@@ -187,6 +187,30 @@ Topics to come back to for the write-up, newest last. Details are in PLAN_v4.md'
 - E still wins at 97% realistic (73.1% savings against G+'s 65.1%). G+ wins at 99% on both mixes and at 97% uniform.
 - Talking point: Stage 8's noise check decides whether this survives. Jev answers from someone else's API, so its edge is only as good as the version staying put.
 
+### 2026-11-10 · A free test that could take a paid gate's credit (Amendment A17, items 4 and 8)
+- Every MBPP+ prompt carries one example `assert`, and the code check runs it for free. MBPP+ is 65% of the realistic mix.
+- So every cascade also runs with free checks only (`haiku/free`, `E/free`, …). Without that baseline, a Jev cascade's gain on the realistic mix could just be the example test.
+- A pass isn't the hidden tests passing. The example's input is among the hidden inputs for 135 of 143 train items, but the hidden tests check many more inputs.
+- Talking point: before crediting an expensive component, measure the free thing it comes bundled with.
+
+### 2026-11-10 · Fixing a gate's cutoff on train without the frontier's answers (Amendment A17, item 12)
+- Router-started cascades have two dials. Walking both on dev would pick the luckiest of about 400 pairs, so the gate's cutoff is fixed first and only the router's steps are walked.
+- The cutoff comes from train by Youden's J: the share of wrong answers caught minus the share of right answers rejected. That needs no `opus` outcome, which train doesn't have, so A1's "gate cutoffs need the frontier, so dev only" no longer binds.
+- Its weakness: it weighs both mistakes equally. A poor cutoff costs efficiency, not validity, since the walk's guarantee holds for any fixed cutoff.
+- Talking point: fix one dial on data the evaluation never touches, then certify the other on dev.
+
+### 2026-11-10 · A verifier that costs as much as the answer (Amendment A17, item 6)
+- On Banking77, the Sonnet gate's input alone is about 2,000 tokens, about $0.004. That's what `sonnet` charges to answer the question itself.
+- Thinking makes it worse: 1,000 thinking tokens cost $0.01, more than `opus` charges to answer an MMLU-Pro item. So it runs at low effort, and it's still expected to lose on cost.
+- It stays as the comparison that gives the Jev gate's result meaning (A1).
+- Talking point: a gate's price per request has to be small next to the escalation it prevents.
+
+### 2026-11-10 · Straight to `opus`, not up the ladder (Amendment A17, item 9)
+- A gated middle step saves money only while its gate rejects fewer of that config's answers than 1 − (its cost ÷ `opus`'s): about 52% for `sonnet` and 20% for `opus_low` on the uniform mix.
+- On train, of the 139 items `haiku` fails, `sonnet` gets 36% right and `opus_low` 50%. A gate that works would reject more of their answers than either limit allows.
+- So a rejected answer goes straight to `opus`: one escalation, one cutoff, and latency capped at two model calls.
+- Talking point: a longer cascade isn't more careful if its middle steps can't pay for themselves.
+
 ## Part 2
 
 Ideas for a follow-up study after Stage 8, newest last.

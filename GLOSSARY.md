@@ -65,8 +65,9 @@ the frontier's.
 _Avoid_: escalation chain
 
 **Gate**:
-A check that sees only the prompt and an answer and decides whether to accept the answer.
-_Avoid_: verifier (except the Sonnet verifier gate), judge
+A check that sees only the request and an answer and decides whether to accept the answer. Stage
+7 has five: three free checks and two paid gates (Amendment A17).
+_Avoid_: verifier (except the Sonnet verifier, also called the Sonnet gate), judge
 
 **Trace**:
 The record of what a policy did on one item: the configs it called, in order, and its overhead.
@@ -177,6 +178,58 @@ The bolstered Jev router's Choice question asking what kind of request it is, fr
 options that never name a task; its answers are features.
 _Avoid_: task question, task classifier
 
+## Gates and cascades
+
+**Answer**:
+What a gate judges: a config's final text for an item (text blocks only) plus the API's stop
+reason. Thinking, token counts, latency and the config's name are not part of it.
+_Avoid_: response (the whole API record), output
+
+**Free check**:
+A gate that costs nothing per call and runs first in every cascade: the stop check, the schema
+check, or the code check, which runs the prompt's example test. A failed free check escalates with
+no paid gate call.
+_Avoid_: cheap gate, sanity check
+
+**Paid gate**:
+A gate that makes a call per answer: the Jev gate or the Sonnet gate. It judges only answers that
+pass the free checks.
+_Avoid_: scored gate, LLM judge
+
+**Gate score**:
+A paid gate's number from 0 to 1 for an answer: the Jev gate's three statements averaged on the
+log-odds scale, or the Sonnet gate's probability ÷ 100. An answer is accepted when its gate score
+is at least the cutoff.
+_Avoid_: confidence, probability (as for router scores), score (alone)
+
+**Cutoff**:
+The gate score at or above which a paid gate accepts an answer. A pure cascade's cutoff is chosen
+by its walk on dev; a router-started cascade's is fixed on train by Youden's J.
+_Avoid_: threshold (thresholds belong to routers)
+
+**Gate-score table**:
+A split's free-check verdicts, gate scores and gate overhead for every answer, built from the
+stored records. Walks, traces and gate metrics read it, never a gate.
+
+**Pure cascade**:
+A cascade that starts every item at `haiku`: `haiku/free`, `haiku/Jev` or `haiku/Sonnet`.
+_Avoid_: haiku cascade, B/… (A to D are references)
+
+**Router-started cascade**:
+A cascade whose start config is a router's pick, such as `E/Jev`. An item the router sends to the
+frontier gets no gate.
+_Avoid_: hybrid, router + gate
+
+**False accept**:
+A gate accepting a wrong answer, which costs quality. The false accept rate is wrong answers
+accepted ÷ wrong answers.
+_Avoid_: false positive (which way is positive varies)
+
+**False escalate**:
+A gate rejecting a right answer, which costs money. The false escalate rate is right answers
+rejected ÷ right answers.
+_Avoid_: false negative, false reject
+
 ## References and metrics
 
 **Reference**:
@@ -220,7 +273,8 @@ _Avoid_: baseline (for F-train or the task-rates diagnostic)
 The fixed sequence of steps in which a router's thresholds are tried for one task mix and quality
 target, from always-frontier down, each step a lower threshold. It stops at the first step whose
 dev quality doesn't clear the quality target by the safety margin. Every step before that is
-certified. A cascade's order of steps is fixed when cascades are designed.
+certified. A pure cascade's walk tries its gate's cutoffs; a router-started cascade's walks its
+router's steps with the gate's cutoff fixed (Amendment A17 items 10 and 11).
 
 **Operating point**:
 A policy at the thresholds selected for one task mix and quality target: the cheapest step its
