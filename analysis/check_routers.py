@@ -15,7 +15,9 @@ On synthetic data only, with answers worked out by hand. Never a real test item.
 - the router-score table is refused whole for each bad case, and at a threshold becomes traces by
   the decision rule that carry its overhead, which the simulator accepts;
 - no router-package module imports from analysis or harness, and the guard finds the import it
-  looks for in a module that has one.
+  looks for in a module that has one;
+- the sandbox lives in the router package (A17 item 19) and the grader's old import path re-exports its objects,
+  and its Dockerfile folder is the repository's `sandbox/` from either home.
 """
 
 import ast
@@ -198,6 +200,22 @@ def main() -> int:
         check(not imported_packages(module) & {"analysis", "harness"}, f"routers/{module.name} imports neither")
     check("harness" in imported_packages(PROJECT_ROOT / "analysis" / "matrix.py"),
           "known positive: analysis/matrix.py does import harness, and the guard sees it")  # fmt: skip
+
+    print("\n-- the sandbox: the router package's module, re-exported by the grader's old path --")
+    from harness import sandbox as harness_sandbox
+    from routers import sandbox as routers_sandbox
+
+    names = ("run_python", "SandboxError", "ExecResult", "MAX_OUTPUT_BYTES", "MEMORY", "PIDS_LIMIT", "IMAGE",
+             "DOCKERFILE_DIR", "build_image")  # fmt: skip
+    for name in names:
+        check(getattr(harness_sandbox, name) is getattr(routers_sandbox, name),
+              f"harness.sandbox.{name} is routers.sandbox.{name}")  # fmt: skip
+    check(
+        routers_sandbox.DOCKERFILE_DIR == PROJECT_ROOT / "sandbox", "the Dockerfile folder is the repository's sandbox/"
+    )
+    check((routers_sandbox.DOCKERFILE_DIR / "Dockerfile").is_file(), "known positive: that folder holds the Dockerfile")
+    check(harness_sandbox.__doc__ is not None and "python -m harness.sandbox --build" in harness_sandbox.__doc__,
+          "the old build command is still documented on the old path")  # fmt: skip
 
     print("\nall checks passed" if not problems else f"\n{len(problems)} checks failed")
     return 1 if problems else 0
