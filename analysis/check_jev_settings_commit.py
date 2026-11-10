@@ -19,10 +19,10 @@ test's record, and A15 item 19 records their sha256s, so after it none of them m
 import contextlib
 import io
 import json
-import subprocess
+import os
 import sys
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from functools import partial
 from pathlib import Path
 
@@ -82,6 +82,18 @@ def failures_of(section: Callable[[], None]) -> int:
     return failed
 
 
+@contextlib.contextmanager
+def mock_environ(values: dict[str, str]) -> Iterator[None]:
+    """`os.environ` with `values` set, put back as it was on leaving."""
+    before = dict(os.environ)
+    os.environ.update(values)
+    try:
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(before)
+
+
 def read_json(path: Path) -> object:
     """A JSON file's content, or None if it is missing or isn't JSON (the caller's check says which file)."""
     try:
@@ -111,11 +123,29 @@ def changed_since(repo: Path, commit: str, files: tuple[str, ...]) -> list[str]:
     or never in the commit. The working tree is compared, so an edit about to be committed is named too."""
     named = []
     for file in files:
-        held = subprocess.run(["git", "cat-file", "-e", f"{commit}:{file}"], cwd=repo, capture_output=True, check=False)
-        same = subprocess.run(["git", "diff", "--quiet", commit, "--", file], cwd=repo, check=False)
+        held = git("cat-file", "-e", f"{commit}:{file}", repo=repo)
+        same = git("diff", "--quiet", commit, "--", file, repo=repo)
         if held.returncode != 0 or same.returncode != 0:
             named.append(file)
     return named
+
+
+def throwaway_flow(repo: Path) -> bool:
+    """Whether a throwaway repository can be made, committed in and compared with `changed_since`."""
+    steps = [
+        git("init", "-q", repo=repo),
+        git("config", "user.email", "check@example.com", repo=repo),
+        git("config", "user.name", "check", repo=repo),
+    ]
+    (repo / "code.py").write_text("x = 1\n")
+    steps += [git("add", "-A", repo=repo), git("commit", "-q", "-m", "first", repo=repo)]
+    first = git("rev-parse", "HEAD", repo=repo).stdout.strip()
+    (repo / "code.py").write_text("x = 2\n")
+    return (
+        all(step.returncode == 0 for step in steps)
+        and changed_since(repo, first, ("code.py",)) == ["code.py"]
+        and changed_since(repo, first, ("other.py",)) == ["other.py"]
+    )
 
 
 def repository(root: Path, *, rebuild: bool) -> None:
@@ -205,6 +235,60 @@ def main() -> int:
         check(changed_since(repo, first, files) == ["settings.json", "code.py"], "a removed file is named")
         check(changed_since(repo, first, ("never.txt",)) == ["never.txt"], "a file the commit never held is named")
         check(broke == 0, "every git command that set up and changed the throwaway repository succeeded")
+
+    print("\n-- git's own variables, as a commit hook in a linked worktree has them --")
+    with tempfile.TemporaryDirectory() as folder:
+        hook = Path(folder)
+        decoy_index, decoy_dir, decoy_tree = hook / "index", hook / "git-dir", hook / "work-tree"
+        decoy_tree.mkdir()
+        decoy_index.write_bytes(b"decoy index, not the throwaway repository's\n")
+        # A decoy repository written by hand, standing for the project's shared .git: its config says it is not bare and
+        # names someone else, which a `git init` or `git config` aimed at it by GIT_DIR or GIT_COMMON_DIR would change.
+        (decoy_dir / "objects").mkdir(parents=True)
+        (decoy_dir / "refs").mkdir()
+        (decoy_dir / "HEAD").write_text("ref: refs/heads/main\n")
+        (decoy_dir / "config").write_text(
+            "[core]\n\trepositoryformatversion = 0\n\tbare = false\n[user]\n\tname = decoy\n\temail = decoy@example.com\n"
+        )
+        decoy_before = {f.relative_to(decoy_dir): f.read_bytes() for f in decoy_dir.rglob("*") if f.is_file()}
+        variables = {
+            "GIT_INDEX_FILE": decoy_index,
+            "GIT_DIR": decoy_dir,
+            "GIT_COMMON_DIR": decoy_dir,
+            "GIT_WORK_TREE": decoy_tree,
+        }
+        with tempfile.TemporaryDirectory() as made, mock_environ({k: str(v) for k, v in variables.items()}):
+            check(throwaway_flow(Path(made)), "a throwaway repository works whatever repository git's variables name")
+        check(
+            decoy_index.read_bytes() == b"decoy index, not the throwaway repository's\n",
+            "the index the variables name is untouched",
+        )
+        decoy_after = {f.relative_to(decoy_dir): f.read_bytes() for f in decoy_dir.rglob("*") if f.is_file()}
+        check(
+            decoy_after == decoy_before,
+            "the repository they name is untouched: still not bare, still its own user, no new file",
+        )
+        check(not list(decoy_tree.iterdir()), "the work tree they name stays empty")
+        with tempfile.TemporaryDirectory() as made:
+            repo = Path(made)
+            git("init", "-q", repo=repo)
+            git(
+                "-c",
+                "user.email=c@example.com",
+                "-c",
+                "user.name=c",
+                "commit",
+                "-q",
+                "--allow-empty",
+                "-m",
+                "x",
+                repo=repo,
+            )
+            with mock_environ({"GIT_DIR": str(repo / ".git")}):
+                check(
+                    git("rev-parse", "HEAD").stdout.strip() == git("rev-parse", "HEAD", repo=repo).stdout.strip() != "",
+                    "a call on the project root still sees the variables (in a hook: the index being committed)",
+                )
 
     print("\n-- a broken tree prints FAIL and does not raise --")
     for what, tree in BROKEN_TREES.items():
