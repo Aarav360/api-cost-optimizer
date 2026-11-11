@@ -306,7 +306,7 @@ def committed_files(item: str) -> None:
         f"the Jev gate calls `{client['model']}` at `{client['endpoint']}`, ${client['price_per_million_input_tokens']} per "
         f"million input tokens, checked {client['price_checked']}",
         f"the Sonnet gate calls `{sonnet['model']}` at {sonnet['effort']} effort with `max_tokens` {sonnet['max_tokens']}",
-        f"image `{settings['code_check']['image']}`, digest `{settings['code_check']['image_digest']}`",
+        f"`{settings['code_check']['image']}`, digest `{settings['code_check']['image_digest']}`",
     ]
     check(missing_lines(item, wanted) == [], "the gates' identities, the image and its digest are the settings'")
     check(client["model"] == PINNED_JEV and sonnet["model"] == PINNED_SONNET, "the pinned model IDs are A17's")
@@ -390,6 +390,10 @@ def stored(item: str) -> None:
             f"{relative} hashes as item 28 records it",
         )
 
+    sample = (PROJECT_ROOT / next(iter(report.STORED))).read_bytes()
+    check(sha256_of(sample + b" ") != recorded.get(next(iter(report.STORED))),
+          "known positive: a stored file with one byte added no longer hashes as recorded")  # fmt: skip
+
     # Every gate record, smoke included, names a train or dev item; no test file exists before Stage 8's unlock.
     allowed = {r["item_id"] for split in ("train", "dev") for r in read_rows(split=split)}
     check(all(items_in(path) <= allowed for path in sorted(folder.glob("*.jsonl"))),
@@ -446,7 +450,7 @@ def stored(item: str) -> None:
         settings_time = datetime.fromisoformat(found[2])
         check(first > settings_time and created > settings_time,
               "the first train Jev call and the train batch both came after the settings commit's time")  # fmt: skip
-        check(min(datetime.fromisoformat(r["collected_at"]) for r in free if r["code_applied"]) > settings_time,
+        check(min(datetime.fromisoformat(r["code_checked_at"]) for r in free if r["code_applied"]) > settings_time,
               "so did the first code-check record")  # fmt: skip
 
     # The tables rebuild, the cutoffs recompute, the noise lists rebuild, and item 28 is what the records write.
@@ -472,9 +476,11 @@ def stored(item: str) -> None:
           and sum(r["pass"] == 1 for r in jev_records) == sum(r["passed"] for r in free),
           "every answer that passed the free checks has its Jev call (and its Sonnet verdict, bar opus)")  # fmt: skip
     item_lists = [
-        re.findall(r"`([^`]+)`", line) for line in item.splitlines() if "noise list" in line or "latency sample" in line
+        re.findall(r"`([\w.-]+:[\w.-]+)`", line)
+        for line in item.splitlines()
+        if "noise list" in line or "latency sample" in line
     ]
-    check([[i for i, _ in lists["jev"]], [i for i, _ in lists["sonnet"]]] == [lst for lst in item_lists if len(lst) > 1],
+    check([[i for i, _ in lists["jev"]], [i for i, _ in lists["sonnet"]]] == [lst for lst in item_lists if lst],
           "item 28 holds both noise lists, as the rule builds them")  # fmt: skip
     condition = CONDITIONS.search(item)
     check(condition is not None, "item 28 records the machine and network conditions")
@@ -482,6 +488,8 @@ def stored(item: str) -> None:
         expected = report.render(built, condition[0].strip()[2:])
         check(expected.strip() == item.strip(),
               "item 28's text is what analysis.gate_train_report writes from the stored records")  # fmt: skip
+        check(expected.replace("cutoff", "cutof", 1).strip() != item.strip() and expected.strip() != item.replace("0", "1", 1).strip(),
+              "known positive: item 28 with one word or one digit changed is not the rebuilt text")  # fmt: skip
         if expected.strip() != item.strip():
             for number, (a, b) in enumerate(zip(expected.splitlines(), item.splitlines(), strict=False)):
                 if a != b:

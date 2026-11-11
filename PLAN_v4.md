@@ -1437,25 +1437,69 @@ Nine records from Stage 6's branch review, made after G's and G+'s record (A15 i
             - the comparisons and metrics
             - chart and table v4, the calibration figure, the explorer, item 29 and the README
         - **Then a Stage 7 review,** recorded in a later amendment as A16 recorded Stage 6's.
-28. **The freeze record** (item 20.4), written in the freeze commit, before any dev gate verdict. It will hold:
-    - the settings commit and its time
-    - the sha256 of every file the settings commit froze, the sandbox Dockerfile's hash and the image digest
-    - the Jev gate's identity and price, and the Sonnet gate's model and effort
-    - the two noise lists
-    - counts per config:
-        - answers checked
-        - free-check rejections by check
-        - paid gate calls
-        - refusals, truncations and retries
-    - the two cutoffs, with J and the shares of wrong and right answers rejected at each
-    - the train signal check
-    - D6 and the shift for both gates
-    - train latency, with its conditions
-    - the train calls' tokens and cost
-    - the hashes of the stored train records
-    - the first train Jev call's server `Date` and the train batch's `created_at`
-
-    `analysis/check_gates_freeze.py` compares each entry with its source.
+28. **The freeze record** (item 20.4), written in the freeze commit, before any dev gate verdict. Nothing here reads a dev outcome or sends a dev answer to a gate. `analysis/check_gates_freeze.py` compares each entry with its source, and each hash with its file. sha256, as in A7 item 3. The measures come from `python -m analysis.gate_train_report`:
+    - **The settings commit**: `035a83892eee21569f574b107644c42e071dbaa4`, committed 2026-11-10T20:24:10-08:00. Every file it froze is as that commit left it.
+    - **Frozen files**, every file the settings commit froze (item 20.2), the sandbox Dockerfile among them:
+      - `analysis/gate_cutoff.py`: `ea2dfe3454d1f5f2185701af74eb2422235e7f764ada40b89e10c4fecc4f518c`
+      - `analysis/gates_smoke_answers.json`: `03814a0459bca42c51400f5e1a3920388408b880364935b46b8c1b7e59ab6146`
+      - `analysis/gates_smoke_record.json`: `5d6937f38027f4ded1d71ed9c5c9a24700efe630897b1798794ab293ae87e841`
+      - `analysis/noise_samples.py`: `07a32c5320f2462450fd63a7e1400a18fabf0500eff9fbaa22c0ea2eb1fa10b9`
+      - `analysis/smoke_gates.py`: `9a984d645c41e1de0f372e0c09c4a96af217f62c77ca3ba1938eaf8371ffdf51`
+      - `routers/__init__.py`: `1c93dfb7989a0b24c0989368c751cc0b6fdab3d17a280ff68a1c31cb84136bf3`
+      - `routers/cascade.py`: `a872b576d97cf1a85f64b3ecac3c265fb5af98955a5974cf975f2ae2e2cccc11`
+      - `routers/gate_settings.json`: `0a188f8095f4842fc30ce566dc48dceb5691a8a9f7ed27eb8e31ab0638b036ab`
+      - `routers/gates.py`: `b46afd3f5ea2c79be1cb8eb27a6f1b55014577eb495ef38174233be18e5d5b5e`
+      - `routers/jev.py`: `a5df8af7d2d5a653e3b91ee331cb5096f79c85bef2e8eeb849a0649fd4749956`
+      - `routers/jev_call.py`: `ae51d3e2c4412a296f13e8c195380e7d8ca170b2bb770e5f991e462a2ae9942c`
+      - `routers/jev_gate.py`: `b375548166fac07de71f5f0b139ca3648f17bdfb76959a06b1eacd63dec5e550`
+      - `routers/jev_settings.json`: `781fc9351431d0c7bdb69eb059e91f5942d74a8971a92b5bf68bfea7176bbf71`
+      - `routers/ladder.py`: `35448ba6ccf6b6d9a504d56127d40ad5e2f3b18c3ee0a562ad3b5bdbd299818d`
+      - `routers/request.py`: `15c809b5d422074f2c6a526d5ce2b542d0e8155930269a9b5763eb62463472e2`
+      - `routers/sandbox.py`: `4d33bb815d96fc4d977134fab3eec4c30c930fb23b451ff0234f5afba367f6fa`
+      - `routers/sonnet_gate.py`: `65ff97bc52162dc55cee979f6e5dde381a73ff12b4abafa8ccd9ed13079f8708`
+      - `sandbox/Dockerfile`: `4c1663494718a76f8639e84e8128b3714975c1df3326f71dc822813abf032ab3`
+    - **The sandbox image**: `api-cost-optimizer-sandbox:py3.13.13-numpy2.5.4`, digest `sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559`.
+    - **The gates' identities**: the Jev gate calls `jev-1.14.0` at `https://api.typesafe.ai/v1/systemone`, $0.042 per million input tokens, checked 2026-10-25; the Sonnet gate calls `claude-sonnet-5-5` at low effort with `max_tokens` 16000, billed at 2026-10-12's list prices of $2 per million input tokens and $10 per million output tokens.
+    - **The two noise lists**, rebuilt by the settings commit's drawing rule from train's free-check records:
+      - The Jev gate's noise list (item 17), 100 `haiku` answers, 25 per task: `banking77:test-2329`, `banking77:test-1178`, `banking77:test-3043`, `banking77:test-0196`, `banking77:test-2498`, `banking77:test-0829`, `banking77:test-0258`, `banking77:test-1725`, `banking77:test-1637`, `banking77:test-2704`, `banking77:test-0727`, `banking77:test-0928`, `banking77:test-1977`, `banking77:test-0658`, `banking77:test-0241`, `banking77:test-2258`, `banking77:test-0849`, `banking77:test-0809`, `banking77:test-2517`, `banking77:test-2449`, `banking77:test-1300`, `banking77:test-2902`, `banking77:test-1223`, `banking77:test-1263`, `banking77:test-0485`, `ifeval:2969`, `ifeval:1908`, `ifeval:2100`, `ifeval:3653`, `ifeval:2590`, `ifeval:1375`, `ifeval:2180`, `ifeval:2395`, `ifeval:1237`, `ifeval:1300`, `ifeval:3089`, `ifeval:1508`, `ifeval:2724`, `ifeval:3739`, `ifeval:2447`, `ifeval:1620`, `ifeval:374`, `ifeval:3335`, `ifeval:2957`, `ifeval:2807`, `ifeval:371`, `ifeval:1477`, `ifeval:1646`, `ifeval:1187`, `ifeval:2034`, `mbppplus:614`, `mbppplus:785`, `mbppplus:607`, `mbppplus:772`, `mbppplus:138`, `mbppplus:456`, `mbppplus:568`, `mbppplus:563`, `mbppplus:569`, `mbppplus:723`, `mbppplus:286`, `mbppplus:59`, `mbppplus:471`, `mbppplus:803`, `mbppplus:477`, `mbppplus:591`, `mbppplus:564`, `mbppplus:558`, `mbppplus:247`, `mbppplus:440`, `mbppplus:752`, `mbppplus:4`, `mbppplus:474`, `mbppplus:760`, `mbppplus:573`, `mmlu_pro:8963`, `mmlu_pro:98`, `mmlu_pro:11735`, `mmlu_pro:8147`, `mmlu_pro:10103`, `mmlu_pro:8122`, `mmlu_pro:8485`, `mmlu_pro:8561`, `mmlu_pro:6938`, `mmlu_pro:5156`, `mmlu_pro:495`, `mmlu_pro:9364`, `mmlu_pro:7069`, `mmlu_pro:4304`, `mmlu_pro:5804`, `mmlu_pro:3867`, `mmlu_pro:6772`, `mmlu_pro:6078`, `mmlu_pro:4547`, `mmlu_pro:4739`, `mmlu_pro:6250`, `mmlu_pro:10292`, `mmlu_pro:4412`, `mmlu_pro:12217`, `mmlu_pro:7871`.
+      - The Sonnet gate's latency sample (item 16), 80 `haiku` answers, 20 per task: `banking77:test-2329`, `banking77:test-1178`, `banking77:test-3043`, `banking77:test-0196`, `banking77:test-2498`, `banking77:test-0829`, `banking77:test-0258`, `banking77:test-1725`, `banking77:test-1637`, `banking77:test-2704`, `banking77:test-0727`, `banking77:test-0928`, `banking77:test-1977`, `banking77:test-0658`, `banking77:test-0241`, `banking77:test-2258`, `banking77:test-0849`, `banking77:test-0809`, `banking77:test-2517`, `banking77:test-2449`, `ifeval:2969`, `ifeval:1908`, `ifeval:2100`, `ifeval:3653`, `ifeval:2590`, `ifeval:1375`, `ifeval:2180`, `ifeval:2395`, `ifeval:1237`, `ifeval:1300`, `ifeval:3089`, `ifeval:1508`, `ifeval:2724`, `ifeval:3739`, `ifeval:2447`, `ifeval:1620`, `ifeval:374`, `ifeval:3335`, `ifeval:2957`, `ifeval:2807`, `mbppplus:614`, `mbppplus:785`, `mbppplus:607`, `mbppplus:772`, `mbppplus:138`, `mbppplus:456`, `mbppplus:568`, `mbppplus:563`, `mbppplus:569`, `mbppplus:723`, `mbppplus:286`, `mbppplus:59`, `mbppplus:471`, `mbppplus:803`, `mbppplus:477`, `mbppplus:591`, `mbppplus:564`, `mbppplus:558`, `mbppplus:247`, `mbppplus:440`, `mmlu_pro:8963`, `mmlu_pro:98`, `mmlu_pro:11735`, `mmlu_pro:8147`, `mmlu_pro:10103`, `mmlu_pro:8122`, `mmlu_pro:8485`, `mmlu_pro:8561`, `mmlu_pro:6938`, `mmlu_pro:5156`, `mmlu_pro:495`, `mmlu_pro:9364`, `mmlu_pro:7069`, `mmlu_pro:4304`, `mmlu_pro:5804`, `mmlu_pro:3867`, `mmlu_pro:6772`, `mmlu_pro:6078`, `mmlu_pro:4547`, `mmlu_pro:4739`.
+    - **Counts per config** (items 7 and 14), train, run 0. Retries are the attempts beyond each Jev call's first; the Sonnet batches resent 0 requests (errored or expired); a Jev truncation is a call the byte budget cut, a Sonnet one a cap stop:
+      - haiku: 991 answers checked; 0 free-check rejections (by the check that failed first: stop 0, schema 0, code 0; answers failing each check: stop 0, schema 0, code 0); Jev gate: 991 calls, 0 refused, 0 cut, 0 retries (0 failed attempts); Sonnet gate: 991 verdicts, 8 refused, 8 cap stops.
+      - sonnet: 991 answers checked; 0 free-check rejections (by the check that failed first: stop 0, schema 0, code 0; answers failing each check: stop 0, schema 0, code 0); Jev gate: 991 calls, 0 refused, 0 cut, 0 retries (0 failed attempts); Sonnet gate: 991 verdicts, 10 refused, 10 cap stops.
+      - opus_low: 991 answers checked; 0 free-check rejections (by the check that failed first: stop 0, schema 0, code 0; answers failing each check: stop 0, schema 0, code 0); Jev gate: 991 calls, 0 refused, 0 cut, 0 retries (0 failed attempts); Sonnet gate: 991 verdicts, 15 refused, 15 cap stops.
+    - **The two fixed cutoffs** (item 12), Youden's J over `haiku`'s, `sonnet`'s and `opus_low`'s train answers that passed the free checks, ties to the stricter cutoff. The cutoffs are in the file `routers/gate_cutoffs.json`: `fb9970eba4decb4e60b93c2171fe6fcac9a5cf6306d0f031790a7a89926e7678`, and are:
+      - jev: cutoff 0.8097612537302109, J 0.3575; 260 of 353 wrong answers rejected (0.7365) and 993 of 2620 right answers rejected (0.3790).
+      - sonnet: cutoff 0.77, J 0.4983; 257 of 353 wrong answers rejected (0.7280) and 602 of 2620 right answers rejected (0.2298).
+    - **The train signal check** (item 21), within-task concordance per config of each signal against 0.5, pooled over tasks, with the percentile 95% interval over 2,000 paired resamples of train:
+      - jev haiku: pooled 0.8165 (95% interval 0.7787 to 0.8509), above 0.5: yes, lower end above 0.5: yes; per task ifeval 0.8868, banking77 0.7890, mmlu_pro 0.8519, mbppplus 0.6543.
+      - jev sonnet: pooled 0.8022 (95% interval 0.7623 to 0.8386), above 0.5: yes, lower end above 0.5: yes; per task ifeval 0.7559, banking77 0.7829, mmlu_pro 0.8668, mbppplus 0.5947.
+      - jev opus_low: pooled 0.7669 (95% interval 0.7142 to 0.8155), above 0.5: yes, lower end above 0.5: yes; per task ifeval 0.7504, banking77 0.7318, mmlu_pro 0.8761, mbppplus 0.5891.
+      - sonnet haiku: pooled 0.8493 (95% interval 0.8139 to 0.8804), above 0.5: yes, lower end above 0.5: yes; per task ifeval 0.8431, banking77 0.8550, mmlu_pro 0.8743, mbppplus 0.6846.
+      - sonnet sonnet: pooled 0.8560 (95% interval 0.8214 to 0.8881), above 0.5: yes, lower end above 0.5: yes; per task ifeval 0.8353, banking77 0.8583, mmlu_pro 0.8775, mbppplus 0.7295.
+      - sonnet opus_low: pooled 0.8065 (95% interval 0.7645 to 0.8462), above 0.5: yes, lower end above 0.5: yes; per task ifeval 0.8099, banking77 0.8063, mmlu_pro 0.8469, mbppplus 0.6501.
+      - code haiku: pooled 0.5000 (95% interval 0.5000 to 0.5000), above 0.5: no, lower end above 0.5: no; per task mbppplus 0.5000.
+      - code sonnet: pooled 0.5000 (95% interval 0.5000 to 0.5000), above 0.5: no, lower end above 0.5: no; per task mbppplus 0.5000.
+      - code opus_low: pooled 0.5000 (95% interval 0.5000 to 0.5000), above 0.5: no, lower end above 0.5: no; per task mbppplus 0.5000.
+    - **D6 and the shift** (item 17), on the gate score as a probability:
+      - Jev gate, pass 2 less pass 1: haiku D6 0.0144 shift +0.0005 over 100 answers (0 left out)
+      - Sonnet gate, standard API less batch (D6 floored at 0.01): haiku D6 0.0266 shift +0.0006 over 77 answers (3 left out); unfloored mean absolute difference haiku 0.0266
+    - **Train latency** (item 16), the successful call's time alone, as measured; it depends on the machine and the network, so it isn't re-checked:
+      - The Sonnet gate, 80 standard-API calls one at a time, the first left out: median 1.59 s and p90 1.94 s over 79 calls; the first call 1.46 s. Per task (median, p90 in s, calls): banking77 1.53, 1.64, 20; ifeval 1.63, 2.74, 19; mbppplus 1.60, 1.77, 20; mmlu_pro 1.65, 9.22, 20.
+      - The Jev gate, pass 1, one at a time, the first call and every reconnect left out: median 63.5 ms and p90 80.7 ms over 2970 calls; the first call 103.4 ms; reconnects (ms): 101.8, 81.0. Per task (median, p90 in ms, calls): banking77 66.7, 84.4, 959; ifeval 62.3, 80.5, 623; mbppplus 59.4, 73.7, 429; mmlu_pro 61.4, 77.4, 959.
+      - The code check, timed locally, over 429 answers it applied to: median 0.20 s (the sandbox's own duration).
+      - Collected: the Sonnet latency calls from 2026-11-10T21:41:36-08:00 to 2026-11-10T21:47:21-08:00; the Jev calls (both passes) from 2026-11-10T21:26:17-08:00 to 2026-11-10T21:30:38-08:00.
+      - Conditions: Apple M5 Pro, Darwin 27.0.0 arm64, Python 3.13.13; Wi-Fi (en0) behind a private gateway, no network name or address recorded.
+    - **Tokens and cost of the train calls:**
+      - The Jev gate, both passes: 3037446 input tokens, $0.1276 at $0.042 per million.
+      - The Sonnet gate's train batch: 5012238 input and 614120 output tokens, $16.1657 at list price, $8.0828 as billed at the batch discount.
+      - The Sonnet latency calls: 121460 input and 49720 output tokens, $0.7401 at list price.
+      - Train's gate calls in all, as billed: $8.9505.
+    - **The stored train records**, kept under `results/gates/`, not committed:
+      - `results/gates/free_checks_train.jsonl`: `c8912de3c91d3a03be34701f76b14cf8edce10a951e4da8b1fc5dda11b8fbb17`
+      - `results/gates/jev_gate_train.jsonl`: `f66050e9a12302715615b945aa936e6a67d4ac041234693b9def7faacd50d215`
+      - `results/gates/sonnet_gate_train.jsonl`: `c654b04a9357b3d1d8801d74faf5d50ae0271c0218324cd6532ce81bf75e41e9`
+      - `results/gates/sonnet_gate_latency.jsonl`: `5a8ce7aa4a2cec25bbcd3afa7e8a4ae03836795b1e9a98a65b0d3932d9913678`
+    - **The order** (item 20.6): the first train Jev call's server Date `Wed, 11 Nov 2026 05:26:17 GMT`; the train batch's `created_at` 2026-11-11T05:31:00.224897+00:00 (batch `msgbatch_011MfgV77vzfmuexkbFAX8t7`). Both come after the settings commit's commit time above.
 29. **Record.** The cascades' operating points on dev, written when Stage 7 finishes, as A15 item 20 did for G and G+. It will hold:
     - a table of the 15 cascades, with savings against A and the share of resamples meeting the target, at the three targets under both mixes
     - the best cascade by item 24's rule

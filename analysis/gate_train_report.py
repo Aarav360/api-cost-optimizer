@@ -286,7 +286,7 @@ def render(train: Train, conditions: str, root: Path = PROJECT_ROOT) -> str:
 {bullets(lists_lines(train.lists), 6)}
     - **Counts per config** (items 7 and 14), train, run 0. Retries are the attempts beyond each Jev call's first; the Sonnet batches resent {gate_train.batch_retries(train.log, "train")} requests (errored or expired); a Jev truncation is a call the byte budget cut, a Sonnet one a cap stop:
 {bullets(count_lines(train.counts), 6)}
-    - **The two fixed cutoffs** (item 12), Youden's J over `haiku`'s, `sonnet`'s and `opus_low`'s train answers that passed the free checks, ties to the stricter cutoff, in `{CUTOFFS_FILE}` (`{cutoffs_text_sha256(train)}`):
+    - **The two fixed cutoffs** (item 12), Youden's J over `haiku`'s, `sonnet`'s and `opus_low`'s train answers that passed the free checks, ties to the stricter cutoff. The cutoffs are in the file `{CUTOFFS_FILE}`: `{cutoffs_text_sha256(train)}`, and are:
 {bullets(cutoff_lines(train), 6)}
     - **The train signal check** (item 21), within-task concordance per config of each signal against 0.5, pooled over tasks, with the percentile 95% interval over 2,000 paired resamples of train:
 {bullets(signal_lines(train.signals), 6)}
