@@ -70,6 +70,10 @@ uv run python -m analysis.check_jev_review | grep -E "^FAIL|checks"
 # gate-score table, the cascade decision and a pure cascade's traces, walk and section, on synthetic data. No results/,
 # no Docker, no Jev or Anthropic call. CI runs it too.
 uv run python -m analysis.check_gates | grep -E "^FAIL|checks"
+# The Sonnet gate end to end (A17 items 6, 7, 14 to 16, 18, 19; A6 item 6): its request, gate score, overhead and request IDs
+# (every train and dev ID too), the batch collector's safeguards and the latency caller against a fake Anthropic client,
+# the table's Sonnet column and haiku/Sonnet's walk. No results/, no Docker, no Anthropic call, no key. CI runs it too.
+uv run python -m analysis.check_sonnet_gate | grep -E "^FAIL|checks"
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
 uv run python -m analysis.check_gates_sandbox | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
