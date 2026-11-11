@@ -74,6 +74,9 @@ uv run python -m analysis.check_gates | grep -E "^FAIL|checks"
 # temporary results folder: call body, byte budget and cut, gate score, refusals, retries, run stops, collection, the table's
 # Jev column and haiku/Jev's walk. No results/, no Docker, no Jev call, no key. CI runs it too.
 uv run python -m analysis.check_jev_gate | grep -E "^FAIL|checks"
+# Stage 7's router-started cascades and fixed cutoffs (A17 items 11, 12, 15): Youden's J on a made-up train table, the twelve
+# cascades' traces, walks and sections on made-up dev tables. No results/, no Docker, no Jev or Anthropic call. CI runs it too.
+uv run python -m analysis.check_gates_routed | grep -E "^FAIL|checks"
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
 uv run python -m analysis.check_gates_sandbox | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
