@@ -70,6 +70,9 @@ uv run python -m analysis.check_jev_review | grep -E "^FAIL|checks"
 # gate-score table, the cascade decision and a pure cascade's traces, walk and section, on synthetic data. No results/,
 # no Docker, no Jev or Anthropic call. CI runs it too.
 uv run python -m analysis.check_gates | grep -E "^FAIL|checks"
+# Stage 7's gate metrics, calibration bins and latency estimate (A17 items 16 and 21) on hand-worked synthetic tables with
+# made-up paid scores. No results/, no Docker, no Jev or Anthropic call. CI runs it too.
+uv run python -m analysis.check_gate_metrics | grep -E "^FAIL|checks"
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
 uv run python -m analysis.check_gates_sandbox | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
