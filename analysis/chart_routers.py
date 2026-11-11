@@ -95,7 +95,7 @@ G_PLUS_STYLE = RouterStyle(
     point_offsets={
         ("realistic", "97%"): (-30, 8, "right"),
         ("realistic", "99%"): (-60, 36, "right"),
-        ("realistic", "100%: falls back to A"): (84, 70, "right"),
+        ("realistic", "100%: falls back to A"): (84, 95, "right"),
         ("uniform", "97%"): (-50, -30, "right"),
         ("uniform", "99%"): (-35, 40, "right"),
         ("uniform", "100%"): (30, -60, "left"),
@@ -109,11 +109,13 @@ G_PLUS_STYLE = RouterStyle(
 # the four routers' and these three), and ten colours do not fit in the colour space 15 apart under every simulated
 # vision with room to spare: only black, a pale lavender and a bright green sit that far from the other seven and from
 # each other. The three are those, and each style also has a marker, a point marker and a line of its own, so no
-# series rests on colour alone. `check_jev_names` measures the distances.
+# series rests on colour alone. `check_jev_names` measures the distances. The lavender is the darkest that keeps them
+# (Amendment A18): #bfa0ee stands 2.16:1 against the page where chart v4's first, #cca4f8, stood 2.00:1, and no colour
+# 15 apart from the other nine stands much above 2.2:1.
 CASCADE_STYLES = {
     FREE_GATE: RouterStyle(color="#000000", marker="h", point_marker="*", linestyle=(0, (3, 1, 1, 1, 1, 1))),
     JEV_GATE: RouterStyle(color="#50f000", marker="<", point_marker="H", linestyle=(0, (5, 1))),
-    SONNET_GATE: RouterStyle(color="#cca4f8", marker=">", point_marker="8", linestyle=(0, (3, 5, 1, 5))),
+    SONNET_GATE: RouterStyle(color="#bfa0ee", marker=">", point_marker="8", linestyle=(0, (3, 5, 1, 5))),
 }
 
 

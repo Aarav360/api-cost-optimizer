@@ -17,7 +17,6 @@ recorded). The committed record copies it.
 """
 
 import argparse
-import hashlib
 import json
 import sys
 from collections.abc import Mapping, Sequence
@@ -35,6 +34,7 @@ from analysis.collect_jev import RESULTS_DIR, now_local
 from analysis.collect_jev_gate import paid_scores as jev_paid_scores
 from analysis.collect_jev_gate import read_records as read_jev_records
 from analysis.collect_sonnet_gate import paid_scores as sonnet_paid_scores
+from analysis.freeze import sha256
 from analysis.gate_answers import read_answers
 from analysis.gate_table import GateScoreTable, build_table
 from analysis.matrix import Matrix
@@ -124,12 +124,8 @@ def measures(
     }  # fmt: skip
 
 
-def file_sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def stored_hashes(results_dir: Path = RESULTS_DIR) -> dict[str, str]:
-    return {name: file_sha256(results_dir / "gates" / name) for name in STORED}
+    return {name: sha256(results_dir / "gates" / name) for name in STORED}
 
 
 def read_cutoffs(path: Path = CUTOFFS_FILE) -> dict[str, float]:

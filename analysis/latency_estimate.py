@@ -8,9 +8,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from analysis import jev_train_report
-from analysis.gate_table import PAID_GATES, GateScoreTable
+from analysis.gate_table import GateScoreTable, gate_problem
 from analysis.matrix import Matrix
-from analysis.router_names import FREE_GATE, G_PLUS, JEV_GATE, E, F, G
+from analysis.router_names import G_PLUS, JEV_GATE, E, F, G
 from analysis.simulator import Trace, check_mix, item_weights, validate
 from harness.client import PROJECT_ROOT
 from routers.cascade import paid_gate_called
@@ -219,10 +219,8 @@ def cascade_gate_calls(
     `routers.cascade.paid_gate_called` says the trace pays one. An item started at `opus` gets none. Refuses
     (LatencyError) a gate that is neither the free checks nor a paid gate, and a cutoff that doesn't go with it.
     """
-    if gate != FREE_GATE and gate not in PAID_GATES:
-        raise LatencyError(f"{gate!r} is neither the free checks nor a paid gate ({list(PAID_GATES)})")
-    if (gate == FREE_GATE) != (cutoff is None):
-        raise LatencyError(f"a cutoff goes with a paid gate and only with one, not {cutoff!r} with {gate!r}")
+    if problem := gate_problem(gate, cutoff):
+        raise LatencyError(problem)
     if start == FRONTIER:
         return ()
     calls: list[Seconds] = [medians.code_check] if item_id in code_items else []

@@ -28,7 +28,7 @@ from pathlib import Path
 
 from analysis import build_jev_settings as builder
 from analysis.benchmark import read_rows
-from analysis.checking import git
+from analysis.checking import full_history, git, git_bytes
 from analysis.router_names import G_PLUS, NAMED_ROUTERS, G
 from harness.collect import MAIN
 
@@ -131,21 +131,27 @@ def changed_since(repo: Path, commit: str, files: tuple[str, ...]) -> list[str]:
 
 
 def throwaway_flow(repo: Path) -> bool:
-    """Whether a throwaway repository can be made, committed in and compared with `changed_since`."""
+    """Whether a throwaway repository can be made, committed in and compared with `changed_since`, and a committed
+    file read back byte for byte by `git_bytes` (its CRLF kept, which text output would turn into LF)."""
     steps = [
         git("init", "-q", repo=repo),
         git("config", "user.email", "check@example.com", repo=repo),
         git("config", "user.name", "check", repo=repo),
+        git("config", "core.autocrlf", "false", repo=repo),
     ]
     (repo / "code.py").write_text("x = 1\n")
+    (repo / "crlf.txt").write_bytes(b"a\r\nb\n")
     steps += [git("add", "-A", repo=repo), git("commit", "-q", "-m", "first", repo=repo)]
     first = git("rev-parse", "HEAD", repo=repo).stdout.strip()
     (repo / "code.py").write_text("x = 2\n")
+    shown, missing = git_bytes("show", f"{first}:crlf.txt", repo=repo), git_bytes("show", f"{first}:no.txt", repo=repo)
     return (
         all(step.returncode == 0 for step in steps)
         and changed_since(repo, first, ("code.py",)) == ["code.py"]
         and changed_since(repo, first, ("other.py",)) == ["other.py"]
-    )
+        and shown.returncode == 0 and shown.stdout == b"a\r\nb\n"
+        and missing.returncode != 0 and git("show", f"{first}:crlf.txt", repo=repo).stdout == "a\nb\n"
+    )  # fmt: skip
 
 
 def repository(root: Path, *, rebuild: bool) -> None:
@@ -289,6 +295,14 @@ def main() -> int:
                     git("rev-parse", "HEAD").stdout.strip() == git("rev-parse", "HEAD", repo=repo).stdout.strip() != "",
                     "a call on the project root still sees the variables (in a hook: the index being committed)",
                 )
+        with tempfile.TemporaryDirectory() as made:
+            full, shallow = Path(made) / "full", Path(made) / "shallow"
+            full.mkdir()
+            made_full = throwaway_flow(full) and git("commit", "-q", "-am", "second", repo=full).returncode == 0
+            cloned = git("clone", "-q", "--depth", "1", full.as_uri(), str(shallow), repo=Path(made)).returncode == 0
+            check(made_full and full_history(full) and cloned and not full_history(shallow) and not full_history(Path(made)),
+                  "a clone with its history has full history; a shallow clone of it (as CI's checkout) and a folder "
+                  "that is no repository do not")  # fmt: skip
 
     print("\n-- a broken tree prints FAIL and does not raise --")
     for what, tree in BROKEN_TREES.items():

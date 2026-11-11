@@ -33,16 +33,18 @@ import ast
 import itertools
 import sys
 import tempfile
+from functools import partial
 from pathlib import Path
 
 from analysis.chart_routers import CASCADE_STYLES, E_STYLE, F_STYLE, G_PLUS_STYLE, G_STYLE, ROUTERS
-from analysis.check_chart_routers import APART, gap
+from analysis.check_chart_routers import APART, gap, linear_rgb
 from analysis.check_jev_freeze import frozen_paths
 from analysis.check_jev_settings_commit import COMMIT_FILES
 from analysis.checking import refused
 from analysis.operating_points import OperatingPointsError, check_sections, write_section
-from analysis.pareto import SERIES_1, SERIES_2, SERIES_3
+from analysis.pareto import SERIES_1, SERIES_2, SERIES_3, SURFACE
 from analysis.router_names import (
+    CASCADE_STARTS,
     CASCADES,
     F_TRAIN,
     FREE_GATE,
@@ -56,6 +58,7 @@ from analysis.router_names import (
     F,
     G,
     cascade_section,
+    parse_cascade,
 )
 
 # What the scan looks for: the two names no router's code should spell out. "jev" is also a folder and a settings key,
@@ -97,6 +100,17 @@ def check(ok: bool, what: str) -> None:
         problems.append(what)
 
 
+def contrast(first: str, second: str) -> float:
+    """WCAG 2's contrast ratio of two hex colours, from 1:1 to 21:1."""
+
+    def luminance(colour: str) -> float:
+        red, green, blue = linear_rgb(colour)
+        return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+    light, dark = sorted((luminance(first), luminance(second)), reverse=True)
+    return (light + 0.05) / (dark + 0.05)
+
+
 def spelled_in(source: str, names: tuple[str, ...] = SPELLED) -> list[str]:
     """The `names` that a module's source holds as a string constant (a docstring that merely mentions one is a
     longer string, so it does not count)."""
@@ -107,6 +121,17 @@ def spellers(folder: Path, names: tuple[str, ...] = SPELLED) -> dict[str, list[s
     """The modules under `folder` that spell one of `names` out, with the names."""
     found = {p.name: spelled_in(p.read_text(encoding="utf-8"), names) for p in sorted(folder.glob("*.py"))}
     return {name: spelled for name, spelled in found.items() if spelled}
+
+
+def parses_keys(source: str) -> bool:
+    """Whether a module takes a cascade's section key apart by hand: it holds the bare prefix `"cascade_"` as a string
+    (or the part of an f-string before a start) or a start's whole prefix such as `"cascade_haiku_"`, where
+    `router_names.parse_cascade` gives the start and the gate. Other keys that merely begin so (`cascade_units`) don't
+    count."""
+    prefixes = tuple(f"cascade_{start}_" for start in CASCADE_STARTS)
+    return any(isinstance(n, ast.Constant) and isinstance(n.value, str)
+               and (n.value == "cascade_" or n.value.startswith(prefixes))
+               for n in ast.walk(ast.parse(source)))  # fmt: skip
 
 
 def main() -> int:
@@ -209,6 +234,14 @@ def main() -> int:
     check(refused(ValueError, lambda: cascade_section("opus", FREE_GATE))
           and refused(ValueError, lambda: cascade_section("haiku", "log-probabilities")),
           "a start or a gate no amendment names is refused")  # fmt: skip
+    check(parse_cascade("cascade_jev_bolstered_sonnet") == ("jev_bolstered", "sonnet")
+          and parse_cascade("cascade_haiku_free") == ("haiku", "free")
+          and parse_cascade("cascade_jev_jev") == ("jev", "jev"),
+          "a section key gives back its start and its gate, a start with an underscore in it included")  # fmt: skip
+    check(all(cascade_section(*parse_cascade(key)) == key for key in CASCADE_KEYS),
+          "parse_cascade undoes cascade_section for all fifteen")  # fmt: skip
+    for bad in ("cascade_haiku_opus", "cascade_opus_free", "rules", "cascade_", "haiku/Jev", "cascade_jev"):
+        check(refused(ValueError, partial(parse_cascade, bad)), f"known positive: {bad!r} is refused, not parsed")
 
     print("\n-- the cascades' names are typed in one place --")
     named = (*CASCADE_LABELS, *CASCADE_KEYS)
@@ -225,6 +258,15 @@ def main() -> int:
         # The checks that hold the expected values are this module's; nothing else may type a cascade's name.
         stray = sorted(set(spellers(root / folder_name, named)) - {"check_jev_names.py"})
         check(stray == [], f"no module under {folder_name}/ other than this check spells a cascade's name out {stray}")
+    check(parses_keys('start = key.removeprefix("cascade_")') and parses_keys('p = key.startswith(f"cascade_{HAIKU}_")')
+          and parses_keys('pure = key.startswith("cascade_haiku_")'),
+          "known positive: the scan finds a key taken apart by its prefix, in a string and in an f-string")  # fmt: skip
+    check(not parses_keys('x = data["cascade_units"]') and not parses_keys('"""Keys are cascade_{start}_{gate}."""'),
+          "and passes another key that begins so, and a docstring that only describes the keys")  # fmt: skip
+    for folder_name in ("analysis", "routers", "harness"):
+        hand = sorted(p.name for p in (root / folder_name).glob("*.py")
+                      if p.name not in {"router_names.py", "check_jev_names.py"} and parses_keys(p.read_text(encoding="utf-8")))  # fmt: skip
+        check(hand == [], f"no module under {folder_name}/ takes a section key apart by hand, but parse_cascade {hand}")
 
     print("\n-- the allowlist and the cascades --")
     with tempfile.TemporaryDirectory() as folder:
@@ -293,6 +335,14 @@ def main() -> int:
         )
         check(worst >= APART, f"{letter}'s panel: each of the three lines is at least {APART} ({worst:.1f}) from its router, A, "
               "the envelope and the other lines")  # fmt: skip
+    # The Sonnet gate's lavender is as dark as the rule above lets it be (Amendment A18): of every colour 15 apart from the
+    # headline's other nine, none stands more than about 2.2:1 against the page, and chart v4's first lavender stood 2.0:1.
+    sonnet = CASCADE_STYLES[SONNET_GATE].color
+    check(contrast(sonnet, SURFACE) >= 2.15 > contrast("#cca4f8", SURFACE),
+          f"the Sonnet gate's colour ({sonnet}) stands {contrast(sonnet, SURFACE):.2f}:1 against the page, darker than "
+          f"chart v4's first lavender (#cca4f8, {contrast('#cca4f8', SURFACE):.2f}:1), the known positive")  # fmt: skip
+    check(abs(contrast("#000000", "#ffffff") - 21) < 1e-9 and contrast(SURFACE, SURFACE) == 1,
+          "the contrast reads 21:1 from black to white and 1:1 from a colour to itself (WCAG 2's ratio)")  # fmt: skip
     nudged = "#e65a2c"
     check(gap(nudged, SERIES_2) < APART, f"known positive: the envelope's orange nudged to {nudged} is "
           f"{gap(nudged, SERIES_2):.1f} from it, and the check says so")  # fmt: skip

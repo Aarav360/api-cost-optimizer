@@ -21,7 +21,9 @@ reached it, so the request, the batches and the safeguards are asserted at that 
 """
 
 import ast
+import contextlib
 import inspect
+import io
 import json
 import os
 import re
@@ -546,6 +548,14 @@ def main() -> int:
         check(len(files) == 3 and not any(key_value in f.read_text() for f in files)
               and not any(key_value in json.dumps(c) for c in fake.calls),
               f"with a key in the environment, no stored file ({len(files)}) and no request carries it")  # fmt: skip
+
+    print("\n-- the command line's splits --")
+    args = ["--cost-per-check", "0.001", "--max-usd", "1"]
+    with contextlib.redirect_stderr(io.StringIO()):
+        check(refused(SystemExit, lambda: collect.main(["batch", "--split", "test", *args])),
+              "known positive: the command line refuses a test split before anything is read")  # fmt: skip
+    check(all(split in collect.SPLITS for split in ("train", "dev", "smoke")) and "test" not in collect.SPLITS,
+          "and takes the gates' files' splits, train, dev and smoke (`collect_gates.SPLITS`)")  # fmt: skip
 
     if problems:
         print(f"\n{len(problems)} checks failed")

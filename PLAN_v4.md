@@ -5,7 +5,7 @@
 | Version | v4 |
 | Status | Final — frozen before Stage 0, then changed only by the amendments below |
 | Date | 2026-10-12 |
-| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed, and A8, Stage 3 decisions; 2026-10-20: Amendment A9, Stage 4 decisions, and A10, the Stage 4 review's records; 2026-10-21: Amendment A11, Stage 5 decisions; 2026-10-23: Amendment A12, the Stage 5 review's records; 2026-10-25: Amendment A13, Jev pinned to 1.14.0; 2026-10-27: Amendment A14, a bolstered Jev router proposed, A15, Stage 6 decisions, and A16, the Stage 6 review's records; 2026-11-10: Amendment A17, Stage 7 decisions |
+| Amended | 2026-10-14: Amendment A1, implementation decisions (below); 2026-10-15: Amendment A2, Haiku effort; 2026-10-16: Amendments A3, pilot decisions, A4, larger pools tested, and A5, benchmark frozen; 2026-10-18: Amendment A6, collection-run decisions; 2026-10-19: Amendment A7, Stage 0–1 records completed, and A8, Stage 3 decisions; 2026-10-20: Amendment A9, Stage 4 decisions, and A10, the Stage 4 review's records; 2026-10-21: Amendment A11, Stage 5 decisions; 2026-10-23: Amendment A12, the Stage 5 review's records; 2026-10-25: Amendment A13, Jev pinned to 1.14.0; 2026-10-27: Amendment A14, a bolstered Jev router proposed, A15, Stage 6 decisions, and A16, the Stage 6 review's records; 2026-11-10: Amendment A17, Stage 7 decisions; 2026-11-11: Amendment A18, the Stage 7 review's records |
 | Supersedes | [PLAN_v3.md](docs/history/PLAN_v3.md) — earlier versions in [docs/history/](docs/history/) |
 
 ## What changed from v3
@@ -44,6 +44,7 @@
 | v4-A15 | 2026-10-27 | Amendment A15: Stage 6 decisions: G (zero-shot Noul) and G+ (bolstered, calibrated on train) on dev; one Jev call per request; a settings commit before any benchmark call and a freeze commit before any dev call; Stage 8's noise check; chart v3 |
 | v4-A16 | 2026-10-27 | Amendment A16: Stage 6 review: the files the two freezes hash; findings in them recorded, not fixed; dev latency's machine, network and times; the split of `routers/jev.py`; client behaviour and the refusal rule; the byte budgets and their margin |
 | v4-A17 | 2026-11-10 | Amendment A17: Stage 7 decisions: three free checks, the Jev gate and a low-effort Sonnet gate; fifteen cascades, pure and router-started, escalating straight to `opus`; pure cascades walk their cutoff, router-started ones walk their router with the cutoff fixed on train by Youden's J; the Sonnet gate on train too; a settings commit and a freeze commit; chart v4; Stage 8's drift checks and live replay; the commercial router dropped |
+| v4-A18 | 2026-11-11 | Amendment A18: Stage 7 review: the files the two freezes hash; findings in them recorded, not fixed; chart v3 unchanged by the prefactor, from history; the git-environment fix and three corrections to A17's text; item 29's operating points; the fall backs drawn at A again; the Sonnet gate's lavender darkened; the gate name's two-way switch kept |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -1521,6 +1522,71 @@ Nine records from Stage 6's branch review, made after G's and G+'s record (A15 i
       | G+/Jev | 0.0% / 100.0% | 33.8% / 89.6% | 33.8% / 99.8% | 0.7% / 100.0% | 25.3% / 94.2% | 25.3% / 100.0% | 19.8% |
       | G+/Sonnet | 0.2% / 95.0% | 0.2% / 100.0% | 0.2% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.1% |
 
+    - **The operating points.** Where each cascade's walk put its six operating points and what they give, as A9 item 18, A11 item 21 and A15 item 20 record the routers': a pure cascade's walked cutoff, or a router-started cascade's router threshold, then quality, $ per 1k and the captured fraction. A router-started cascade's paid gate sits at its fixed cutoff at every step (item 12): the Jev gate's 0.8098 and the Sonnet gate's 0.7700, from `routers/gate_cutoffs.json`. The free checks alone have no cutoff.
+
+      | | Realistic | Uniform |
+      |---|---|---|
+      | haiku/free: cutoff at 100%, 99%, 97% of A's quality | falls back to A, falls back to A, falls back to A | falls back to A, falls back to A, falls back to A |
+      | haiku/free: quality there | 86.7%, 86.7%, 86.7% | 89.5%, 89.5%, 89.5% |
+      | haiku/free: $ per 1k there | $8.04, $8.04, $8.04 | $12.01, $12.01, $12.01 |
+      | haiku/free: captured fraction there | 0.00, 0.00, 0.00 | 0.00, 0.00, 0.00 |
+      | haiku/Jev: cutoff at 100%, 99%, 97% of A's quality | 0.9540, 0.8149, 0.6334 | 0.9540, 0.7308, 0.5414 |
+      | haiku/Jev: quality there | 86.7%, 87.2%, 85.8% | 89.5%, 89.8%, 88.1% |
+      | haiku/Jev: $ per 1k there | $7.95, $5.02, $2.57 | $11.96, $6.34, $4.02 |
+      | haiku/Jev: captured fraction there | 0.01, 0.39, 0.71 | 0.01, 0.50, 0.69 |
+      | haiku/Sonnet: cutoff at 100%, 99%, 97% of A's quality | falls back to A, falls back to A, 0.5000 | falls back to A, falls back to A, 0.3000 |
+      | haiku/Sonnet: quality there | 86.7%, 86.7%, 85.9% | 89.5%, 89.5%, 88.3% |
+      | haiku/Sonnet: $ per 1k there | $8.04, $8.04, $7.34 | $12.01, $12.01, $9.82 |
+      | haiku/Sonnet: captured fraction there | 0.00, 0.00, 0.09 | 0.00, 0.00, 0.19 |
+      | E/free: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.9172, 0.8537 | falls back to A, 0.9174, 0.9143 |
+      | E/free: quality there | 86.7%, 86.4%, 85.7% | 89.5%, 89.5%, 88.8% |
+      | E/free: $ per 1k there | $8.04, $6.37, $2.16 | $12.01, $9.20, $6.77 |
+      | E/free: captured fraction there | 0.00, 0.22, 0.76 | 0.00, 0.25, 0.46 |
+      | E/Jev: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.8077, 0.8077 | falls back to A, 0.8537, 0.8077 |
+      | E/Jev: quality there | 86.7%, 87.2%, 87.2% | 89.5%, 89.9%, 89.5% |
+      | E/Jev: $ per 1k there | $8.04, $4.97, $4.97 | $12.01, $10.58, $8.62 |
+      | E/Jev: captured fraction there | 0.00, 0.40, 0.40 | 0.00, 0.13, 0.30 |
+      | E/Sonnet: threshold at 100%, 99%, 97% of A's quality | falls back to A, falls back to A, falls back to A | falls back to A, falls back to A, falls back to A |
+      | E/Sonnet: quality there | 86.7%, 86.7%, 86.7% | 89.5%, 89.5%, 89.5% |
+      | E/Sonnet: $ per 1k there | $8.04, $8.04, $8.04 | $12.01, $12.01, $12.01 |
+      | E/Sonnet: captured fraction there | 0.00, 0.00, 0.00 | 0.00, 0.00, 0.00 |
+      | F/free: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.9194, 0.8973 | falls back to A, falls back to A, 0.9022 |
+      | F/free: quality there | 86.7%, 87.1%, 85.5% | 89.5%, 89.5%, 87.8% |
+      | F/free: $ per 1k there | $8.04, $6.65, $4.87 | $12.01, $12.01, $7.63 |
+      | F/free: captured fraction there | 0.00, 0.18, 0.41 | 0.00, 0.00, 0.38 |
+      | F/Jev: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.9314, 0.6655 | falls back to A, 0.6655, 0.6655 |
+      | F/Jev: quality there | 86.7%, 86.7%, 87.2% | 89.5%, 89.5%, 89.5% |
+      | F/Jev: $ per 1k there | $8.04, $8.02, $4.97 | $12.01, $8.62, $8.62 |
+      | F/Jev: captured fraction there | 0.00, 0.00, 0.40 | 0.00, 0.30, 0.30 |
+      | F/Sonnet: threshold at 100%, 99%, 97% of A's quality | falls back to A, falls back to A, falls back to A | falls back to A, falls back to A, falls back to A |
+      | F/Sonnet: quality there | 86.7%, 86.7%, 86.7% | 89.5%, 89.5%, 89.5% |
+      | F/Sonnet: $ per 1k there | $8.04, $8.04, $8.04 | $12.01, $12.01, $12.01 |
+      | F/Sonnet: captured fraction there | 0.00, 0.00, 0.00 | 0.00, 0.00, 0.00 |
+      | G/free: threshold at 100%, 99%, 97% of A's quality | 0.9300, 0.8800, 0.7600 | 0.9300, 0.8500, 0.7600 |
+      | G/free: quality there | 87.4%, 87.8%, 86.3% | 89.8%, 89.6%, 88.1% |
+      | G/free: $ per 1k there | $7.28, $5.78, $3.62 | $11.40, $8.47, $5.53 |
+      | G/free: captured fraction there | 0.10, 0.29, 0.57 | 0.05, 0.31, 0.56 |
+      | G/Jev: threshold at 100%, 99%, 97% of A's quality | 0.7800, 0.2900, 0.2900 | 0.9300, 0.2900, 0.2900 |
+      | G/Jev: quality there | 87.8%, 87.2%, 87.2% | 89.5%, 89.5%, 89.5% |
+      | G/Jev: $ per 1k there | $5.63, $5.00, $5.00 | $11.57, $8.65, $8.65 |
+      | G/Jev: captured fraction there | 0.32, 0.40, 0.39 | 0.04, 0.29, 0.29 |
+      | G/Sonnet: threshold at 100%, 99%, 97% of A's quality | 0.9300, 0.8100, 0.7000 | 0.9300, 0.8100, 0.8100 |
+      | G/Sonnet: quality there | 87.4%, 87.4%, 86.1% | 89.8%, 89.9%, 89.9% |
+      | G/Sonnet: $ per 1k there | $7.95, $6.89, $6.84 | $11.95, $10.53, $10.53 |
+      | G/Sonnet: captured fraction there | 0.01, 0.15, 0.16 | 0.01, 0.13, 0.13 |
+      | G+/free: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.9226, 0.8398 | 0.9739, 0.9226, 0.8398 |
+      | G+/free: quality there | 86.7%, 87.2%, 86.2% | 89.5%, 89.5%, 88.3% |
+      | G+/free: $ per 1k there | $8.04, $5.53, $2.81 | $11.87, $7.45, $3.44 |
+      | G+/free: captured fraction there | 0.00, 0.33, 0.68 | 0.01, 0.40, 0.74 |
+      | G+/Jev: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.4229, 0.4229 | 0.9739, 0.4229, 0.4229 |
+      | G+/Jev: quality there | 86.7%, 87.2%, 87.2% | 89.5%, 89.5%, 89.5% |
+      | G+/Jev: $ per 1k there | $8.04, $5.33, $5.33 | $11.93, $8.98, $8.98 |
+      | G+/Jev: captured fraction there | 0.00, 0.35, 0.35 | 0.01, 0.27, 0.26 |
+      | G+/Sonnet: threshold at 100%, 99%, 97% of A's quality | 0.9309, 0.9309, 0.9309 | falls back to A, falls back to A, falls back to A |
+      | G+/Sonnet: quality there | 88.0%, 88.0%, 88.0% | 89.5%, 89.5%, 89.5% |
+      | G+/Sonnet: $ per 1k there | $8.02, $8.02, $8.02 | $12.01, $12.01, $12.01 |
+      | G+/Sonnet: captured fraction there | 0.00, 0.00, 0.00 | 0.00, 0.00, 0.00 |
+
     - **The best cascade** by item 24's rule is haiku/Jev, with mean savings of 36.8% over its six operating points. The next is G+/free at 34.5%. The rule left no tie open, and ranking the cascades by dollars saved per 1,000 requests rather than by share gives the same cascade.
     - **Section hashes.** Each cascade's section of `routers/operating_points.json`, written with sorted keys, has the 64-digit sha256:
       - haiku/free: `36b16f2a55a6e973f81c07a809ea1ecefc747c55d86c85617834f3d46e10f2df`
@@ -1543,6 +1609,41 @@ Nine records from Stage 6's branch review, made after G's and G+'s record (A15 i
     - **Dev's latency conditions** (item 16). The Jev gate's 2969 dev calls, one at a time, on Apple M5 Pro, Darwin 27.0.0 arm64, Python 3.13.13, over Wi-Fi (en0) behind a private gateway, no network name or address recorded; collected from 2026-11-10T22:15:56-08:00 to 2026-11-10T22:19:22-08:00, the conditions captured at 2026-11-10T22:15:50-08:00, before the first call. Median 62.6 ms and p90 82.5 ms; the first call 103.7 ms and the reconnects 87.1 ms and 100.7 ms, which the median leaves out.
     - The Sonnet gate has no dev latency: the estimate uses the 80-call train sample's per-task medians, 1.53 to 1.65 s, and the code check's dev median is 0.20 s over 428 checks. Every policy's estimated p50 latency is in `figures/table_v4.json`.
     - The comparisons in `figures/table_v4.json` are descriptive, with no multiplicity correction: at 95%, about one interval in twenty excludes 0 by chance.
+
+## Amendment A18 — Stage 7 review: what the freezes hash, and records of what the code does (2026-11-11)
+
+Eight records from Stage 7's branch review, made after the cascades' record (A17 item 29). None changes a file A17 item 20.2 or item 28 hashes, a setting, a cutoff, a threshold or an operating point, so A17 items 28 and 29 stand; item 29 gains a table of what its operating points already were (item 5). An edit to a hashed file would mean re-selecting, under a new amendment, every cascade whose import closure holds that file (A17 item 20.7), so a review finding in a hashed file is recorded here and not fixed (items 1 and 2). `analysis/check_gates_review.py` compares what this amendment says about the files, the history and the numbers with their sources.
+
+1. **What the two freezes hash, and what the review fixed outside them.**
+    - **The settings commit's files** (A17 item 20.2; `COMMIT_FILES` in `analysis/check_gates_settings_commit.py`, which `analysis/check_gates_freeze.py` and `analysis/gate_train_report.py` also read): `routers/gate_settings.json`, `routers/__init__.py`, `routers/cascade.py`, `routers/gates.py`, `routers/jev.py`, `routers/jev_call.py`, `routers/jev_gate.py`, `routers/jev_settings.json`, `routers/ladder.py`, `routers/request.py`, `routers/sandbox.py`, `routers/sonnet_gate.py`, `sandbox/Dockerfile`, `analysis/gate_cutoff.py`, `analysis/noise_samples.py`, `analysis/smoke_gates.py`, `analysis/gates_smoke_answers.json`, `analysis/gates_smoke_record.json`. The settings commit's own change adds four of them and fills in the settings file; it holds the other thirteen by ancestry, as A16 item 4 says of Stage 6's.
+    - **The freeze commit's files** (A17 item 28; `committed_files` in `analysis/check_gates_freeze.py`): those eighteen, `routers/gate_cutoffs.json`, and train's four stored record files: `results/gates/free_checks_train.jsonl`, `results/gates/jev_gate_train.jsonl`, `results/gates/sonnet_gate_train.jsonl`, `results/gates/sonnet_gate_latency.jsonl`.
+    - **Hashed after the freeze:** `analysis/gates_dev_record.json` holds the sha256 of dev's three stored record files, `results/gates/free_checks_dev.jsonl`, `results/gates/jev_gate_dev.jsonl` and `results/gates/sonnet_gate_dev.jsonl`, and A17 item 29 holds each cascade's section of `routers/operating_points.json` and the whole file's. The review changed none of them, and none of the files Stages 4 to 6 froze (A9 item 17, A10, A11 item 19, A15 item 19 and A16 item 1).
+    - **Fixed in code none of them hashes:**
+        - A section whose walk certifies no step, not even A, is a problem `section_problems` in `analysis/gate_dev.py` names, where it crashed.
+        - `analysis/check_stage7.py` reads the freeze commit and its time from git (the first commit to add `routers/gate_cutoffs.json`, as `analysis/check_gates_freeze.py` finds it) and holds the operating-points file byte for byte against the commit that wrote the cascades' sections, where it compared the record with constants copied from it. In a clone without history (CI's checkout is shallow) those comparisons print a SKIP line instead. Its git calls and `analysis/check_gates_freeze.py`'s `git show` go through `analysis/checking.py`, which gains `git_bytes` (the output as bytes, to hash) and `full_history`.
+        - A cascade's section key is taken apart in one place, `parse_cascade` in `analysis/router_names.py`, and `analysis/check_jev_names.py` fails a module that splits one by hand.
+        - One guard, `gate_problem` in `analysis/gate_table.py`, refuses a gate and a cutoff that don't go together for the trace builder, the gate rates and the latency estimate. The trace builder now refuses an unknown gate even where no paid gate is called.
+        - The train and dev report (`train_spend` in `analysis/gate_train.py`) reads and prices billed tokens with the $25 cap's code, `billed_tokens` and the prices in `analysis/gate_spend.py`, so it refuses a record the cap refuses.
+        - One file hash, `sha256` in `analysis/freeze.py`, where three modules had their own.
+        - Smaller ones: the gated items' set is built once (`subset_draws`), the Sonnet collector's command line takes the gates' `SPLITS`, the projection's overhead names the 299 tokens the smoke test measured and `analysis/check_gate_cap.py` holds it above them, the comparisons carry their pairs instead of splitting labels, `ROUTERS` in `analysis/cascade_comparisons.py` is `ROUTER_LETTERS` (the chart's `ROUTERS` is another thing), a type-ignore is a typed refusal, and the latency estimate builds no trace it then drops.
+        - `analysis/check_gates_dev.py` holds dev's stored records against the frozen code as `analysis/check_gates_freeze.py` holds train's: every returned model ID is the pinned one, and every Jev body and Sonnet request hashes to what the frozen code builds (A17 item 27). None of dev's 2,972 Jev calls and 2,229 Sonnet verdicts differs.
+        - Where no `.env` holds a key (CI), `analysis/check_gates_freeze.py` searches the stored and committed folders for key-shaped strings instead of skipping, and says which search ran.
+        - `harness/check_sandbox.py` runs in the hook (A17 item 27), after the code check's own sandbox check. It needs Docker, so CI doesn't run it.
+2. **Review findings in hashed files, recorded and not fixed.**
+    - **Coupled by order.** `free_checks` in `routers/gates.py` builds a record with `zip(FREE_FIELDS, …)` over a tuple of values in the fields' order. `strict=True` catches a count that differs, not two values swapped.
+    - **The cascades' shapes typed twice.** The `cascades` list of `routers/gate_settings.json` and `CascadeShape` in `routers/gates.py` restate `CASCADES` of `analysis/router_names.py`, since a deployable module can't import the analysis package. `analysis/check_gates.py` holds them equal, key for key and label for label.
+    - **Duplicated code.** `_was_right` in `analysis/gate_cutoff.py` repeats `_success_of` in `analysis/gate_metrics.py`, with the cutoff's own error.
+    - **No plan reference.** The docstring of `routers/sandbox.py`, moved with the code from `harness/sandbox.py` (A17 item 19), names no section or amendment (CODING_STANDARDS.md, "Cite the plan").
+    - **The refusal rules are in code, not in the settings file.** A17 item 19 lists "the refusal rules" among the contents of `routers/gate_settings.json`, and the file holds none. The Sonnet gate's are in `routers/sonnet_gate.py`: a refusal or a cap stop, any other stop but `end_turn`, and a result that is not exactly a whole-number `probability_correct` from 0 to 100. The Jev gate's are the frozen `parse_answers` of `routers/jev.py` (A16 item 7). Both files are hashed, so the rules were frozen at the settings commit all the same.
+    - **The cutoff code is frozen in part.** `analysis/gate_cutoff.py` is hashed (item 20.2), but the modules it imports, `analysis/gate_table.py` and `analysis/matrix.py`, are not, so the code that computes the cutoffs was not frozen whole. The review changed `analysis/gate_table.py` (item 1's one guard, in the trace builder) and nothing the cutoff calls, and `analysis/check_gates_freeze.py` recomputes both cutoffs from the hashed train records in the hook, so they are still the ones item 28 records.
+3. **Chart v3 was unchanged by the prefactor** (A17 item 27 and issue #60 ask a check to show it). Chart v4 has since overwritten chart v3's files, so the proof is from history. The prefactor's merge, `b44f17aca765244e1521c45ef1a655c3cbbed12f`, changed four files, `analysis/chart_routers.py`, `analysis/check_jev_names.py`, `analysis/operating_points.py` and `analysis/router_names.py`, and left every file under `figures/` byte for byte as its first parent held it. Of the code that draws chart v3 it changed `analysis/chart_routers.py` alone, and there it only added: the cascades' styles, a line-style type and the names they import. It removed two lines, the import it widened and the line-style field's old type, and touched no router's style. Chart v3 was not rebuilt at that commit. `analysis/check_gates_review.py` checks each of these where the clone holds the history.
+4. **Changes outside A17's items, made during Stage 7** (review finding 25).
+    - **The git-environment fix** (`429cfa8`). `git` in `analysis/checking.py` drops git's repository-location variables (`GIT_INDEX_FILE`, `GIT_DIR` and the rest) for any repository but the project's own. A commit hook in a linked worktree exports them, and a check's throwaway repository had written into the worktree's real index and the shared `.git`. `analysis/check_jev_settings_commit.py` was rewritten to run its git through it, with a section that points the variables at decoys and finds them untouched. Neither file is hashed.
+    - **Three corrections to A17's text** (`6a933a5`), which `analysis/check_gates_design.py` found by recomputing the design review's facts, before any gate call on a benchmark answer: item 3's count of run-0 rows on train and dev, 6,549 to 5,949; item 4's count of train items whose example input is among the hidden inputs, 135 to 140; and item 20.1's ratio of Banking77's prompts to MMLU-Pro's, "about 4×" to "about 3.4×, in mean input tokens". They changed the authority's text after it was agreed, so they are recorded here. No decision rested on them.
+5. **Item 29's operating points.** A9 item 18, A11 item 21 and A15 item 20 record each router's threshold, quality, $ per 1k and captured fraction at its operating points, and item 29 said it recorded the cascades' "as" they do but held only the savings and the share of resamples meeting the target. It now also holds where each cascade's walk put its six operating points (a pure cascade's walked cutoff, a router-started cascade's router threshold), their quality, $ per 1k and captured fraction, and the two fixed cutoffs once. Every number was already in `figures/table_v4.json` and the sections. `analysis/check_stage7.py` compares each with table v4, and each threshold, cutoff and quality with its section.
+6. **The headline figure draws its falls back to A again.** A17 item 23 keeps the routers' operating-point crosses and gives the cascades crosses at their operating points. Chart v4 had left out every cross where a walk fell back to A, with a note under each panel instead, so ten operating points had none: E's 100% points under both mixes, F's and its uniform 99%, G+'s realistic 100%, and `haiku/Sonnet`'s 100% and 99% under both mixes. They are drawn at A again, as chart v3 drew them, each labeled with its targets and "falls back to A", and the note is gone. `haiku/free` stays one point with a cross (item 23); its six operating points all fall back to A. Only the PNG changes, and `analysis/check_chart_v4.py` finds each such cross's label at A in its policy's colour. The relaxations chart v4 made to `analysis/check_stage6.py` and `analysis/check_chart_routers.py` stay: they are for the routers' step lines, which item 23 moves to the router-started figure, not for these crosses.
+7. **The Sonnet gate's lavender.** Chart v4's `#cca4f8` stood 2.00:1 against the page. It is now `#bfa0ee`, 2.16:1, the darkest lavender found that stays 15 apart in OKLab, in every simulated view, from the headline's nine other colours (A17 item 23); a search of the colour space found none that far from them much darker, since the headline's ten colours fill the space. `analysis/check_jev_names.py` holds both. The PNGs and the explorer are redrawn; no number changes.
+8. **The gate name stays a two-way switch** (review finding 10). `GateRow.paid`, the table builder, `cascade_gate_calls` and `GateMedians` each choose between two typed fields, `jev` and `sonnet`, by the paid gate's name. A map keyed by gate would trade fields mypy checks, and that the checks build by keyword, for lookups it can't check, for the sake of a third paid gate only a new amendment could add. Each switch refuses any other name, the last two through item 1's one guard. And `GateRow` is the row the cutoff code reads (item 2), so reshaping it would change what that frozen code runs on.
 
 ---
 

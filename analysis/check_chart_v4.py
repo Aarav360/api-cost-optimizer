@@ -291,6 +291,24 @@ def drawn_colours(axes: list[Any]) -> set[str]:
     return found
 
 
+def fall_back_crosses(panels: dict) -> dict[str, list[tuple[str, str, tuple[float, float]]]]:
+    """Per headline panel, the fall-back crosses chart v3 drew and A17 item 23 keeps: for each router and each pure
+    cascade with crosses (not `haiku/free`, which is one point), its colour, the label of the targets at which it falls
+    back to A ("100%, 99%: falls back to A") and A's point, where they sit."""
+    wanted: dict[str, list[tuple[str, str, tuple[float, float]]]] = {}
+    for mix, panel in panels.items():
+        parts = [(r.style.color, panel["routers"][r.name]["operating_points"]) for r in ROUTERS]
+        parts += [(CASCADE_STYLES[p["gate"]].color, p["operating_points"]) for p in panel["cascades"].values()
+                  if "point" not in p]  # fmt: skip
+        wanted[mix] = []
+        for colour, points in parts:
+            fell = [(t, p) for t, p in points.items() if p["fell_back"]]
+            if fell:
+                at = (round(fell[0][1]["cost_per_1k"]["value"], 9), round(fell[0][1]["quality"]["value"], 9))
+                wanted[mix].append((colour, f"{', '.join(t for t, _ in fell)}: falls back to A", at))
+    return wanted
+
+
 def drawn_checks(headline: dict, per_task: dict, routed: dict, calibration: dict) -> None:
     print("\n-- drawn from the committed numbers --")
     with tempfile.TemporaryDirectory() as tmp:
@@ -306,6 +324,16 @@ def drawn_checks(headline: dict, per_task: dict, routed: dict, calibration: dict
               "the headline legend has the free checks as one point and the other two pure cascades as steps and crosses, once each")  # fmt: skip
         check(not any(", its steps from A" in label and label.startswith(("E:", "F:", "G:", "G+:")) for label in legend),
               "and no router's step line: those moved to the router-started figure")  # fmt: skip
+        wanted, missing = fall_back_crosses(headline["panels"]), []
+        for ax, mix in zip(fig.axes, headline["panels"], strict=False):
+            drawn = {(to_hex(t.get_color()), t.get_text(), tuple(round(v, 9) for v in t.xy)) for t in ax.texts
+                     if hasattr(t, "xy")}  # fmt: skip
+            missing += [
+                f"{mix}: {text!r} in {colour}" for colour, text, xy in wanted[mix] if (colour, text, xy) not in drawn
+            ]
+        check(sum(len(v) for v in wanted.values()) > 0 and not missing,
+              "every router's and pure cascade's fall back to A is drawn at A and labeled with its targets, as chart v3 "
+              "drew them" + "".join(f"\n      missing: {m}" for m in missing))  # fmt: skip
         check({CASCADE_STYLES[g].color for g in GATE_LABELS} <= drawn_colours(fig.axes[:1])
               and {r.style.color for r in ROUTERS} <= drawn_colours(fig.axes[:1]),
               "the headline draws each gate's colour and each router's")  # fmt: skip

@@ -12,7 +12,9 @@ Synthetic part (CI too): no results/ folder, no Docker, no Jev or Anthropic call
 
 Where results/ and the stored dev records are here (the hook only; no Jev or Anthropic call, no test item):
 - the stored dev records cover every dev answer once (free checks), every passing answer once (Jev, pass 1 only) and every
-  passing haiku, sonnet and opus_low answer once (Sonnet), and no other; the table rebuilds from them;
+  passing haiku, sonnet and opus_low answer once (Sonnet), and no other; every returned model ID is the pinned one and
+  every stored Jev body and Sonnet request hashes to what the frozen code builds from dev's requests and answers (A17
+  item 27; `check_gates_freeze` holds train's), with known positives; the table rebuilds from them;
 - the order: the first dev Jev call's server Date, every dev call's collection time and the dev batch's creation time come
   after the freeze commit's time (A17 item 20.6), with a known positive; every gate record names a train or dev item;
 - the committed record of the run (`analysis/gates_dev_record.json`) is what the stored records give;
@@ -133,6 +135,11 @@ def synthetic_checks() -> None:
     bad["uniform"]["97%"]["steps"][0]["margin"] = 0.5
     check(gate_dev.section_problems(bad, cascade_section(NAMED_ROUTERS["E"], FREE_GATE)) != [],
           "a walk that does not start at A (margin not 0) is found")  # fmt: skip
+    bad = copy.deepcopy(sections[cascade_section(HAIKU, JEV_GATE)])
+    bad["realistic"]["100%"]["steps"][0]["clears"] = False
+    found = gate_dev.section_problems(bad, cascade_section(HAIKU, JEV_GATE))
+    check(any("certifies no step" in problem for problem in found),
+          "a walk whose first step, A, does not clear is found, not a crash")  # fmt: skip
     check(gate_dev.captured_problems([0.0, 0.5, 1.0, None]) == [] and gate_dev.captured_problems([1.2]) != []
           and gate_dev.captured_problems([-0.1]) != [],
           "a captured fraction outside 0 to 1 is found, n/a is allowed")  # fmt: skip
@@ -252,6 +259,7 @@ def real_checks() -> None:
 
     from analysis import collect_sonnet_gate, jev_train_report
     from analysis.benchmark import read_rows
+    from analysis.check_gates_freeze import frozen_code_checks
     from analysis.check_jev_settings_commit import settings_commit
     from analysis.checking import git
     from analysis.collect_gates import read_free_records
@@ -281,6 +289,9 @@ def real_checks() -> None:
     dev_batches = [b for b in log["batches"] if b["split"] == "dev"]
     check(dev_batches != [] and all(b["ingested_at"] is not None and b["missing"] == 0 for b in dev_batches),
           "every dev batch is ingested with nothing missing")  # fmt: skip
+
+    print("\n-- the stored dev records against the frozen gate code (A17 item 27) --")
+    frozen_code_checks("dev", jev_records, verdicts)
 
     print("\n-- dev's gate-score table, rebuilt --")
     table = gate_dev_run.dev_table()

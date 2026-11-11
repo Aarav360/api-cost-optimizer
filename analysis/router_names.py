@@ -54,6 +54,16 @@ def cascade_section(start: str, gate: str) -> str:
     return f"cascade_{start}_{gate}"
 
 
+def parse_cascade(key: str) -> tuple[str, str]:
+    """The `(start, gate)` a cascade's section key names: `cascade_section`'s inverse, so no module splits a key by
+    hand. A gate has no underscore and a start may (`jev_bolstered`), so the gate is the last part. Refuses (ValueError)
+    a key that is no cascade's."""
+    start, _, gate = key.removeprefix("cascade_").rpartition("_")
+    if not key.startswith("cascade_") or start not in CASCADE_STARTS or gate not in GATE_LABELS:
+        raise ValueError(f"{key!r} is not a cascade's section key (cascade_{{start}}_{{gate}})")
+    return start, gate
+
+
 # Every cascade's section key and its label, in item 8's order: the pure cascades, then E, F, G and G+, each with free,
 # Jev and Sonnet.
 CASCADES = {

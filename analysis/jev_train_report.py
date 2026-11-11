@@ -18,7 +18,6 @@ compares the record with both.
 """
 
 import email.utils
-import hashlib
 import ipaddress
 import platform
 import statistics
@@ -27,13 +26,13 @@ import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from analysis import collect_jev
 from analysis.benchmark import read_rows
+from analysis.freeze import sha256
 from analysis.router_names import LETTER_OF
 from routers import jev_call
 from routers.request import Request, from_row
@@ -149,10 +148,6 @@ def rebuild(
     return Rebuilt(mismatched, cut)
 
 
-def file_sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def machine() -> str:
     """The machine as the environment records it (A11 item 19's wording): chip, OS, architecture, Python."""
     chip = subprocess.run(
@@ -244,7 +239,7 @@ def main() -> int:
         calls, timing = record_lines(router, counts, rebuilt, latency(records, task_of))
         print(f"calls   {calls}\nlatency {timing}")
         print(f"  server Date of the first call {records[0]['server_date']}, of the last {records[-1]['server_date']}")
-        print(f"  {path.relative_to(collect_jev.PROJECT_ROOT).as_posix()}: {file_sha256(path)}")
+        print(f"  {path.relative_to(collect_jev.PROJECT_ROOT).as_posix()}: {sha256(path)}")
     both = [collect_jev.read_records(router, "train") for router in ROUTERS]
     print(f"first train call, server Date: {min(first_date(r) for r in both).strftime('%a, %d %b %Y %H:%M:%S GMT')}")
     print(f"machine: {machine()}")

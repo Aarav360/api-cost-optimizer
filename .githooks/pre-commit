@@ -5,8 +5,8 @@
 # (check_jev_dev, check_jev_comparisons, check_simulator, check_stage4, check_trained_dev, check_trained_diagnostics,
 # check_gates_design), which need the dev results matrix in
 # results/ (not committed); several others also have a section that runs only where results/ or the model snapshot is
-# present. check_collect, check_sandbox and check_evaluators need Docker and take minutes, so they stay manual (README,
-# "Running it").
+# present. check_collect and check_evaluators need Docker and take minutes, so they stay manual (README, "Running it");
+# check_sandbox, which A17 item 27 puts in the hook, runs near the end, after the code check's own sandbox check.
 set -euo pipefail
 
 uv run ruff check
@@ -117,8 +117,16 @@ uv run python -m analysis.check_chart_v4 | grep -E "^FAIL|checks"
 # A17's record of the cascades (item 29) and the README's numbers about Stage 7, against table v4, the operating-points file,
 # the dev run's record and the git order, through the plan's amendment-item reader. No results/ needed.
 uv run python -m analysis.check_stage7 | grep -E "^FAIL|checks"
+# Amendment A18's records (the Stage 7 review): the hashed-file lists, the findings recorded in hashed files, the
+# prefactor's merge and the two commits it names (where the history is present), and its numbers against their sources.
+# No results/ needed; CI runs it too.
+uv run python -m analysis.check_gates_review | grep -E "^FAIL|checks"
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
 uv run python -m analysis.check_gates_sandbox | grep -E "^FAIL|checks"
+# The grader's sandbox since its move to routers/sandbox.py (A17 items 19 and 27): the escape checks and every MBPP+
+# reference solution at the grader's limits (needs Docker and the pinned image, like the line above; a minute or two).
+# It prints no closing count, so its summary line is what shows; a failure exits 1 and stops the hook.
+uv run python -m harness.check_sandbox | grep -E "FAIL|MBPP\+ references:"
 if [ -f results/dev_matrix.sqlite ]; then
   # G's and G+'s dev tables, quantiles and walks (A15 items 13, 14): the pieces anywhere, and with results/jev's dev
   # responses and the freeze commit the stored records, the tables rebuilt, the sections reproduced (about 60 s). No Jev call.

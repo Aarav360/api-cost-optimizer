@@ -32,6 +32,7 @@ from analysis.checking import refused
 from analysis.collect_gates import GateCollectError, GateInput
 from analysis.fake_anthropic import FakeAnthropic, message_dict
 from analysis.fake_jev import FakeJev
+from harness.client import PROJECT_ROOT
 from routers import jev, sonnet_gate
 from routers.request import Request
 
@@ -112,6 +113,16 @@ def spend_checks() -> None:
     check(abs(gate_spend.jev_projected_cost([1000, 2000], 0.042) - 4024 * 0.042 / 1e6) < 1e-15
           and gate_spend.JEV_OVERHEAD_TOKENS == 512,
           "a Jev call is projected as its body's bytes plus 512 tokens, one token per byte, at $0.042 per million")  # fmt: skip
+    record = json.loads((PROJECT_ROOT / "analysis" / "gates_smoke_record.json").read_text(encoding="utf-8"))
+    measured = record["measured"]["jev_fixed_overhead_tokens"]
+
+    def errs_high(measured: object, projected: int = gate_spend.JEV_OVERHEAD_TOKENS) -> bool:
+        return isinstance(measured, int) and 0 < measured < projected
+
+    check(errs_high(measured),
+          f"the projection's overhead is above the {measured} tokens the smoke test measured, so it errs high")  # fmt: skip
+    check(not errs_high(600) and not errs_high(512) and not errs_high(None),
+          "known positive: a measured overhead at or above the projection's, or none, fails it")  # fmt: skip
 
 
 def sonnet_checks() -> None:

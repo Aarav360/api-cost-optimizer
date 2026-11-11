@@ -11,6 +11,11 @@ and `git` one failure behaviour in all of them.
   in a linked worktree has GIT_INDEX_FILE (an absolute path into the worktree's git dir) and others exported, and a
   throwaway repository under a temporary folder would otherwise read and write the worktree's real index. Aimed at the
   project root it inherits them, so in a hook it sees the index being committed.
+- `git_bytes(*args, repo=...)`: the same, with the output as bytes, for a file's content to hash (`git show
+  <commit>:<path>`): text output would turn a CRLF into LF. The Stage 7 review moved the checks' own raw `git show`
+  calls here (Amendment A18).
+- `full_history(repo=...)`: whether the clone holds history, not a shallow copy such as CI's checkout, where the
+  oldest commit seems to add every file and a "first commit that added" search would name it.
 """
 
 import os
@@ -43,10 +48,25 @@ REPOSITORY_VARIABLES = (
 )
 
 
+def _environment(repo: Path) -> dict[str, str] | None:
+    """The environment git runs with in `repo`: without `REPOSITORY_VARIABLES` for any repo but the project's own."""
+    if Path(repo).resolve() == PROJECT_ROOT.resolve():
+        return None
+    return {k: v for k, v in os.environ.items() if k not in REPOSITORY_VARIABLES}
+
+
 def git(*args: str, repo: Path = PROJECT_ROOT) -> subprocess.CompletedProcess[str]:
     """`git <args>` in `repo`, text output, with the exit code left for the caller to read. Any repo but the project's
     own runs without `REPOSITORY_VARIABLES`; the project root inherits the environment."""
-    env = None
-    if Path(repo).resolve() != PROJECT_ROOT.resolve():
-        env = {k: v for k, v in os.environ.items() if k not in REPOSITORY_VARIABLES}
-    return subprocess.run(["git", *args], cwd=repo, env=env, capture_output=True, text=True, check=False)
+    return subprocess.run(["git", *args], cwd=repo, env=_environment(repo), capture_output=True, text=True, check=False)
+
+
+def git_bytes(*args: str, repo: Path = PROJECT_ROOT) -> subprocess.CompletedProcess[bytes]:
+    """`git <args>` as `git` runs it, with the output as bytes: a committed file's content exactly, to hash."""
+    return subprocess.run(["git", *args], cwd=repo, env=_environment(repo), capture_output=True, check=False)
+
+
+def full_history(repo: Path = PROJECT_ROOT) -> bool:
+    """Whether `repo` is a git clone with its history: not a shallow one (CI's checkout fetches one commit)."""
+    shallow = git("rev-parse", "--is-shallow-repository", repo=repo)
+    return shallow.returncode == 0 and shallow.stdout.strip() == "false"

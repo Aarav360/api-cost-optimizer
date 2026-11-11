@@ -23,6 +23,7 @@ from analysis.router_names import (
     NAMED_ROUTERS,
     SONNET_GATE,
     cascade_section,
+    parse_cascade,
 )
 from analysis.router_panels import routing_mix
 from analysis.same_target import SameTarget
@@ -30,9 +31,13 @@ from analysis.simulator import Outcome, item_weights, totals
 from analysis.walk import Walk
 from routers.ladder import FRONTIER
 
-ROUTERS = tuple(NAMED_ROUTERS)  # E, F, G, G+ in item 8's order
+# The routers' letters, E, F, G and G+ in item 8's order: the walks' names for the routers alone (`chart_routers.ROUTERS`
+# is the chart's list of router entries, another thing).
+ROUTER_LETTERS = tuple(NAMED_ROUTERS)
 POINTS = 6  # operating points per cascade: two mixes, three quality targets
-GATE_COST_ORDER = (FREE_GATE, JEV_GATE, SONNET_GATE)  # the free checks cost nothing, Jev $0.042 per million tokens
+# Item 24's "cheaper gate", cheapest first: the free checks cost nothing, and a Jev gate call costs less than a Sonnet
+# one (A17 item 15 prices both).
+GATE_COST_ORDER = (FREE_GATE, JEV_GATE, SONNET_GATE)
 
 
 class ComparisonError(ValueError):
@@ -55,10 +60,13 @@ def comparison_pairs() -> dict[str, list[tuple[str, str]]]:
     - `cascades_against_routers`: each pure cascade against each router alone (12).
     """
     starts = [HAIKU, *NAMED_ROUTERS.values()]
-    started = [(letter, section) for letter, section in NAMED_ROUTERS.items()]
-    gate_adds = [(cascade_section(section, gate), letter) for letter, section in started for gate in GATE_LABELS]
+    gate_adds = [
+        (cascade_section(section, gate), letter) for letter, section in NAMED_ROUTERS.items() for gate in GATE_LABELS
+    ]
     router_adds = [
-        (cascade_section(section, gate), cascade_section(HAIKU, gate)) for _, section in started for gate in GATE_LABELS
+        (cascade_section(section, gate), cascade_section(HAIKU, gate))
+        for section in NAMED_ROUTERS.values()
+        for gate in GATE_LABELS
     ]
     paid_over_free = [
         (cascade_section(start, gate), cascade_section(start, FREE_GATE))
@@ -66,7 +74,7 @@ def comparison_pairs() -> dict[str, list[tuple[str, str]]]:
         for gate in (JEV_GATE, SONNET_GATE)
     ]
     jev_sonnet = [(cascade_section(start, JEV_GATE), cascade_section(start, SONNET_GATE)) for start in starts]
-    against_routers = [(cascade_section(HAIKU, gate), letter) for gate in GATE_LABELS for letter in ROUTERS]
+    against_routers = [(cascade_section(HAIKU, gate), letter) for gate in GATE_LABELS for letter in ROUTER_LETTERS]
     return {
         "gate_adds": gate_adds, "router_adds": router_adds, "paid_gate_over_free": paid_over_free,
         "jev_against_sonnet": jev_sonnet, "cascades_against_routers": against_routers,
@@ -78,16 +86,17 @@ Walks = Mapping[str, Mapping[float, Walk]]  # one policy's walks, by mix and the
 
 def compare_pairs(
     draws: Bootstrap, mixes: Mapping[str, dict[str, float]], walks: Mapping[str, Walks]
-) -> dict[str, dict[str, dict[str, dict[float, SameTarget]]]]:
-    """Item 22's 51 comparisons: group, then `first less second` by label, then mix, then target. Each is the first
-    walk's operating point less the second's, paired over `draws`, with `analysis.same_target`'s fallback rules (a side
-    that falls back is A; both reads "both fall back to A"). Refuses (ComparisonError) a router or cascade with no walks."""
+) -> dict[str, dict[tuple[str, str], dict[str, dict[float, SameTarget]]]]:
+    """Item 22's 51 comparisons: group, then the pair `(first, second)` by the walks' names, then mix, then target. Each
+    is the first walk's operating point less the second's, paired over `draws`, with `analysis.same_target`'s fallback
+    rules (a side that falls back is A; both reads "both fall back to A"). The pair is kept as a pair, so a caller that
+    labels it (`label`) never has to split a label back. Refuses (ComparisonError) a router or cascade with no walks."""
     groups = comparison_pairs()
     needed = {name for pairs in groups.values() for pair in pairs for name in pair}
     if missing := sorted(needed - set(walks)):
         raise ComparisonError(f"no walks for {', '.join(label(m) for m in missing)}")
     cells = same_target_cells(draws, mixes, walks, tuple(pair for pairs in groups.values() for pair in pairs))
-    return {group: {f"{label(a)} less {label(b)}": cells[(a, b)] for a, b in pairs} for group, pairs in groups.items()}
+    return {group: {pair: cells[pair] for pair in pairs} for group, pairs in groups.items()}
 
 
 # ---- a cascade's row, in table v1's style (A9 item 15) ---------------------------------------------------------
@@ -147,11 +156,11 @@ class BestCascade:
 
 
 def _gate_of(key: str) -> str:
-    return key.rsplit("_", 1)[1]
+    return parse_cascade(key)[1]
 
 
 def _is_pure(key: str) -> bool:
-    return key.startswith(f"cascade_{HAIKU}_")
+    return parse_cascade(key)[0] == HAIKU
 
 
 def best_cascade(savings: Mapping[str, Sequence[float]]) -> BestCascade:
