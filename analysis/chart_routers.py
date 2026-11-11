@@ -53,7 +53,7 @@ class RouterStyle:
 E_STYLE = RouterStyle(
     color="#8e5bd0", marker="s", point_marker="D", linestyle="-",
     point_offsets={
-        ("realistic", "97%"): (-14, 22, "right"),
+        ("realistic", "97%"): (-14, -62, "right"),
         ("realistic", "99%"): (-4, 56, "right"),
         ("realistic", "100%: falls back to A"): (24, 80, "right"),
         ("uniform", "97%"): (8, -16, "left"),

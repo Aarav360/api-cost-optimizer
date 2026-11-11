@@ -1500,14 +1500,49 @@ Nine records from Stage 6's branch review, made after G's and G+'s record (A15 i
       - `results/gates/sonnet_gate_train.jsonl`: `c654b04a9357b3d1d8801d74faf5d50ae0271c0218324cd6532ce81bf75e41e9`
       - `results/gates/sonnet_gate_latency.jsonl`: `5a8ce7aa4a2cec25bbcd3afa7e8a4ae03836795b1e9a98a65b0d3932d9913678`
     - **The order** (item 20.6): the first train Jev call's server Date `Wed, 11 Nov 2026 05:26:17 GMT`; the train batch's `created_at` 2026-11-11T05:31:00.224897+00:00 (batch `msgbatch_011MfgV77vzfmuexkbFAX8t7`). Both come after the settings commit's commit time above.
-29. **Record.** The cascades' operating points on dev, written when Stage 7 finishes, as A15 item 20 did for G and G+. It will hold:
-    - a table of the 15 cascades, with savings against A and the share of resamples meeting the target, at the three targets under both mixes
-    - the best cascade by item 24's rule
-    - each cascade section's sha256, and that of the whole `routers/operating_points.json` (A9 item 13)
-    - dev's first Jev `Date` and the dev batch's `created_at`
-    - dev's latency conditions
+29. **Record.** The cascades' operating points on dev (run 0, n = 744, list prices of 2026-10-12), from `figures/table_v4.json`, and the hash of each cascade's section of `routers/operating_points.json` and of the whole file, as A9 item 18, A11 item 21 and A15 item 20 record the routers'. Intervals are percentile 95% from 2,000 paired resamples, and `analysis/check_stage7.py` compares every number here with those files.
+    - **The fifteen cascades.** Each cell is the savings against A, as a share of A's cost, then the share of resamples in which the point meets its target. A fall back to A reads 0.0% / 100.0%: the point is A itself, which saves nothing and meets every target. The last column is item 24's mean savings over the six points.
 
-    `analysis/check_stage7.py` compares every number with the committed files.
+      | Cascade | Realistic 100% | Realistic 99% | Realistic 97% | Uniform 100% | Uniform 99% | Uniform 97% | Mean savings |
+      |---|---|---|---|---|---|---|---|
+      | haiku/free | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% |
+      | haiku/Jev | 1.2% / 100.0% | 37.6% / 89.6% | 68.0% / 89.2% | 0.5% / 100.0% | 47.2% / 95.2% | 66.5% / 90.6% | 36.8% |
+      | haiku/Sonnet | 0.0% / 100.0% | 0.0% / 100.0% | 8.8% / 85.7% | 0.0% / 100.0% | 0.0% / 100.0% | 18.3% / 92.5% | 4.5% |
+      | E/free | 0.0% / 100.0% | 20.8% / 98.6% | 73.1% / 84.0% | 0.0% / 100.0% | 23.4% / 95.7% | 43.7% / 99.2% | 26.8% |
+      | E/Jev | 0.0% / 100.0% | 38.2% / 89.6% | 38.2% / 99.8% | 0.0% / 100.0% | 11.9% / 99.2% | 28.3% / 100.0% | 19.4% |
+      | E/Sonnet | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% |
+      | F/free | 0.0% / 100.0% | 17.3% / 100.0% | 39.5% / 84.5% | 0.0% / 100.0% | 0.0% / 100.0% | 36.5% / 88.0% | 15.5% |
+      | F/Jev | 0.0% / 100.0% | 0.3% / 100.0% | 38.2% / 99.8% | 0.0% / 100.0% | 28.3% / 94.2% | 28.3% / 100.0% | 15.8% |
+      | F/Sonnet | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% |
+      | G/free | 9.5% / 100.0% | 28.1% / 95.6% | 55.0% / 94.8% | 5.1% / 100.0% | 29.5% / 92.3% | 54.0% / 90.5% | 30.2% |
+      | G/Jev | 30.0% / 88.1% | 37.9% / 89.6% | 37.9% / 99.8% | 3.7% / 100.0% | 28.0% / 94.2% | 28.0% / 100.0% | 27.6% |
+      | G/Sonnet | 1.2% / 100.0% | 14.3% / 88.1% | 14.9% / 89.3% | 0.6% / 100.0% | 12.3% / 99.0% | 12.3% / 100.0% | 9.3% |
+      | G+/free | 0.0% / 100.0% | 31.3% / 91.8% | 65.1% / 92.2% | 1.2% / 100.0% | 38.0% / 90.0% | 71.4% / 92.3% | 34.5% |
+      | G+/Jev | 0.0% / 100.0% | 33.8% / 89.6% | 33.8% / 99.8% | 0.7% / 100.0% | 25.3% / 94.2% | 25.3% / 100.0% | 19.8% |
+      | G+/Sonnet | 0.2% / 95.0% | 0.2% / 100.0% | 0.2% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.1% |
+
+    - **The best cascade** by item 24's rule is haiku/Jev, with mean savings of 36.8% over its six operating points. The next is G+/free at 34.5%. The rule left no tie open, and ranking the cascades by dollars saved per 1,000 requests rather than by share gives the same cascade.
+    - **Section hashes.** Each cascade's section of `routers/operating_points.json`, written with sorted keys, has the 64-digit sha256:
+      - haiku/free: `36b16f2a55a6e973f81c07a809ea1ecefc747c55d86c85617834f3d46e10f2df`
+      - haiku/Jev: `965fc37cb3c197add7738fb0dc878b612e470abd6a1d921380e3cca8349514e1`
+      - haiku/Sonnet: `3ee3d70f287e97f9c7d6a27fe063b13ca17c3bced2a7586c892bccf9a1a88f2c`
+      - E/free: `bd42c634b52fae06d8a2fc80ec8ee99fa9f8292383026806015895c99056bcdc`
+      - E/Jev: `ef1d9aaf388e46b7d4471fd1e5c3a309c10d65d3dca4f5743f19d2161d05ddee`
+      - E/Sonnet: `8983ab4d8a18ddf637b187af83913710b4205c913eb84b4f82cc653ba1f1eb77`
+      - F/free: `69c066d842dd2c29cb3e1ed92c8b4f84c04851b52e7ee72810dc89d73e1bc4b2`
+      - F/Jev: `bdf72b04b0f91683e355dfe126f6e0cf247850ce72a64db37404678f80a4e545`
+      - F/Sonnet: `d39e07b57965de0605b566e851b2ca451a44cc33c611994bca9c3928b5542d2b`
+      - G/free: `3181e8978c28b7d9b057033f5d8e2d483517e6c0d74a567407f9f7ad9c8a60f0`
+      - G/Jev: `2a42f389fdb27391121a91a12cd6ef46394066eda79c98cbf0854c0de69d9847`
+      - G/Sonnet: `009bd864eeebc67bbc223bebdd735aac4d6ea979ac604ccc26b1c54961e5a0fb`
+      - G+/free: `9f5cdaf256a7bfcbaf4864fe8ade1b9da36ea3b32389131e64c351b28827bd18`
+      - G+/Jev: `87e2b44b41df79f6f758f60cde6a49d8e8ee05c17ed992adcc8b56121f27eed1`
+      - G+/Sonnet: `cb460f764ec00df8492b61fb39797d3137f6bc44ce7f7849850fedb04248a9f7`
+    - **The whole file.** `routers/operating_points.json` as committed has the 64-digit sha256 `d183dd1c0ef55b12d2487dcff8275fff2a08339849d3ff9cbb42799436e47c09`, which Stage 8's unlock verifies (item 26).
+    - **Order** (item 20.6). Dev's first Jev call's server `Date` is `Wed, 11 Nov 2026 06:15:56 GMT` and the dev Sonnet batch `msgbatch_011A6fqiaDRubpDN6jr5q8u4` was created at 2026-11-11T06:20:39.570771+00:00. Both come after the freeze commit `8d5dfaadd85137b060eb35d5593105ce0f7234a9`, committed 2026-11-10T21:51:04-08:00. The `Date` is in GMT.
+    - **Dev's latency conditions** (item 16). The Jev gate's 2969 dev calls, one at a time, on Apple M5 Pro, Darwin 27.0.0 arm64, Python 3.13.13, over Wi-Fi (en0) behind a private gateway, no network name or address recorded; collected from 2026-11-10T22:15:56-08:00 to 2026-11-10T22:19:22-08:00, the conditions captured at 2026-11-10T22:15:50-08:00, before the first call. Median 62.6 ms and p90 82.5 ms; the first call 103.7 ms and the reconnects 87.1 ms and 100.7 ms, which the median leaves out.
+    - The Sonnet gate has no dev latency: the estimate uses the 80-call train sample's per-task medians, 1.53 to 1.65 s, and the code check's dev median is 0.20 s over 428 checks. Every policy's estimated p50 latency is in `figures/table_v4.json`.
+    - The comparisons in `figures/table_v4.json` are descriptive, with no multiplicity correction: at 95%, about one interval in twenty excludes 0 by chance.
 
 ---
 

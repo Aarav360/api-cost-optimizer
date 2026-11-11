@@ -37,7 +37,7 @@ uv run python -m analysis.check_stage5 | grep -E "^FAIL|checks"
 # dev matrix and the stored dev responses the hook also rebuilds G's and G+'s parts and table v3 and compares the first
 # dev call's Date (about 90 s). No Jev call.
 uv run python -m analysis.check_stage6 | grep -E "^FAIL|checks"
-# The interactive explorer (figures/pareto_explorer.html) against chart v3's JSONs: the committed page is their build,
+# The interactive explorer (figures/pareto_explorer.html) against chart v4's JSONs: the committed page is their build,
 # and its numbers and words are theirs. Rerun analysis.explorer after analysis.pareto.
 uv run python -m analysis.check_explorer | grep -E "^FAIL|checks"
 # The Jev settings builder (A15 items 4-6, 10, 12) on a synthetic benchmark and store; where results/ is present it
@@ -109,6 +109,14 @@ uv run python -m analysis.check_gates_dev | grep -E "^FAIL|checks"
 # dev records, the gate counts recounted from the gate-score table, the pure cascades' latency and escalation recomputed, the
 # latency inputs from the stored calls and a rebuild of the whole file (about 70 s). No Jev or Anthropic call. CI skips the stored-record part.
 uv run python -m analysis.check_table_v4 | grep -E "^FAIL|checks"
+# Chart v4 (A17 items 21 and 23; issue #72): the cascade lines on a hand-worked table, every cascade in the committed figure
+# JSONs (steps from A, each cross on a step, the operating points equal to table v4's rows and the sections), the figures
+# drawn from them, the calibration figure and its caption on the empty cell; where results/ holds the dev matrix and the
+# stored gate records, a rebuild of every figure's numbers (about 2 minutes). No Jev or Anthropic call. CI skips the rebuild.
+uv run python -m analysis.check_chart_v4 | grep -E "^FAIL|checks"
+# A17's record of the cascades (item 29) and the README's numbers about Stage 7, against table v4, the operating-points file,
+# the dev run's record and the git order, through the plan's amendment-item reader. No results/ needed.
+uv run python -m analysis.check_stage7 | grep -E "^FAIL|checks"
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
 uv run python -m analysis.check_gates_sandbox | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then

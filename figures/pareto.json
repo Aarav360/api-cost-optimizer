@@ -62,6 +62,120 @@
       "operating_points_sha256": "30cc0ef8dc392a3b56e4ba40e1dad9fc912ac3246be2e0e7ddc0214b8647ae6f"
     }
   },
+  "cascades": {
+    "cascade_haiku_free": {
+      "label": "haiku/free",
+      "start": "haiku",
+      "gate": "free",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "36b16f2a55a6e973f81c07a809ea1ecefc747c55d86c85617834f3d46e10f2df"
+    },
+    "cascade_haiku_jev": {
+      "label": "haiku/Jev",
+      "start": "haiku",
+      "gate": "jev",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "965fc37cb3c197add7738fb0dc878b612e470abd6a1d921380e3cca8349514e1"
+    },
+    "cascade_haiku_sonnet": {
+      "label": "haiku/Sonnet",
+      "start": "haiku",
+      "gate": "sonnet",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "3ee3d70f287e97f9c7d6a27fe063b13ca17c3bced2a7586c892bccf9a1a88f2c"
+    },
+    "cascade_rules_free": {
+      "label": "E/free",
+      "start": "rules",
+      "gate": "free",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "bd42c634b52fae06d8a2fc80ec8ee99fa9f8292383026806015895c99056bcdc"
+    },
+    "cascade_rules_jev": {
+      "label": "E/Jev",
+      "start": "rules",
+      "gate": "jev",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "ef1d9aaf388e46b7d4471fd1e5c3a309c10d65d3dca4f5743f19d2161d05ddee"
+    },
+    "cascade_rules_sonnet": {
+      "label": "E/Sonnet",
+      "start": "rules",
+      "gate": "sonnet",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "8983ab4d8a18ddf637b187af83913710b4205c913eb84b4f82cc653ba1f1eb77"
+    },
+    "cascade_trained_free": {
+      "label": "F/free",
+      "start": "trained",
+      "gate": "free",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "69c066d842dd2c29cb3e1ed92c8b4f84c04851b52e7ee72810dc89d73e1bc4b2"
+    },
+    "cascade_trained_jev": {
+      "label": "F/Jev",
+      "start": "trained",
+      "gate": "jev",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "bdf72b04b0f91683e355dfe126f6e0cf247850ce72a64db37404678f80a4e545"
+    },
+    "cascade_trained_sonnet": {
+      "label": "F/Sonnet",
+      "start": "trained",
+      "gate": "sonnet",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "d39e07b57965de0605b566e851b2ca451a44cc33c611994bca9c3928b5542d2b"
+    },
+    "cascade_jev_free": {
+      "label": "G/free",
+      "start": "jev",
+      "gate": "free",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "3181e8978c28b7d9b057033f5d8e2d483517e6c0d74a567407f9f7ad9c8a60f0"
+    },
+    "cascade_jev_jev": {
+      "label": "G/Jev",
+      "start": "jev",
+      "gate": "jev",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "2a42f389fdb27391121a91a12cd6ef46394066eda79c98cbf0854c0de69d9847"
+    },
+    "cascade_jev_sonnet": {
+      "label": "G/Sonnet",
+      "start": "jev",
+      "gate": "sonnet",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "009bd864eeebc67bbc223bebdd735aac4d6ea979ac604ccc26b1c54961e5a0fb"
+    },
+    "cascade_jev_bolstered_free": {
+      "label": "G+/free",
+      "start": "jev_bolstered",
+      "gate": "free",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "9f5cdaf256a7bfcbaf4864fe8ade1b9da36ea3b32389131e64c351b28827bd18"
+    },
+    "cascade_jev_bolstered_jev": {
+      "label": "G+/Jev",
+      "start": "jev_bolstered",
+      "gate": "jev",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "87e2b44b41df79f6f758f60cde6a49d8e8ee05c17ed992adcc8b56121f27eed1"
+    },
+    "cascade_jev_bolstered_sonnet": {
+      "label": "G+/Sonnet",
+      "start": "jev_bolstered",
+      "gate": "sonnet",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "cb460f764ec00df8492b61fb39797d3137f6bc44ce7f7849850fedb04248a9f7"
+    }
+  },
+  "cascade_units": {
+    "cascades": "the fifteen cascades (A17 item 8), keyed by section key: label, start (the pure cascades start at haiku, the others at a router), gate (the free checks, the Jev gate or the Sonnet gate), the operating-points file that holds the section and the sha256 of the section, written with sorted keys",
+    "panel_cascades": "a panel's `cascades` (the headline and per-task figures hold the three pure cascades): per cascade its label, gate and steps in walk order, A first (threshold and cutoff null), then each step from the strictest cutoff down, each with its quality and cost_per_1k on dev (mix-weighted in the headline figure), joined by straight lines in linear cost and never hulled; the walks stop at the first step that misses, the lines do not",
+    "point": "the free-checks-only cascade's one step as a point with a cross: its quality and cost_per_1k, each its value on dev with its percentile 95% interval (low, high) and standard error; the cascade's operating points fall back to A wherever the step misses",
+    "operating_points": "table v4's rows (figures/table_v4.json), keyed by quality target: threshold (the router's), cutoff (the gate's), fell_back, quality and cost_per_1k with intervals, margin, difference from A, savings against A, captured fraction, routing mix, escalation rate and the matched-cost comparison",
+    "routed_panels": "the router-started figure's panels, one per mix: A (the opus config's row), the envelope's corners, the targets, and per router four lines on the router's steps: the router alone (its part of the headline panel) and its three cascades, each with steps and operating points"
+  },
   "panels": {
     "realistic": {
       "configs": {
@@ -1525,6 +1639,730 @@
                 "difference": 0.011383647454378032,
                 "low": -0.007816132661006567,
                 "high": 0.02918038905339634,
+                "unread": 0.0
+              }
+            }
+          }
+        }
+      },
+      "cascades": {
+        "cascade_haiku_free": {
+          "label": "haiku/free",
+          "gate": "free",
+          "free_only": true,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8674428785443579,
+              "cost_per_1k": 8.04290568441574
+            },
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8330189296981964,
+              "cost_per_1k": 0.28747953997261744
+            }
+          ],
+          "point": {
+            "quality": {
+              "value": 0.8330189296981964,
+              "low": 0.7824698168182291,
+              "high": 0.8791113284403012,
+              "standard_error": 0.02463784748240439
+            },
+            "cost_per_1k": {
+              "value": 0.28747953997261744,
+              "low": 0.2603696817498746,
+              "high": 0.31979358584643264,
+              "standard_error": 0.015299982425400364
+            }
+          },
+          "operating_points": {
+            "100%": {
+              "threshold": null,
+              "cutoff": null,
+              "fell_back": true,
+              "steps_certified": 0,
+              "steps_tried": 1,
+              "target": 0.8674428785443579,
+              "margin": 0.0,
+              "quality": {
+                "value": 0.8674428785443579,
+                "low": 0.8181213763138152,
+                "high": 0.9112464181015134,
+                "standard_error": 0.02338704738314108
+              },
+              "cost_per_1k": {
+                "value": 8.04290568441574,
+                "low": 7.500959949110459,
+                "high": 8.680603810391984,
+                "standard_error": 0.305980085998855
+              },
+              "difference_from_A": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "standard_error": 0.0
+              },
+              "savings_vs_A": {
+                "per_1k": 0.0,
+                "share": 0.0
+              },
+              "captured": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "met": 1.0
+              },
+              "routing": {
+                "haiku": 0.0,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 0.9999999999999918
+              },
+              "escalation_rate": 0,
+              "matched_cost": {
+                "envelope": 0.8777174112546382,
+                "difference": -0.010274532710280337,
+                "low": -0.036490545309875215,
+                "high": 0.0,
+                "unread": 0.0
+              }
+            },
+            "99%": {
+              "threshold": null,
+              "cutoff": null,
+              "fell_back": true,
+              "steps_certified": 0,
+              "steps_tried": 1,
+              "target": 0.8587684497589143,
+              "margin": 0.0,
+              "quality": {
+                "value": 0.8674428785443579,
+                "low": 0.8181213763138152,
+                "high": 0.9112464181015134,
+                "standard_error": 0.02338704738314108
+              },
+              "cost_per_1k": {
+                "value": 8.04290568441574,
+                "low": 7.500959949110459,
+                "high": 8.680603810391984,
+                "standard_error": 0.305980085998855
+              },
+              "difference_from_A": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "standard_error": 0.0
+              },
+              "savings_vs_A": {
+                "per_1k": 0.0,
+                "share": 0.0
+              },
+              "captured": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "met": 1.0
+              },
+              "routing": {
+                "haiku": 0.0,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 0.9999999999999918
+              },
+              "escalation_rate": 0,
+              "matched_cost": {
+                "envelope": 0.8777174112546382,
+                "difference": -0.010274532710280337,
+                "low": -0.036490545309875215,
+                "high": 0.0,
+                "unread": 0.0
+              }
+            },
+            "97%": {
+              "threshold": null,
+              "cutoff": null,
+              "fell_back": true,
+              "steps_certified": 0,
+              "steps_tried": 1,
+              "target": 0.8414195921880271,
+              "margin": 0.0,
+              "quality": {
+                "value": 0.8674428785443579,
+                "low": 0.8181213763138152,
+                "high": 0.9112464181015134,
+                "standard_error": 0.02338704738314108
+              },
+              "cost_per_1k": {
+                "value": 8.04290568441574,
+                "low": 7.500959949110459,
+                "high": 8.680603810391984,
+                "standard_error": 0.305980085998855
+              },
+              "difference_from_A": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "standard_error": 0.0
+              },
+              "savings_vs_A": {
+                "per_1k": 0.0,
+                "share": 0.0
+              },
+              "captured": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "met": 1.0
+              },
+              "routing": {
+                "haiku": 0.0,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 0.9999999999999918
+              },
+              "escalation_rate": 0,
+              "matched_cost": {
+                "envelope": 0.8777174112546382,
+                "difference": -0.010274532710280337,
+                "low": -0.036490545309875215,
+                "high": 0.0,
+                "unread": 0.0
+              }
+            }
+          }
+        },
+        "cascade_haiku_jev": {
+          "label": "haiku/Jev",
+          "gate": "jev",
+          "free_only": false,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8674428785443579,
+              "cost_per_1k": 8.04290568441574
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9643903264686148,
+              "quality": 0.8674428785443579,
+              "cost_per_1k": 8.14599419973565
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9540063295697989,
+              "quality": 0.8674428785443579,
+              "cost_per_1k": 7.947046100047176
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.942908963384214,
+              "quality": 0.8666095452110245,
+              "cost_per_1k": 7.7457798964537075
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.932834387996363,
+              "quality": 0.8666095452110245,
+              "cost_per_1k": 7.537451975892961
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9215577174075453,
+              "quality": 0.8666095452110245,
+              "cost_per_1k": 7.151894117637509
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9097017222411575,
+              "quality": 0.8666095452110245,
+              "cost_per_1k": 6.869982501866729
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8967833238364423,
+              "quality": 0.8726843115661647,
+              "cost_per_1k": 6.615117908785791
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8794207841106444,
+              "quality": 0.8726843115661647,
+              "cost_per_1k": 6.1874695018865715
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8618275649824013,
+              "quality": 0.872892644899498,
+              "cost_per_1k": 5.9323096823536625
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.836914067115759,
+              "quality": 0.8722557022243388,
+              "cost_per_1k": 5.354824987977013
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8149190161607497,
+              "quality": 0.871642644899498,
+              "cost_per_1k": 5.020261543773985
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7914604799666575,
+              "quality": 0.8664131545528504,
+              "cost_per_1k": 4.636307673652747
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7567933237142882,
+              "quality": 0.8660084305613429,
+              "cost_per_1k": 3.9806259182903254
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7307604185714591,
+              "quality": 0.8670620399031689,
+              "cost_per_1k": 3.4624494526276863
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.6943146272936006,
+              "quality": 0.8597372735480286,
+              "cost_per_1k": 3.086446487371818
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.6333807685183769,
+              "quality": 0.8582669975395361,
+              "cost_per_1k": 2.5716889605845092
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.5414067403925006,
+              "quality": 0.8523978361807251,
+              "cost_per_1k": 2.1217119545127194
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.4287478614320303,
+              "quality": 0.8429658511419331,
+              "cost_per_1k": 1.5617079957453321
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.3014453311944091,
+              "quality": 0.8400133564497887,
+              "cost_per_1k": 0.9815118349619523
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.020068498494883256,
+              "quality": 0.8330189296981964,
+              "cost_per_1k": 0.3195451819865766
+            }
+          ],
+          "operating_points": {
+            "100%": {
+              "threshold": null,
+              "cutoff": 0.9540063295697989,
+              "fell_back": false,
+              "steps_certified": 2,
+              "steps_tried": 3,
+              "target": 0.8674428785443579,
+              "margin": 0.0,
+              "quality": {
+                "value": 0.8674428785443579,
+                "low": 0.8181213763138152,
+                "high": 0.9112464181015134,
+                "standard_error": 0.02338704738314108
+              },
+              "cost_per_1k": {
+                "value": 7.947046100047176,
+                "low": 7.365643657633221,
+                "high": 8.626330734447599,
+                "standard_error": 0.32576921219222504
+              },
+              "difference_from_A": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "standard_error": 0.0
+              },
+              "savings_vs_A": {
+                "per_1k": 0.09585958436856323,
+                "share": 0.01191852647909386
+              },
+              "captured": {
+                "value": 0.012550021672619729,
+                "low": -0.001379688329009577,
+                "high": 0.02795016844057843,
+                "met": 1.0
+              },
+              "routing": {
+                "haiku": 0.08165693146417438,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 0.9183430685358175
+              },
+              "escalation_rate": 0.9183430685358256,
+              "matched_cost": {
+                "envelope": 0.8777174112546382,
+                "difference": -0.010274532710280337,
+                "low": -0.036490545309875215,
+                "high": 0.00048751757665918273,
+                "unread": 0.0
+              }
+            },
+            "99%": {
+              "threshold": null,
+              "cutoff": 0.8149190161607497,
+              "fell_back": false,
+              "steps_certified": 11,
+              "steps_tried": 12,
+              "target": 0.8587684497589143,
+              "margin": 0.010624833973770077,
+              "quality": {
+                "value": 0.871642644899498,
+                "low": 0.8241601267467531,
+                "high": 0.9156081223459123,
+                "standard_error": 0.022911611261141714
+              },
+              "cost_per_1k": {
+                "value": 5.020261543773985,
+                "low": 4.413519649664426,
+                "high": 5.742289807319215,
+                "standard_error": 0.3406083826201929
+              },
+              "difference_from_A": {
+                "value": 0.004199766355140189,
+                "low": -0.016550249490122806,
+                "high": 0.025167376883974298,
+                "standard_error": 0.010624833973770077
+              },
+              "savings_vs_A": {
+                "per_1k": 3.022644140641755,
+                "share": 0.3758149429128024
+              },
+              "captured": {
+                "value": 0.3940287406032559,
+                "low": null,
+                "high": 0.4502605960896122,
+                "met": 0.8965
+              },
+              "routing": {
+                "haiku": 0.627605809869636,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 0.3723941901303653
+              },
+              "escalation_rate": 0.3723941901303649,
+              "matched_cost": {
+                "envelope": 0.8667195746222529,
+                "difference": 0.004923070277245145,
+                "low": -0.021821532097174863,
+                "high": 0.026703597781832736,
+                "unread": 0.0
+              }
+            },
+            "97%": {
+              "threshold": null,
+              "cutoff": 0.6333807685183769,
+              "fell_back": false,
+              "steps_certified": 16,
+              "steps_tried": 17,
+              "target": 0.8414195921880271,
+              "margin": 0.013803777719920347,
+              "quality": {
+                "value": 0.8582669975395361,
+                "low": 0.809720523210135,
+                "high": 0.9031373325193041,
+                "standard_error": 0.02381208226958215
+              },
+              "cost_per_1k": {
+                "value": 2.5716889605845092,
+                "low": 2.117709579009687,
+                "high": 3.068774585421577,
+                "standard_error": 0.24633876570347246
+              },
+              "difference_from_A": {
+                "value": -0.009175881004821806,
+                "low": -0.03785658962938882,
+                "high": 0.017612592611304895,
+                "standard_error": 0.013803777719920347
+              },
+              "savings_vs_A": {
+                "per_1k": 5.47121672383123,
+                "share": 0.6802537464081522
+              },
+              "captured": {
+                "value": 0.7075968378878897,
+                "low": null,
+                "high": 0.7609164909929763,
+                "met": 0.892
+              },
+              "routing": {
+                "haiku": 0.8519460731789563,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 0.14805392682104113
+              },
+              "escalation_rate": 0.14805392682104093,
+              "matched_cost": {
+                "envelope": 0.8492840630921276,
+                "difference": 0.008982934447408497,
+                "low": -0.01101758399394864,
+                "high": 0.024959102733006732,
+                "unread": 0.0
+              }
+            }
+          }
+        },
+        "cascade_haiku_sonnet": {
+          "label": "haiku/Sonnet",
+          "gate": "sonnet",
+          "free_only": false,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8674428785443579,
+              "cost_per_1k": 8.04290568441574
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.97,
+              "quality": 0.8674428785443579,
+              "cost_per_1k": 13.232538585724349
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.96,
+              "quality": 0.8613681121892176,
+              "cost_per_1k": 12.086963074632418
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.95,
+              "quality": 0.8613681121892176,
+              "cost_per_1k": 11.986532775457865
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.93,
+              "quality": 0.8674428785443579,
+              "cost_per_1k": 10.381756725246543
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9,
+              "quality": 0.873517644899498,
+              "cost_per_1k": 10.200296704511182
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.88,
+              "quality": 0.8728807022243388,
+              "cost_per_1k": 9.33643280140187
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8,
+              "quality": 0.8603145028473917,
+              "cost_per_1k": 8.435141480936366
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.72,
+              "quality": 0.860326445522551,
+              "cost_per_1k": 8.1311617038663
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.66,
+              "quality": 0.8605347788558843,
+              "cost_per_1k": 7.965035244206005
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.5,
+              "quality": 0.8586717215310435,
+              "cost_per_1k": 7.3371207856072775
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.3,
+              "quality": 0.8528383881977102,
+              "cost_per_1k": 7.089300472443797
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.12,
+              "quality": 0.850326445522551,
+              "cost_per_1k": 6.593658195373733
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.01,
+              "quality": 0.8390936960533365,
+              "cost_per_1k": 5.960256674053019
+            }
+          ],
+          "operating_points": {
+            "100%": {
+              "threshold": null,
+              "cutoff": null,
+              "fell_back": true,
+              "steps_certified": 1,
+              "steps_tried": 2,
+              "target": 0.8674428785443579,
+              "margin": 0.0,
+              "quality": {
+                "value": 0.8674428785443579,
+                "low": 0.8181213763138152,
+                "high": 0.9112464181015134,
+                "standard_error": 0.02338704738314108
+              },
+              "cost_per_1k": {
+                "value": 8.04290568441574,
+                "low": 7.500959949110459,
+                "high": 8.680603810391984,
+                "standard_error": 0.305980085998855
+              },
+              "difference_from_A": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "standard_error": 0.0
+              },
+              "savings_vs_A": {
+                "per_1k": 0.0,
+                "share": 0.0
+              },
+              "captured": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "met": 1.0
+              },
+              "routing": {
+                "haiku": 0.0,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 0.9999999999999918
+              },
+              "escalation_rate": 0,
+              "matched_cost": {
+                "envelope": 0.8777174112546382,
+                "difference": -0.010274532710280337,
+                "low": -0.036490545309875215,
+                "high": 0.0,
+                "unread": 0.0
+              }
+            },
+            "99%": {
+              "threshold": null,
+              "cutoff": null,
+              "fell_back": true,
+              "steps_certified": 1,
+              "steps_tried": 2,
+              "target": 0.8587684497589143,
+              "margin": 0.0,
+              "quality": {
+                "value": 0.8674428785443579,
+                "low": 0.8181213763138152,
+                "high": 0.9112464181015134,
+                "standard_error": 0.02338704738314108
+              },
+              "cost_per_1k": {
+                "value": 8.04290568441574,
+                "low": 7.500959949110459,
+                "high": 8.680603810391984,
+                "standard_error": 0.305980085998855
+              },
+              "difference_from_A": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "standard_error": 0.0
+              },
+              "savings_vs_A": {
+                "per_1k": 0.0,
+                "share": 0.0
+              },
+              "captured": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "met": 1.0
+              },
+              "routing": {
+                "haiku": 0.0,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 0.9999999999999918
+              },
+              "escalation_rate": 0,
+              "matched_cost": {
+                "envelope": 0.8777174112546382,
+                "difference": -0.010274532710280337,
+                "low": -0.036490545309875215,
+                "high": 0.0,
+                "unread": 0.0
+              }
+            },
+            "97%": {
+              "threshold": null,
+              "cutoff": 0.5,
+              "fell_back": false,
+              "steps_certified": 10,
+              "steps_tried": 11,
+              "target": 0.8414195921880271,
+              "margin": 0.016476227383023036,
+              "quality": {
+                "value": 0.8586717215310435,
+                "low": 0.8079954022395582,
+                "high": 0.9034865970429655,
+                "standard_error": 0.024049235247504235
+              },
+              "cost_per_1k": {
+                "value": 7.3371207856072775,
+                "low": 4.969313971846464,
+                "high": 10.83825348161754,
+                "standard_error": 1.55477826241031
+              },
+              "difference_from_A": {
+                "value": -0.008771157013314324,
+                "low": -0.042109189609784166,
+                "high": 0.02204051619195012,
+                "standard_error": 0.016476227383023036
+              },
+              "savings_vs_A": {
+                "per_1k": 0.7057848988084618,
+                "share": 0.0877524773386339
+              },
+              "captured": {
+                "value": 0.09127972585157954,
+                "low": null,
+                "high": 0.37765519723996754,
+                "met": 0.8565
+              },
+              "routing": {
+                "haiku": 0.9179049472190738,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 0.08209505278091943
+              },
+              "escalation_rate": 0.08209505278091951,
+              "matched_cost": {
+                "envelope": 0.8777174112546382,
+                "difference": -0.01904568972359466,
+                "low": -0.054566632161052925,
+                "high": 0.012966764624883493,
                 "unread": 0.0
               }
             }
@@ -2994,6 +3832,730 @@
                 "difference": 0.02031400372917591,
                 "low": 0.007140394597436625,
                 "high": 0.03280547667751609,
+                "unread": 0.0
+              }
+            }
+          }
+        }
+      },
+      "cascades": {
+        "cascade_haiku_free": {
+          "label": "haiku/free",
+          "gate": "free",
+          "free_only": true,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8953984736194615,
+              "cost_per_1k": 12.013344059170189
+            },
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8454562027501636,
+              "cost_per_1k": 0.42894680845958094
+            }
+          ],
+          "point": {
+            "quality": {
+              "value": 0.8454562027501636,
+              "low": 0.8161931900096082,
+              "high": 0.872042024760136,
+              "standard_error": 0.014167263525915573
+            },
+            "cost_per_1k": {
+              "value": 0.42894680845958094,
+              "low": 0.3892337046441442,
+              "high": 0.4800464010182452,
+              "standard_error": 0.023291771384305937
+            }
+          },
+          "operating_points": {
+            "100%": {
+              "threshold": null,
+              "cutoff": null,
+              "fell_back": true,
+              "steps_certified": 0,
+              "steps_tried": 1,
+              "target": 0.8953984736194615,
+              "margin": 0.0,
+              "quality": {
+                "value": 0.8953984736194615,
+                "low": 0.8719608182383103,
+                "high": 0.919242595327193,
+                "standard_error": 0.011983471310118465
+              },
+              "cost_per_1k": {
+                "value": 12.013344059170189,
+                "low": 11.169522236723441,
+                "high": 12.954388026408292,
+                "standard_error": 0.4620598923661789
+              },
+              "difference_from_A": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "standard_error": 0.0
+              },
+              "savings_vs_A": {
+                "per_1k": 0.0,
+                "share": 0.0
+              },
+              "captured": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "met": 1.0
+              },
+              "routing": {
+                "haiku": 0.0,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 1.0000000000000144
+              },
+              "escalation_rate": 0,
+              "matched_cost": {
+                "envelope": 0.8969463708157231,
+                "difference": -0.0015478971962616939,
+                "low": -0.01587445972780933,
+                "high": 0.0,
+                "unread": 0.0
+              }
+            },
+            "99%": {
+              "threshold": null,
+              "cutoff": null,
+              "fell_back": true,
+              "steps_certified": 0,
+              "steps_tried": 1,
+              "target": 0.8864444888832669,
+              "margin": 0.0,
+              "quality": {
+                "value": 0.8953984736194615,
+                "low": 0.8719608182383103,
+                "high": 0.919242595327193,
+                "standard_error": 0.011983471310118465
+              },
+              "cost_per_1k": {
+                "value": 12.013344059170189,
+                "low": 11.169522236723441,
+                "high": 12.954388026408292,
+                "standard_error": 0.4620598923661789
+              },
+              "difference_from_A": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "standard_error": 0.0
+              },
+              "savings_vs_A": {
+                "per_1k": 0.0,
+                "share": 0.0
+              },
+              "captured": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "met": 1.0
+              },
+              "routing": {
+                "haiku": 0.0,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 1.0000000000000144
+              },
+              "escalation_rate": 0,
+              "matched_cost": {
+                "envelope": 0.8969463708157231,
+                "difference": -0.0015478971962616939,
+                "low": -0.01587445972780933,
+                "high": 0.0,
+                "unread": 0.0
+              }
+            },
+            "97%": {
+              "threshold": null,
+              "cutoff": null,
+              "fell_back": true,
+              "steps_certified": 0,
+              "steps_tried": 1,
+              "target": 0.8685365194108776,
+              "margin": 0.0,
+              "quality": {
+                "value": 0.8953984736194615,
+                "low": 0.8719608182383103,
+                "high": 0.919242595327193,
+                "standard_error": 0.011983471310118465
+              },
+              "cost_per_1k": {
+                "value": 12.013344059170189,
+                "low": 11.169522236723441,
+                "high": 12.954388026408292,
+                "standard_error": 0.4620598923661789
+              },
+              "difference_from_A": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "standard_error": 0.0
+              },
+              "savings_vs_A": {
+                "per_1k": 0.0,
+                "share": 0.0
+              },
+              "captured": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "met": 1.0
+              },
+              "routing": {
+                "haiku": 0.0,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 1.0000000000000144
+              },
+              "escalation_rate": 0,
+              "matched_cost": {
+                "envelope": 0.8969463708157231,
+                "difference": -0.0015478971962616939,
+                "low": -0.01587445972780933,
+                "high": 0.0,
+                "unread": 0.0
+              }
+            }
+          }
+        },
+        "cascade_haiku_jev": {
+          "label": "haiku/Jev",
+          "gate": "jev",
+          "free_only": false,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8953984736194615,
+              "cost_per_1k": 12.013344059170189
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9643903264686148,
+              "quality": 0.8953984736194615,
+              "cost_per_1k": 12.187602375078997
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9540063295697989,
+              "quality": 0.8953984736194615,
+              "cost_per_1k": 11.9565367598142
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.942908963384214,
+              "quality": 0.8943568069527948,
+              "cost_per_1k": 11.723287742263553
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.932834387996363,
+              "quality": 0.8943568069527948,
+              "cost_per_1k": 11.521268349740188
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9215577174075453,
+              "quality": 0.8943568069527948,
+              "cost_per_1k": 11.224475904257323
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9097017222411575,
+              "quality": 0.8943568069527948,
+              "cost_per_1k": 10.921669917789874
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8967833238364423,
+              "quality": 0.8966932555509256,
+              "cost_per_1k": 10.623610440539244
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8794207841106444,
+              "quality": 0.8966932555509256,
+              "cost_per_1k": 10.17293667796409
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8618275649824013,
+              "quality": 0.8977349222175923,
+              "cost_per_1k": 9.783482962465152
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.836914067115759,
+              "quality": 0.8961425655296942,
+              "cost_per_1k": 9.34623779583817
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8149190161607497,
+              "quality": 0.8946099222175923,
+              "cost_per_1k": 8.706804905735584
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7914604799666575,
+              "quality": 0.8949074969740263,
+              "cost_per_1k": 8.154127376071122
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7567933237142882,
+              "quality": 0.894416520328591,
+              "cost_per_1k": 7.184613563989052
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7307604185714591,
+              "quality": 0.8980922103498225,
+              "cost_per_1k": 6.3402107954710845
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.6943146272936006,
+              "quality": 0.8926307617516915,
+              "cost_per_1k": 5.73413286052456
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.6333807685183769,
+              "quality": 0.8899967383971268,
+              "cost_per_1k": 4.7237816253319895
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.5414067403925006,
+              "quality": 0.8810530016667659,
+              "cost_per_1k": 4.018515512021673
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.4287478614320303,
+              "quality": 0.8713651730261722,
+              "cost_per_1k": 2.933443154044016
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.3014453311944091,
+              "quality": 0.8645047696291446,
+              "cost_per_1k": 1.8825104623659397
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.020068498494883256,
+              "quality": 0.8454562027501636,
+              "cost_per_1k": 0.46667914924214243
+            }
+          ],
+          "operating_points": {
+            "100%": {
+              "threshold": null,
+              "cutoff": 0.9540063295697989,
+              "fell_back": false,
+              "steps_certified": 2,
+              "steps_tried": 3,
+              "target": 0.8953984736194615,
+              "margin": 0.0,
+              "quality": {
+                "value": 0.8953984736194615,
+                "low": 0.8719608182383103,
+                "high": 0.919242595327193,
+                "standard_error": 0.011983471310118465
+              },
+              "cost_per_1k": {
+                "value": 11.9565367598142,
+                "low": 11.07351582534669,
+                "high": 12.950592619141666,
+                "standard_error": 0.48448993376703414
+              },
+              "difference_from_A": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "standard_error": 0.0
+              },
+              "savings_vs_A": {
+                "per_1k": 0.05680729935598805,
+                "share": 0.004728683293859781
+              },
+              "captured": {
+                "value": 0.005000544507577441,
+                "low": -0.00541084087274546,
+                "high": 0.016105325991275423,
+                "met": 1.0
+              },
+              "routing": {
+                "haiku": 0.08693535825545176,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 0.913064641744559
+              },
+              "escalation_rate": 0.9130646417445483,
+              "matched_cost": {
+                "envelope": 0.8969463708157231,
+                "difference": -0.0015478971962616939,
+                "low": -0.01587445972780933,
+                "high": 0.00040325112184710335,
+                "unread": 0.0
+              }
+            },
+            "99%": {
+              "threshold": null,
+              "cutoff": 0.7307604185714591,
+              "fell_back": false,
+              "steps_certified": 14,
+              "steps_tried": 15,
+              "target": 0.8864444888832669,
+              "margin": 0.007095790973809746,
+              "quality": {
+                "value": 0.8980922103498225,
+                "low": 0.8745588028402798,
+                "high": 0.9210183504215236,
+                "standard_error": 0.011983620956827435
+              },
+              "cost_per_1k": {
+                "value": 6.3402107954710845,
+                "low": 5.494176785863795,
+                "high": 7.2625312988083515,
+                "standard_error": 0.4522568516558869
+              },
+              "difference_from_A": {
+                "value": 0.002693736730360996,
+                "low": -0.011104083362976545,
+                "high": 0.016449442262441456,
+                "standard_error": 0.007095790973809746
+              },
+              "savings_vs_A": {
+                "per_1k": 5.673133263699104,
+                "share": 0.47223597657378436
+              },
+              "captured": {
+                "value": 0.4965542187182557,
+                "low": null,
+                "high": 0.5592599949955643,
+                "met": 0.9515
+              },
+              "routing": {
+                "haiku": 0.6952269604341537,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 0.30477303956584634
+              },
+              "escalation_rate": 0.30477303956584717,
+              "matched_cost": {
+                "envelope": 0.8786253379772282,
+                "difference": 0.019466872372594257,
+                "low": 0.006026049311347611,
+                "high": 0.031912862842069754,
+                "unread": 0.0
+              }
+            },
+            "97%": {
+              "threshold": null,
+              "cutoff": 0.5414067403925006,
+              "fell_back": false,
+              "steps_certified": 17,
+              "steps_tried": 18,
+              "target": 0.8685365194108776,
+              "margin": 0.00920021271507948,
+              "quality": {
+                "value": 0.8810530016667659,
+                "low": 0.8540270079801335,
+                "high": 0.9063851442769717,
+                "standard_error": 0.0128166998663982
+              },
+              "cost_per_1k": {
+                "value": 4.018515512021673,
+                "low": 3.255062386344884,
+                "high": 4.872747602963707,
+                "standard_error": 0.4105197814961924
+              },
+              "difference_from_A": {
+                "value": -0.014345471952695532,
+                "low": -0.032471008331974374,
+                "high": 0.0034492677034514982,
+                "standard_error": 0.00920021271507948
+              },
+              "savings_vs_A": {
+                "per_1k": 7.994828547148516,
+                "share": 0.6654956777872182
+              },
+              "captured": {
+                "value": 0.6947024998196669,
+                "low": null,
+                "high": 0.7531829991464704,
+                "met": 0.906
+              },
+              "routing": {
+                "haiku": 0.841719435184641,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 0.15828056481536584
+              },
+              "escalation_rate": 0.158280564815366,
+              "matched_cost": {
+                "envelope": 0.8655979000245368,
+                "difference": 0.015455101642229074,
+                "low": 0.002439597466734472,
+                "high": 0.028373749268342723,
+                "unread": 0.0
+              }
+            }
+          }
+        },
+        "cascade_haiku_sonnet": {
+          "label": "haiku/Sonnet",
+          "gate": "sonnet",
+          "free_only": false,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8953984736194615,
+              "cost_per_1k": 12.013344059170189
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.97,
+              "quality": 0.8953984736194615,
+              "cost_per_1k": 18.567600955159783
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.96,
+              "quality": 0.8930620250213306,
+              "cost_per_1k": 17.639619517772637
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.95,
+              "quality": 0.8930620250213306,
+              "cost_per_1k": 17.509011741020053
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.93,
+              "quality": 0.8953984736194615,
+              "cost_per_1k": 16.065043870164644
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9,
+              "quality": 0.8977349222175923,
+              "cost_per_1k": 15.773366988108172
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.88,
+              "quality": 0.8961425655296942,
+              "cost_per_1k": 14.248619418808412
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8,
+              "quality": 0.8925113350000992,
+              "cost_per_1k": 12.702790475121287
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.72,
+              "quality": 0.8941036916879973,
+              "cost_per_1k": 12.101378532446128
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.66,
+              "quality": 0.8951453583546639,
+              "cost_per_1k": 11.678601966628719
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.5,
+              "quality": 0.893612715042562,
+              "cost_per_1k": 10.321528320131902
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.3,
+              "quality": 0.8831960483758954,
+              "cost_per_1k": 9.820717120556532
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.12,
+              "quality": 0.8784786916879973,
+              "cost_per_1k": 8.68281767788137
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.01,
+              "quality": 0.8477926513482945,
+              "cost_per_1k": 7.314402620685507
+            }
+          ],
+          "operating_points": {
+            "100%": {
+              "threshold": null,
+              "cutoff": null,
+              "fell_back": true,
+              "steps_certified": 1,
+              "steps_tried": 2,
+              "target": 0.8953984736194615,
+              "margin": 0.0,
+              "quality": {
+                "value": 0.8953984736194615,
+                "low": 0.8719608182383103,
+                "high": 0.919242595327193,
+                "standard_error": 0.011983471310118465
+              },
+              "cost_per_1k": {
+                "value": 12.013344059170189,
+                "low": 11.169522236723441,
+                "high": 12.954388026408292,
+                "standard_error": 0.4620598923661789
+              },
+              "difference_from_A": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "standard_error": 0.0
+              },
+              "savings_vs_A": {
+                "per_1k": 0.0,
+                "share": 0.0
+              },
+              "captured": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "met": 1.0
+              },
+              "routing": {
+                "haiku": 0.0,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 1.0000000000000144
+              },
+              "escalation_rate": 0,
+              "matched_cost": {
+                "envelope": 0.8969463708157231,
+                "difference": -0.0015478971962616939,
+                "low": -0.01587445972780933,
+                "high": 0.0,
+                "unread": 0.0
+              }
+            },
+            "99%": {
+              "threshold": null,
+              "cutoff": null,
+              "fell_back": true,
+              "steps_certified": 6,
+              "steps_tried": 7,
+              "target": 0.8864444888832669,
+              "margin": 0.0,
+              "quality": {
+                "value": 0.8953984736194615,
+                "low": 0.8719608182383103,
+                "high": 0.919242595327193,
+                "standard_error": 0.011983471310118465
+              },
+              "cost_per_1k": {
+                "value": 12.013344059170189,
+                "low": 11.169522236723441,
+                "high": 12.954388026408292,
+                "standard_error": 0.4620598923661789
+              },
+              "difference_from_A": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "standard_error": 0.0
+              },
+              "savings_vs_A": {
+                "per_1k": 0.0,
+                "share": 0.0
+              },
+              "captured": {
+                "value": 0.0,
+                "low": 0.0,
+                "high": 0.0,
+                "met": 1.0
+              },
+              "routing": {
+                "haiku": 0.0,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 1.0000000000000144
+              },
+              "escalation_rate": 0,
+              "matched_cost": {
+                "envelope": 0.8969463708157231,
+                "difference": -0.0015478971962616939,
+                "low": -0.01587445972780933,
+                "high": 0.0,
+                "unread": 0.0
+              }
+            },
+            "97%": {
+              "threshold": null,
+              "cutoff": 0.3,
+              "fell_back": false,
+              "steps_certified": 11,
+              "steps_tried": 12,
+              "target": 0.8685365194108776,
+              "margin": 0.009963710927537507,
+              "quality": {
+                "value": 0.8831960483758954,
+                "low": 0.8574557140065722,
+                "high": 0.9073628087748863,
+                "standard_error": 0.012682351576182896
+              },
+              "cost_per_1k": {
+                "value": 9.820717120556532,
+                "low": 7.932472465566227,
+                "high": 11.97045399975721,
+                "standard_error": 1.0259141687309121
+              },
+              "difference_from_A": {
+                "value": -0.012202425243566073,
+                "low": -0.03280935573306142,
+                "high": 0.006682473314082836,
+                "standard_error": 0.009963710927537507
+              },
+              "savings_vs_A": {
+                "per_1k": 2.1926269386136568,
+                "share": 0.18251595291154177
+              },
+              "captured": {
+                "value": 0.19052608901414564,
+                "low": null,
+                "high": 0.3371592529866583,
+                "met": 0.9255
+              },
+              "routing": {
+                "haiku": 0.885606100065489,
+                "sonnet": 0.0,
+                "opus_low": 0.0,
+                "opus": 0.11439389993451975
+              },
+              "escalation_rate": 0.11439389993451991,
+              "matched_cost": {
+                "envelope": 0.8969463708157231,
+                "difference": -0.013750322439827767,
+                "low": -0.033439971554653426,
+                "high": 0.0059742912120325925,
                 "unread": 0.0
               }
             }
