@@ -87,6 +87,12 @@ uv run python -m analysis.check_gates_routed | grep -E "^FAIL|checks"
 # Stage 7's $25 cap on gate calls across both paid collectors (A17 item 18): the recorded spend of every split and both gates plus
 # the projection, each collector fed its bad case. No results/, no Docker, no Jev or Anthropic call. CI runs it too.
 uv run python -m analysis.check_gate_cap | grep -E "^FAIL|checks"
+# Stage 7's settings commit (A17 item 20.2): the byte budget, image digest, Dockerfile hash and noise section filled in as the
+# smoke record has them, the noise samples' drawing rule on made-up records, the smoke's projection worked by hand, the file
+# list holding every gate's import closure, and the commit's files byte for byte unchanged in the working tree, the index and
+# every later commit (a throwaway repository first, under git's own variables). Where results/ is present it also holds the
+# made-up answers apart from the matrix's, and where Docker runs the image digest against the local image. No Jev or Anthropic call.
+uv run python -m analysis.check_gates_settings_commit | grep -E "^FAIL|checks"
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
 uv run python -m analysis.check_gates_sandbox | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
