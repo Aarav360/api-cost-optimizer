@@ -103,6 +103,12 @@ uv run python -m analysis.check_gates_freeze | grep -E "^FAIL|checks"
 # order against the freeze commit, the run's record, and the walks rebuilt from the records against the committed sections. No Jev or
 # Anthropic call. CI runs the synthetic part.
 uv run python -m analysis.check_gates_dev | grep -E "^FAIL|checks"
+# Stage 7's comparisons and table v4 (A17 items 16, 21, 22, 24; issue #71): the 51 pairs, the best-cascade rule, a cascade's row, the
+# gate metrics and the latency estimate on hand-worked synthetic data; the committed figures/table_v4.json against the committed
+# sections (rows, savings, the best cascade, all 51 comparisons' point estimates, McNemar's p); and, where results/ holds the
+# dev records, the gate counts recounted from the gate-score table, the pure cascades' latency and escalation recomputed, the
+# latency inputs from the stored calls and a rebuild of the whole file (about 70 s). No Jev or Anthropic call. CI skips the stored-record part.
+uv run python -m analysis.check_table_v4 | grep -E "^FAIL|checks"
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
 uv run python -m analysis.check_gates_sandbox | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
