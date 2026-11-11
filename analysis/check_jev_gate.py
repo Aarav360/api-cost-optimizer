@@ -17,6 +17,7 @@ on a loopback port, with their waits injected, into a temporary folder. Every ex
 """
 
 import contextlib
+import dataclasses
 import hashlib
 import io
 import itertools
@@ -59,7 +60,10 @@ def close(a: float | None, b: float, tol: float = 1e-4) -> bool:
     return a is not None and math.isclose(a, b, abs_tol=tol)
 
 
-SETTINGS = jev_gate.read_settings()
+# The settings file's byte budget is null until the smoke test and the smoke's number after the settings commit; these
+# checks work with the budget left empty, so that a call without one is refused whichever state the file is in.
+FILE_SETTINGS = jev_gate.read_settings()
+SETTINGS = dataclasses.replace(FILE_SETTINGS, budget_bytes=None)
 CORRECT = "This answer correctly and completely addresses the request."
 FOLLOWS = "This answer is fully correct and follows every instruction in the request."
 MISTAKE = "This answer contains at least one mistake."
@@ -108,7 +112,7 @@ def run_collect(
 ) -> collect_jev_gate.Summary:  # type: ignore[no-untyped-def]
     client, _ = new_client(client_settings(fake.url))
     with client:
-        return collect_jev_gate.collect(inputs, split=split, settings=jev_gate.read_settings(), client=client,
+        return collect_jev_gate.collect(inputs, split=split, settings=SETTINGS, client=client,
                                         results_dir=directory, now=lambda: STAMP, **options)  # fmt: skip
 
 
@@ -351,8 +355,8 @@ def main() -> int:
           "three statements under their IDs, the last read as 1 - p")  # fmt: skip
     check([s.text for s in SETTINGS.statements] == [CORRECT, FOLLOWS, MISTAKE], "with A17 item 5's texts")
     check(SETTINGS.model == jev_call.read_settings().model, "and it is the model the frozen Jev settings name")
-    check(SETTINGS.clip == (0.005, 0.995) and SETTINGS.budget_bytes is None,
-          "the clip is [0.005, 0.995] and the byte budget is empty until the smoke test")  # fmt: skip
+    check(SETTINGS.clip == (0.005, 0.995) and (FILE_SETTINGS.budget_bytes is None or FILE_SETTINGS.budget_bytes >= 1),
+          "the clip is [0.005, 0.995] and the file's byte budget is empty until the smoke test, a whole number after")  # fmt: skip
 
     raw = json.loads((PROJECT_ROOT / "routers" / "gate_settings.json").read_text())["jev"]
     for what, mutate in (

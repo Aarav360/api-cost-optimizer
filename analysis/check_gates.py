@@ -711,9 +711,9 @@ def main() -> int:
           and {c.gate for c in settings.cascades} == {FREE_GATE, JEV_GATE, SONNET_GATE}
           and [c.start for c in settings.cascades[:3]] == [HAIKU] * 3,
           "each shape's key is its start and gate's section key")  # fmt: skip
-    check(settings.code_check.image_digest is None and settings.code_check.dockerfile_sha256 is None
-          and {"jev", "sonnet"} <= set(settings.raw),
-          "the image digest and Dockerfile hash wait for the settings commit; the paid gates' sections are theirs")  # fmt: skip
+    pinned = settings.code_check
+    check((pinned.image_digest is None) == (pinned.dockerfile_sha256 is None) and {"jev", "sonnet"} <= set(settings.raw),
+          "the image digest and Dockerfile hash are both empty until the settings commit and both set after; the paid gates' sections are theirs")  # fmt: skip
     with tempfile.TemporaryDirectory() as folder:
         broken = Path(folder) / "s.json"
         raw = json.loads((PROJECT_ROOT / "routers" / "gate_settings.json").read_text())
