@@ -445,7 +445,10 @@ def real_checks() -> None:
         allowed = True
     except ValueError:
         allowed = False
-    check(allowed, "the allowlist still passes: sections for E, F, G and G+, and none for F-train")
+    check(
+        allowed,
+        "the allowlist still passes: sections for E, F, G and G+ (and the cascades' once Stage 7 writes them), and none for F-train",
+    )
     root = PROJECT_ROOT / "analysis"
     check(calls_to(root / "jev_walk.py", "write_section"), "known positive: the walk module names the section writer")
     check(not calls_to(root / "jev_comparisons.py", "write_section")

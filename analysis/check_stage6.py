@@ -64,7 +64,7 @@ from analysis.pareto import (
 )
 from analysis.plan import PLAN, amendment_item
 from analysis.references import ROUNDING
-from analysis.router_names import F_TRAIN, G_PLUS, LABELS, NAMED_ROUTERS, E, F, G
+from analysis.router_names import CASCADES, F_TRAIN, G_PLUS, LABELS, NAMED_ROUTERS, E, F, G
 from analysis.rules_walk import MIXES
 from analysis.table_v2 import DESCRIPTIVE, DIAGNOSTIC_LABEL
 from analysis.table_v3 import TABLE_V3
@@ -626,7 +626,7 @@ def on_dev(headline: dict, per_task: dict, table: dict) -> None:
             rebuilt = router_part_of_task_panel(draws, steps[letter], walks, task)
             check(json.loads(json.dumps(rebuilt)) == per_task["panels"][task]["routers"][name],
                   f"{task}: {letter}'s steps, operating points and McNemar rows in figures/pareto_tasks.json are current")  # fmt: skip
-    check(set(json.loads(OPERATING_POINTS_FILE.read_text())) == {E_SECTION, F_SECTION, *JEV_SECTIONS.values()}
+    check(set(json.loads(OPERATING_POINTS_FILE.read_text())) - set(CASCADES) == {E_SECTION, F_SECTION, *JEV_SECTIONS.values()}
           and all(json.loads(json.dumps(build_section(result.walks[n]))) == read_section(NAMED_ROUTERS[n])
                   for n in (G, G_PLUS)),
           "the walks reproduce G's and G+'s sections of the operating-points file")  # fmt: skip
