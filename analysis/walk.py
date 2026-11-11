@@ -11,16 +11,22 @@ overhead) and tries the steps from the highest threshold to the lowest. A step c
 is at least its margin, one paired standard error of its quality difference from A. The walk stops at the first step
 that doesn't clear, and every step before it is certified. The operating point is the cheapest certified step by
 cost per 1k, ties to the earlier step, or A itself where nothing certified costs less.
+
+A cascade is walked by the same loop (Amendment A17, items 10 and 11): `walk_candidates` takes the steps as candidates,
+each with its traces built only when it is tried, so a cascade's steps (gate scores, or a router's thresholds with a
+gate's fixed cutoff) need no router-score table. `walk` is the router-score table's wrapper and builds E's, F's, G's
+and G+'s walks exactly as before.
 """
 
-from collections.abc import Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from functools import partial
 
 from analysis.bootstrap import Bootstrap
 from analysis.matrix import Matrix
 from analysis.references import ROUNDING, TARGETS, quality_targets
 from analysis.router_table import RouterScoreTable
-from analysis.simulator import Outcome, always, simulate, totals
+from analysis.simulator import Outcome, Trace, always, simulate, totals
 from routers.ladder import FRONTIER, SCORED
 
 ALL_STEPS_UP_TO = 24  # distinct breakpoints up to this many are each a step (E's eight buckets x 3 configs)
@@ -45,15 +51,16 @@ def item_breakpoints(router_scores: Mapping[str, float]) -> list[float]:
     return found
 
 
-def step_thresholds(table: RouterScoreTable) -> tuple[float, ...]:
-    """The walk's steps, in ascending order of threshold, from the table alone.
+def quantile_steps(pooled: Sequence[float]) -> tuple[float, ...]:
+    """A9 item 9's step rule on a list of values, in ascending order: every distinct value if there are 24 or
+    fewer, otherwise the 0%, 5%, ..., 95% quantiles of the whole list, with duplicate steps removed.
 
-    Every distinct breakpoint if there are 24 or fewer. Otherwise the 0%, 5%, ..., 95% quantiles of the pooled
-    breakpoints, each item's counted once per breakpoint so a quantile moves about that share of decisions, with
-    duplicate steps removed. The quantile is the lower empirical one (numpy's `inverted_cdf`): the smallest pooled
-    breakpoint with at least that share of them at or below it, so every step is a router score the router gave.
+    The quantile is the lower empirical one (numpy's `inverted_cdf`): the smallest value with at least that share of
+    them at or below it, so every step is a value that was given. A router's table gives it its pooled breakpoints,
+    each item's counted once per breakpoint so a quantile moves about that share of decisions; a pure cascade gives it
+    the gate scores of `haiku`'s answers that pass the free checks, each answer once.
     """
-    pooled = sorted(value for entry in table.items for value in item_breakpoints(entry.router_scores))
+    pooled = sorted(pooled)
     distinct = sorted(set(pooled))
     if len(distinct) <= ALL_STEPS_UP_TO:
         return tuple(distinct)
@@ -64,9 +71,19 @@ def step_thresholds(table: RouterScoreTable) -> tuple[float, ...]:
     return tuple(sorted({pooled[p - 1] for p in positions}))
 
 
+def step_thresholds(table: RouterScoreTable) -> tuple[float, ...]:
+    """The walk's steps, in ascending order of threshold, from the table alone: `quantile_steps` of the table's
+    pooled breakpoints."""
+    return quantile_steps([value for entry in table.items for value in item_breakpoints(entry.router_scores)])
+
+
 @dataclass(frozen=True)
 class Step:
-    """A policy tried by the walk: A (threshold None) or the router at a threshold, on dev."""
+    """A policy tried by the walk: A (the first step) or the router at a threshold, on dev.
+
+    A cascade's step also carries its `cutoff` (a pure cascade's walked cutoff, or a router-started cascade's fixed
+    one), None for a router's step and for a cascade with no paid gate. A's threshold and cutoff are None.
+    """
 
     threshold: float | None
     quality: float  # mix-weighted, 0 to 1
@@ -75,6 +92,7 @@ class Step:
     clears: bool  # quality less the target is at least the margin
     # The policy's outcomes, for the intervals and the captured fraction that table v1 reports.
     outcomes: tuple[Outcome, ...] = field(repr=False, compare=False)
+    cutoff: float | None = None
 
 
 @dataclass(frozen=True)
@@ -106,8 +124,48 @@ class Walk:
 
     @property
     def fell_back(self) -> bool:
-        """Whether the operating point is A itself, "falls back to A": no router call, captured fraction 0.00."""
-        return self.operating.threshold is None
+        """Whether the operating point is A itself, "falls back to A": no router call, captured fraction 0.00. A is
+        the first step; a cascade's single step with neither threshold nor cutoff (the free checks alone) is no A."""
+        return self.operating is self.steps[0]
+
+
+@dataclass(frozen=True)
+class Candidate:
+    """A step to try: its threshold and cutoff as the section records them, and its traces, built only if the walk
+    gets this far (later steps than the first failure are never simulated, so they reveal no outcome)."""
+
+    threshold: float | None
+    cutoff: float | None
+    traces: Callable[[], list[Trace]]
+
+
+def walk_candidates(
+    matrix: Matrix, candidates: Iterable[Candidate], draws: Bootstrap, mix: dict[str, float], share: float
+) -> Walk:
+    """The walk down `candidates`, strictest first, under one mix, for the quality target that is `share` of A's
+    quality. Refuses a share that isn't one of §11's targets (WalkError) and traces for other items than the matrix's
+    (TraceError, from the simulator)."""
+    if share not in TARGETS:
+        raise WalkError(f"the quality target must be one of {TARGETS} times A's quality, not {share}")
+    frontier = simulate(matrix, always(matrix, FRONTIER))
+    frontier_total = totals(frontier, mix)
+    target = quality_targets(frontier_total.quality)[share]
+    # A's margin is exactly 0, and it clears: its quality is the frontier's, and no target is above that.
+    steps = [Step(None, frontier_total.quality, frontier_total.cost_per_1k, 0.0, True, tuple(frontier))]
+    for candidate in candidates:
+        outcomes = simulate(matrix, candidate.traces())
+        total, margin = totals(outcomes, mix), draws.safety_margin(outcomes, frontier, mix)
+        # The tolerance is for sums added in another order: a step level with the target, such as one that
+        # reproduces A's answers, must clear it with a margin of 0, not miss it by a rounding error.
+        clears = total.quality - target >= margin - ROUNDING
+        steps.append(
+            Step(
+                candidate.threshold, total.quality, total.cost_per_1k, margin, clears, tuple(outcomes), candidate.cutoff
+            )
+        )
+        if not clears:
+            break
+    return Walk(share, target, tuple(steps))
 
 
 def walk(matrix: Matrix, table: RouterScoreTable, draws: Bootstrap, mix: dict[str, float], share: float) -> Walk:
@@ -116,20 +174,7 @@ def walk(matrix: Matrix, table: RouterScoreTable, draws: Bootstrap, mix: dict[st
     Refuses (WalkError) a share that isn't one of §11's targets, and (TraceError) a table for other items than the
     matrix's. Later steps than the first failure are never simulated, so they reveal no outcome.
     """
-    if share not in TARGETS:
-        raise WalkError(f"the quality target must be one of {TARGETS} times A's quality, not {share}")
-    frontier = simulate(matrix, always(matrix, FRONTIER))
-    frontier_total = totals(frontier, mix)
-    target = quality_targets(frontier_total.quality)[share]
-    # A's margin is exactly 0, and it clears: its quality is the frontier's, and no target is above that.
-    steps = [Step(None, frontier_total.quality, frontier_total.cost_per_1k, 0.0, True, tuple(frontier))]
-    for threshold in reversed(step_thresholds(table)):
-        outcomes = simulate(matrix, table.traces(threshold))
-        total, margin = totals(outcomes, mix), draws.safety_margin(outcomes, frontier, mix)
-        # The tolerance is for sums added in another order: a step level with the target, such as one that
-        # reproduces A's answers, must clear it with a margin of 0, not miss it by a rounding error.
-        clears = total.quality - target >= margin - ROUNDING
-        steps.append(Step(threshold, total.quality, total.cost_per_1k, margin, clears, tuple(outcomes)))
-        if not clears:
-            break
-    return Walk(share, target, tuple(steps))
+    candidates = (
+        Candidate(threshold, None, partial(table.traces, threshold)) for threshold in reversed(step_thresholds(table))
+    )
+    return walk_candidates(matrix, candidates, draws, mix, share)

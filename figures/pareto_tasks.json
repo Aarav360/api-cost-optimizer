@@ -39,6 +39,120 @@
     "mcnemar": "McNemar's test of the row against A within the task (Amendment A9, item 11): b, the items only the row gets right; c, the items only A gets right; p, exact and two-sided, descriptive only. Null (shown as \u2014) for an operating point that falls back to A",
     "mcnemar_vs_A": "the same for each fixed config against A; A's own row is null"
   },
+  "cascades": {
+    "cascade_haiku_free": {
+      "label": "haiku/free",
+      "start": "haiku",
+      "gate": "free",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "36b16f2a55a6e973f81c07a809ea1ecefc747c55d86c85617834f3d46e10f2df"
+    },
+    "cascade_haiku_jev": {
+      "label": "haiku/Jev",
+      "start": "haiku",
+      "gate": "jev",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "965fc37cb3c197add7738fb0dc878b612e470abd6a1d921380e3cca8349514e1"
+    },
+    "cascade_haiku_sonnet": {
+      "label": "haiku/Sonnet",
+      "start": "haiku",
+      "gate": "sonnet",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "3ee3d70f287e97f9c7d6a27fe063b13ca17c3bced2a7586c892bccf9a1a88f2c"
+    },
+    "cascade_rules_free": {
+      "label": "E/free",
+      "start": "rules",
+      "gate": "free",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "bd42c634b52fae06d8a2fc80ec8ee99fa9f8292383026806015895c99056bcdc"
+    },
+    "cascade_rules_jev": {
+      "label": "E/Jev",
+      "start": "rules",
+      "gate": "jev",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "ef1d9aaf388e46b7d4471fd1e5c3a309c10d65d3dca4f5743f19d2161d05ddee"
+    },
+    "cascade_rules_sonnet": {
+      "label": "E/Sonnet",
+      "start": "rules",
+      "gate": "sonnet",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "8983ab4d8a18ddf637b187af83913710b4205c913eb84b4f82cc653ba1f1eb77"
+    },
+    "cascade_trained_free": {
+      "label": "F/free",
+      "start": "trained",
+      "gate": "free",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "69c066d842dd2c29cb3e1ed92c8b4f84c04851b52e7ee72810dc89d73e1bc4b2"
+    },
+    "cascade_trained_jev": {
+      "label": "F/Jev",
+      "start": "trained",
+      "gate": "jev",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "bdf72b04b0f91683e355dfe126f6e0cf247850ce72a64db37404678f80a4e545"
+    },
+    "cascade_trained_sonnet": {
+      "label": "F/Sonnet",
+      "start": "trained",
+      "gate": "sonnet",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "d39e07b57965de0605b566e851b2ca451a44cc33c611994bca9c3928b5542d2b"
+    },
+    "cascade_jev_free": {
+      "label": "G/free",
+      "start": "jev",
+      "gate": "free",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "3181e8978c28b7d9b057033f5d8e2d483517e6c0d74a567407f9f7ad9c8a60f0"
+    },
+    "cascade_jev_jev": {
+      "label": "G/Jev",
+      "start": "jev",
+      "gate": "jev",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "2a42f389fdb27391121a91a12cd6ef46394066eda79c98cbf0854c0de69d9847"
+    },
+    "cascade_jev_sonnet": {
+      "label": "G/Sonnet",
+      "start": "jev",
+      "gate": "sonnet",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "009bd864eeebc67bbc223bebdd735aac4d6ea979ac604ccc26b1c54961e5a0fb"
+    },
+    "cascade_jev_bolstered_free": {
+      "label": "G+/free",
+      "start": "jev_bolstered",
+      "gate": "free",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "9f5cdaf256a7bfcbaf4864fe8ade1b9da36ea3b32389131e64c351b28827bd18"
+    },
+    "cascade_jev_bolstered_jev": {
+      "label": "G+/Jev",
+      "start": "jev_bolstered",
+      "gate": "jev",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "87e2b44b41df79f6f758f60cde6a49d8e8ee05c17ed992adcc8b56121f27eed1"
+    },
+    "cascade_jev_bolstered_sonnet": {
+      "label": "G+/Sonnet",
+      "start": "jev_bolstered",
+      "gate": "sonnet",
+      "operating_points_file": "routers/operating_points.json",
+      "operating_points_sha256": "cb460f764ec00df8492b61fb39797d3137f6bc44ce7f7849850fedb04248a9f7"
+    }
+  },
+  "cascade_units": {
+    "cascades": "the fifteen cascades (A17 item 8), keyed by section key: label, start (the pure cascades start at haiku, the others at a router), gate (the free checks, the Jev gate or the Sonnet gate), the operating-points file that holds the section and the sha256 of the section, written with sorted keys",
+    "panel_cascades": "a panel's `cascades` (the headline and per-task figures hold the three pure cascades): per cascade its label, gate and steps in walk order, A first (threshold and cutoff null), then each step from the strictest cutoff down, each with its quality and cost_per_1k on dev (mix-weighted in the headline figure), joined by straight lines in linear cost and never hulled; the walks stop at the first step that misses, the lines do not",
+    "point": "the free-checks-only cascade's one step as a point with a cross: its quality and cost_per_1k, each its value on dev with its percentile 95% interval (low, high) and standard error; the cascade's operating points fall back to A wherever the step misses",
+    "operating_points": "table v4's rows (figures/table_v4.json), keyed by quality target: threshold (the router's), cutoff (the gate's), fell_back, quality and cost_per_1k with intervals, margin, difference from A, savings against A, captured fraction, routing mix, escalation rate and the matched-cost comparison",
+    "routed_panels": "the router-started figure's panels, one per mix: A (the opus config's row), the envelope's corners, the targets, and per router four lines on the router's steps: the router alone (its part of the headline panel) and its three cascades, each with steps and operating points"
+  },
   "panels": {
     "ifeval": {
       "items": 157,
@@ -1153,6 +1267,251 @@
             }
           }
         }
+      },
+      "cascades": {
+        "cascade_haiku_free": {
+          "label": "haiku/free",
+          "gate": "free",
+          "free_only": true,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 27.17673885350319
+            },
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8343949044585988,
+              "cost_per_1k": 0.9840490445859873
+            }
+          ]
+        },
+        "cascade_haiku_jev": {
+          "label": "haiku/Jev",
+          "gate": "jev",
+          "free_only": false,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 27.17673885350319
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9643903264686148,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 28.195377439490446
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9540063295697989,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 28.195377439490446
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.942908963384214,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 28.158893363057327
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.932834387996363,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 28.158893363057327
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9215577174075453,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 28.158893363057327
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9097017222411575,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 28.066995273885354
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8967833238364423,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 27.79389973248408
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8794207841106444,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 27.18714814012739
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8618275649824013,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 26.63746661146497
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.836914067115759,
+              "quality": 0.9299363057324841,
+              "cost_per_1k": 26.3359889044586
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8149190161607497,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 25.045848777070063
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7914604799666575,
+              "quality": 0.9426751592356688,
+              "cost_per_1k": 23.82643476433121
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7567933237142882,
+              "quality": 0.9490445859872612,
+              "cost_per_1k": 21.103122662420386
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7307604185714591,
+              "quality": 0.9554140127388535,
+              "cost_per_1k": 18.639657694267516
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.6943146272936006,
+              "quality": 0.9554140127388535,
+              "cost_per_1k": 17.443326484076433
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.6333807685183769,
+              "quality": 0.9490445859872612,
+              "cost_per_1k": 14.508957057324842
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.5414067403925006,
+              "quality": 0.9299363057324841,
+              "cost_per_1k": 12.910179987261147
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.4287478614320303,
+              "quality": 0.9171974522292994,
+              "cost_per_1k": 9.383836038216561
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.3014453311944091,
+              "quality": 0.8980891719745223,
+              "cost_per_1k": 6.053160878980892
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.020068498494883256,
+              "quality": 0.8343949044585988,
+              "cost_per_1k": 1.018638585987261
+            }
+          ]
+        },
+        "cascade_haiku_sonnet": {
+          "label": "haiku/Sonnet",
+          "gate": "sonnet",
+          "free_only": false,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 27.17673885350319
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.97,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 32.67452038216561
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.96,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 32.17306815286625
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.95,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 32.08822738853503
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.93,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 30.097399363057328
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 29.74965414012739
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.88,
+              "quality": 0.9299363057324841,
+              "cost_per_1k": 26.140100000000004
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8,
+              "quality": 0.9299363057324841,
+              "cost_per_1k": 21.483233757961784
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.72,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 20.096685987261147
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.66,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 18.57146305732484
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.5,
+              "quality": 0.9426751592356688,
+              "cost_per_1k": 15.154418471337582
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.3,
+              "quality": 0.9426751592356688,
+              "cost_per_1k": 14.193807006369429
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.12,
+              "quality": 0.9363057324840764,
+              "cost_per_1k": 10.45925923566879
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.01,
+              "quality": 0.8343949044585988,
+              "cost_per_1k": 5.751004458598726
+            }
+          ]
+        }
       }
     },
     "banking77": {
@@ -2244,6 +2603,251 @@
             }
           }
         }
+      },
+      "cascades": {
+        "cascade_haiku_free": {
+          "label": "haiku/free",
+          "gate": "free",
+          "free_only": true,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.9125,
+              "cost_per_1k": 8.606516666666666
+            },
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8583333333333333,
+              "cost_per_1k": 0.24866708333333334
+            }
+          ]
+        },
+        "cascade_haiku_jev": {
+          "label": "haiku/Jev",
+          "gate": "jev",
+          "free_only": false,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.9125,
+              "cost_per_1k": 8.606516666666666
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9643903264686148,
+              "quality": 0.9125,
+              "cost_per_1k": 7.8624568749999995
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9540063295697989,
+              "quality": 0.9125,
+              "cost_per_1k": 7.249606875
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.942908963384214,
+              "quality": 0.9083333333333333,
+              "cost_per_1k": 6.7649735416666665
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.932834387996363,
+              "quality": 0.9083333333333333,
+              "cost_per_1k": 6.490190208333333
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9215577174075453,
+              "quality": 0.9083333333333333,
+              "cost_per_1k": 6.044873541666666
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9097017222411575,
+              "quality": 0.9083333333333333,
+              "cost_per_1k": 5.553406875
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8967833238364423,
+              "quality": 0.9083333333333333,
+              "cost_per_1k": 5.381856875
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8794207841106444,
+              "quality": 0.9083333333333333,
+              "cost_per_1k": 4.974390208333333
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8618275649824013,
+              "quality": 0.9083333333333333,
+              "cost_per_1k": 4.647823541666667
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.836914067115759,
+              "quality": 0.9083333333333333,
+              "cost_per_1k": 4.512290208333334
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8149190161607497,
+              "quality": 0.9041666666666667,
+              "cost_per_1k": 4.188790208333334
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7914604799666575,
+              "quality": 0.9041666666666667,
+              "cost_per_1k": 3.7107902083333335
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7567933237142882,
+              "quality": 0.9,
+              "cost_per_1k": 3.3674735416666666
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7307604185714591,
+              "quality": 0.9,
+              "cost_per_1k": 3.006306875
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.6943146272936006,
+              "quality": 0.8958333333333334,
+              "cost_per_1k": 2.3820902083333335
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.6333807685183769,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 2.1261735416666667
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.5414067403925006,
+              "quality": 0.8708333333333333,
+              "cost_per_1k": 1.415756875
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.4287478614320303,
+              "quality": 0.8624999999999999,
+              "cost_per_1k": 0.897056875
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.3014453311944091,
+              "quality": 0.8583333333333333,
+              "cost_per_1k": 0.44537354166666665
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.020068498494883256,
+              "quality": 0.8583333333333333,
+              "cost_per_1k": 0.3090902083333334
+            }
+          ]
+        },
+        "cascade_haiku_sonnet": {
+          "label": "haiku/Sonnet",
+          "gate": "sonnet",
+          "free_only": false,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.9125,
+              "cost_per_1k": 8.606516666666666
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.97,
+              "quality": 0.9125,
+              "cost_per_1k": 13.103950416666667
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.96,
+              "quality": 0.9125,
+              "cost_per_1k": 12.115800416666666
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.95,
+              "quality": 0.9125,
+              "cost_per_1k": 11.911717083333334
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.93,
+              "quality": 0.9125,
+              "cost_per_1k": 10.37048375
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9,
+              "quality": 0.9125,
+              "cost_per_1k": 10.26848375
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.88,
+              "quality": 0.9125,
+              "cost_per_1k": 9.24598375
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8,
+              "quality": 0.9083333333333333,
+              "cost_per_1k": 8.563367083333334
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.72,
+              "quality": 0.9041666666666667,
+              "cost_per_1k": 7.800900416666667
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.66,
+              "quality": 0.9041666666666667,
+              "cost_per_1k": 7.765500416666666
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.5,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 6.527850416666666
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.3,
+              "quality": 0.8666666666666667,
+              "cost_per_1k": 5.8636670833333335
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.12,
+              "quality": 0.8583333333333333,
+              "cost_per_1k": 5.32143375
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.01,
+              "quality": 0.8583333333333333,
+              "cost_per_1k": 5.211083749999999
+            }
+          ]
+        }
       }
     },
     "mmlu_pro": {
@@ -3331,6 +3935,251 @@
             }
           }
         }
+      },
+      "cascades": {
+        "cascade_haiku_free": {
+          "label": "haiku/free",
+          "gate": "free",
+          "free_only": true,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 7.286083333333334
+            },
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8666666666666667,
+              "cost_per_1k": 0.2910916666666667
+            }
+          ]
+        },
+        "cascade_haiku_jev": {
+          "label": "haiku/Jev",
+          "gate": "jev",
+          "free_only": false,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 7.286083333333334
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9643903264686148,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 7.493681316666667
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9540063295697989,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 7.28361465
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.942908963384214,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 7.005231316666666
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.932834387996363,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 6.683114649999999
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9215577174075453,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 6.373597983333333
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9097017222411575,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 5.984131316666667
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8967833238364423,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 5.49631465
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8794207841106444,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 5.117931316666667
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8618275649824013,
+              "quality": 0.8958333333333334,
+              "cost_per_1k": 4.60436465
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.836914067115759,
+              "quality": 0.8958333333333334,
+              "cost_per_1k": 4.050114649999999
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8149190161607497,
+              "quality": 0.8875,
+              "cost_per_1k": 3.2620979833333332
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7914604799666575,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 2.9833813166666667
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7567933237142882,
+              "quality": 0.8875,
+              "cost_per_1k": 2.6288146500000003
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7307604185714591,
+              "quality": 0.8958333333333334,
+              "cost_per_1k": 2.3624146500000003
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.6943146272936006,
+              "quality": 0.8875,
+              "cost_per_1k": 1.9275479833333333
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.6333807685183769,
+              "quality": 0.8875,
+              "cost_per_1k": 1.28906465
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.5414067403925006,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 0.9812313166666665
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.4287478614320303,
+              "quality": 0.8833333333333333,
+              "cost_per_1k": 0.8340979833333334
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.3014453311944091,
+              "quality": 0.8791666666666667,
+              "cost_per_1k": 0.6389313166666667
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.020068498494883256,
+              "quality": 0.8666666666666667,
+              "cost_per_1k": 0.32413131666666667
+            }
+          ]
+        },
+        "cascade_haiku_sonnet": {
+          "label": "haiku/Sonnet",
+          "gate": "sonnet",
+          "free_only": false,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 7.286083333333334
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.97,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 18.625766666666664
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.96,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 17.714583333333334
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.95,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 17.546833333333336
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.93,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 16.945116666666667
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 16.378883333333334
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.88,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 15.28705
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8,
+              "quality": 0.9,
+              "cost_per_1k": 14.871366666666667
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.72,
+              "quality": 0.9041666666666667,
+              "cost_per_1k": 14.614733333333334
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.66,
+              "quality": 0.9083333333333333,
+              "cost_per_1k": 14.484250000000001
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.5,
+              "quality": 0.9083333333333333,
+              "cost_per_1k": 13.71065
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.3,
+              "quality": 0.8916666666666666,
+              "cost_per_1k": 13.3322
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.12,
+              "quality": 0.8875,
+              "cost_per_1k": 13.057383333333334
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.01,
+              "quality": 0.8666666666666667,
+              "cost_per_1k": 12.581916666666666
+            }
+          ]
+        }
       }
     },
     "mbppplus": {
@@ -4381,6 +5230,251 @@
               }
             }
           }
+        }
+      },
+      "cascades": {
+        "cascade_haiku_free": {
+          "label": "haiku/free",
+          "gate": "free",
+          "free_only": true,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8411214953271028,
+              "cost_per_1k": 4.9840373831775695
+            },
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.822429906542056,
+              "cost_per_1k": 0.19197943925233643
+            }
+          ]
+        },
+        "cascade_haiku_jev": {
+          "label": "haiku/Jev",
+          "gate": "jev",
+          "free_only": false,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8411214953271028,
+              "cost_per_1k": 4.9840373831775695
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9643903264686148,
+              "quality": 0.8411214953271028,
+              "cost_per_1k": 5.198893869158878
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9540063295697989,
+              "quality": 0.8411214953271028,
+              "cost_per_1k": 5.097548074766355
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.942908963384214,
+              "quality": 0.8411214953271028,
+              "cost_per_1k": 4.964052747663551
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.932834387996363,
+              "quality": 0.8411214953271028,
+              "cost_per_1k": 4.752875177570093
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9215577174075453,
+              "quality": 0.8411214953271028,
+              "cost_per_1k": 4.320538728971962
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9097017222411575,
+              "quality": 0.8411214953271028,
+              "cost_per_1k": 4.082146205607477
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8967833238364423,
+              "quality": 0.8504672897196262,
+              "cost_per_1k": 3.822370504672897
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8794207841106444,
+              "quality": 0.8504672897196262,
+              "cost_per_1k": 3.412277046728972
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8618275649824013,
+              "quality": 0.8504672897196262,
+              "cost_per_1k": 3.2442770467289717
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.836914067115759,
+              "quality": 0.8504672897196262,
+              "cost_per_1k": 2.4865574205607475
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8149190161607497,
+              "quality": 0.8504672897196262,
+              "cost_per_1k": 2.3304826542056074
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7914604799666575,
+              "quality": 0.8411214953271028,
+              "cost_per_1k": 2.095903214953271
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7567933237142882,
+              "quality": 0.8411214953271028,
+              "cost_per_1k": 1.6390434018691589
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.7307604185714591,
+              "quality": 0.8411214953271028,
+              "cost_per_1k": 1.3524639626168224
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.6943146272936006,
+              "quality": 0.8317757009345794,
+              "cost_per_1k": 1.18356676635514
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.6333807685183769,
+              "quality": 0.8317757009345794,
+              "cost_per_1k": 0.9709312523364485
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.5414067403925006,
+              "quality": 0.8317757009345794,
+              "cost_per_1k": 0.7668938691588785
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.4287478614320303,
+              "quality": 0.822429906542056,
+              "cost_per_1k": 0.6187817196261682
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.3014453311944091,
+              "quality": 0.822429906542056,
+              "cost_per_1k": 0.39257611214953264
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.020068498494883256,
+              "quality": 0.822429906542056,
+              "cost_per_1k": 0.2148564859813084
+            }
+          ]
+        },
+        "cascade_haiku_sonnet": {
+          "label": "haiku/Sonnet",
+          "gate": "sonnet",
+          "free_only": false,
+          "steps": [
+            {
+              "threshold": null,
+              "cutoff": null,
+              "quality": 0.8411214953271028,
+              "cost_per_1k": 4.9840373831775695
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.97,
+              "quality": 0.8411214953271028,
+              "cost_per_1k": 9.866166355140185
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.96,
+              "quality": 0.8317757009345794,
+              "cost_per_1k": 8.555026168224298
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.95,
+              "quality": 0.8317757009345794,
+              "cost_per_1k": 8.489269158878503
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.93,
+              "quality": 0.8411214953271028,
+              "cost_per_1k": 6.847175700934578
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.9,
+              "quality": 0.8504672897196262,
+              "cost_per_1k": 6.696446728971962
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.88,
+              "quality": 0.8504672897196262,
+              "cost_per_1k": 6.321343925233644
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.8,
+              "quality": 0.8317757009345794,
+              "cost_per_1k": 5.893194392523363
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.72,
+              "quality": 0.8317757009345794,
+              "cost_per_1k": 5.893194392523363
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.66,
+              "quality": 0.8317757009345794,
+              "cost_per_1k": 5.893194392523363
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.5,
+              "quality": 0.8317757009345794,
+              "cost_per_1k": 5.893194392523363
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.3,
+              "quality": 0.8317757009345794,
+              "cost_per_1k": 5.893194392523363
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.12,
+              "quality": 0.8317757009345794,
+              "cost_per_1k": 5.893194392523363
+            },
+            {
+              "threshold": null,
+              "cutoff": 0.01,
+              "quality": 0.8317757009345794,
+              "cost_per_1k": 5.7136056074766355
+            }
+          ]
         }
       }
     }

@@ -49,7 +49,7 @@ from analysis.operating_points import (
 )
 from analysis.plan import PLAN, amendment_item
 from analysis.references import ROUNDING, TARGETS
-from analysis.router_names import G_PLUS, NAMED_ROUTERS, E, F, G
+from analysis.router_names import CASCADES, G_PLUS, NAMED_ROUTERS, E, F, G
 from harness.client import PROJECT_ROOT
 from routers import jev, jev_call
 from routers.ladder import SCORED
@@ -399,9 +399,12 @@ def walk_checks() -> None:
     except OperatingPointsError:
         ok = False
     check(ok, "the allowlist passes with all four sections required: E, F, G and G+")
+    # E's, F's, G's and G+'s sections are held above (the plan's hashes, the rebuilt walks). Stage 7's dev run (A17 item
+    # 20.5) adds the fifteen cascades' sections beside them, and the file holds those nineteen and no other.
     check(
-        set(json.loads(OPERATING_POINTS_FILE.read_text())) == set(NAMED_ROUTERS.values()),
-        "and the file holds those four sections and no other",
+        set(json.loads(OPERATING_POINTS_FILE.read_text()))
+        in (set(NAMED_ROUTERS.values()), {*NAMED_ROUTERS.values(), *CASCADES}),
+        "and the file holds those four sections, or those and the fifteen cascades', and no other",
     )
 
 

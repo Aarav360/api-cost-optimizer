@@ -116,16 +116,21 @@ def read_envelope(corners: dict[str, dict]) -> Callable[[float], float | None]:
     return at
 
 
+# What chart v4 adds beside v0's and v1's keys (A17 item 23): the cascades, at the top and in each panel.
+V4_TOP = ("cascades", "cascade_units")
+
+
 def v0_keys_kept(headline: dict, per_task: dict) -> None:
-    check(set(headline) == {*V0_TOP, "routers"} and list(per_task) == V0_TOP,
+    check(set(headline) - set(V4_TOP) == {*V0_TOP, "routers"} and [k for k in per_task if k not in V4_TOP] == V0_TOP,
           "both figure JSONs keep every top-level key of table v0; the headline's adds only `routers`, E's name, "
-          "diagnostic and hash")  # fmt: skip
-    check(all(list(p)[: len(V0_MIX_PANEL)] == V0_MIX_PANEL and set(p) == {*V0_MIX_PANEL, "routers"}
+          "diagnostic and hash, and chart v4 adds the cascades beside them")  # fmt: skip
+    check(all(list(p)[: len(V0_MIX_PANEL)] == V0_MIX_PANEL and set(p) - {"cascades"} == {*V0_MIX_PANEL, "routers"}
               for p in headline["panels"].values()),
-          "each headline panel keeps v0's keys and adds only `routers`")  # fmt: skip
-    check(all(list(p)[: len(V0_TASK_PANEL)] == V0_TASK_PANEL and set(p) == {*V0_TASK_PANEL, "mcnemar_vs_A", "routers"}
+          "each headline panel keeps v0's keys and adds only `routers` (and chart v4's `cascades`)")  # fmt: skip
+    check(all(list(p)[: len(V0_TASK_PANEL)] == V0_TASK_PANEL
+              and set(p) - {"cascades"} == {*V0_TASK_PANEL, "mcnemar_vs_A", "routers"}
               for p in per_task["panels"].values()),
-          "each per-task panel keeps v0's keys and adds only `mcnemar_vs_A` and `routers`")  # fmt: skip
+          "each per-task panel keeps v0's keys and adds only `mcnemar_vs_A` and `routers` (and chart v4's `cascades`)")  # fmt: skip
     check(all(list(row) == V0_CONFIG_ROW for p in headline["panels"].values() for row in p["configs"].values())
           and all(list(row) == V0_TASK_CONFIG_ROW for p in per_task["panels"].values() for row in p["configs"].values())
           and all(list(t) == V0_TARGET for p in headline["panels"].values() for t in p["targets"].values()),
@@ -133,7 +138,7 @@ def v0_keys_kept(headline: dict, per_task: dict) -> None:
     check(set(V0_HEADLINE_UNITS) <= set(headline["units"]) and set(V0_TASK_UNITS) <= set(per_task["units"]),
           "both figure JSONs keep every units entry of table v0")  # fmt: skip
     for data, v0_units in ((headline, V0_HEADLINE_UNITS), (per_task, V0_TASK_UNITS)):
-        added = set(data["units"]) - set(v0_units)
+        added = set(data["units"]) - set(v0_units)  # chart v4's units are beside `units`, in `cascade_units`
         check(added == set(V1_ADDED_UNITS) - ({"mcnemar", "mcnemar_vs_A"} if data is headline else set()),
               f"{data['figure']}: table v1's new keys each have a units entry, and it adds nothing else: "
               f"{len(added)} entries")  # fmt: skip

@@ -1,0 +1,3724 @@
+{
+ "purpose": "A17 item 20.1's smoke test: made-up answers to real train prompts, before the settings commit",
+ "ran_at": "2026-11-10T20:12:47-08:00",
+ "machine": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+ "answers_sha256": "03814a0459bca42c51400f5e1a3920388408b880364935b46b8c1b7e59ab6146",
+ "tasks": [
+  "banking77",
+  "ifeval",
+  "mbppplus",
+  "mmlu_pro"
+ ],
+ "image": {
+  "name": "api-cost-optimizer-sandbox:py3.13.13-numpy2.5.4",
+  "digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+  "dockerfile_sha256": "4c1663494718a76f8639e84e8128b3714975c1df3326f71dc822813abf032ab3"
+ },
+ "measured": {
+  "jev_budget_bytes": 29597,
+  "jev_fixed_overhead_tokens": 299,
+  "jev_gate_questions_tokens": 39,
+  "jev_longest_schema_tokens": 632,
+  "jev_longest_schema_bytes": 1922,
+  "sonnet_cost_per_check_list_usd": {
+   "banking77": 0.004944,
+   "mbppplus": 0.0018813333333333332,
+   "mmlu_pro": 0.0031816666666666664,
+   "ifeval": 0.001965
+  },
+  "sonnet_cost_per_check_batch_usd": {
+   "banking77": 0.002472,
+   "mbppplus": 0.0009406666666666666,
+   "mmlu_pro": 0.0015908333333333332,
+   "ifeval": 0.0009825
+  },
+  "jev_cost_per_call_usd": {
+   "banking77": 6.026400000000001e-05,
+   "mmlu_pro": 3.1848000000000004e-05,
+   "ifeval": 1.9728e-05,
+   "mbppplus": 1.8732000000000003e-05
+  }
+ },
+ "free_checks": {
+  "expected_fails": [
+   [
+    "banking77:test-0008",
+    "haiku",
+    "stop"
+   ],
+   [
+    "mbppplus:139",
+    "opus_low",
+    "code"
+   ],
+   [
+    "mbppplus:85",
+    "haiku",
+    "code"
+   ],
+   [
+    "mbppplus:124",
+    "haiku",
+    "code"
+   ]
+  ],
+  "as_expected": true,
+  "records": [
+   {
+    "item_id": "banking77:test-0011",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": true,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "banking77:test-0011",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": true,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "banking77:test-0011",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": true,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "banking77:test-0011",
+    "config": "opus",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": true,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "banking77:test-0016",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": true,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "banking77:test-0016",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": true,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "banking77:test-0016",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": true,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "banking77:test-0008",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": false,
+    "schema_passed": false,
+    "schema_applied": true,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": false,
+    "failed_first": "stop"
+   },
+   {
+    "item_id": "mmlu_pro:10019",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": true,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "mmlu_pro:10019",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": true,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "mmlu_pro:10019",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": true,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "mmlu_pro:10019",
+    "config": "opus",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": true,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "mmlu_pro:10103",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": true,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "mmlu_pro:10103",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": true,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "mmlu_pro:10103",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": true,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "ifeval:1012",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "ifeval:1012",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "ifeval:1012",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "ifeval:1012",
+    "config": "opus",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "ifeval:102",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "ifeval:102",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "ifeval:102",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": true,
+    "code_applied": false,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "mbppplus:102",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": true,
+    "code_applied": true,
+    "code_returncode": 0,
+    "code_timed_out": false,
+    "code_duration_s": 0.18,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "mbppplus:102",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": true,
+    "code_applied": true,
+    "code_returncode": 0,
+    "code_timed_out": false,
+    "code_duration_s": 0.19,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "mbppplus:102",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": true,
+    "code_applied": true,
+    "code_returncode": 0,
+    "code_timed_out": false,
+    "code_duration_s": 0.19,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:47-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "mbppplus:102",
+    "config": "opus",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": true,
+    "code_applied": true,
+    "code_returncode": 0,
+    "code_timed_out": false,
+    "code_duration_s": 0.19,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:48-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "mbppplus:139",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": true,
+    "code_applied": true,
+    "code_returncode": 0,
+    "code_timed_out": false,
+    "code_duration_s": 0.19,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:48-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "mbppplus:139",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": true,
+    "code_applied": true,
+    "code_returncode": 0,
+    "code_timed_out": false,
+    "code_duration_s": 0.19,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:48-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "mbppplus:139",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": false,
+    "code_applied": true,
+    "code_returncode": 1,
+    "code_timed_out": false,
+    "code_duration_s": 0.19,
+    "code_stderr_tail": "AssertionError",
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:48-08:00",
+    "passed": false,
+    "failed_first": "code"
+   },
+   {
+    "item_id": "mbppplus:596",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": true,
+    "code_applied": true,
+    "code_returncode": 0,
+    "code_timed_out": false,
+    "code_duration_s": 0.19,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:48-08:00",
+    "passed": true,
+    "failed_first": null
+   },
+   {
+    "item_id": "mbppplus:85",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": false,
+    "code_applied": true,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:48-08:00",
+    "passed": false,
+    "failed_first": "code"
+   },
+   {
+    "item_id": "mbppplus:124",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "free",
+    "pass": 1,
+    "stop_passed": true,
+    "schema_passed": true,
+    "schema_applied": false,
+    "code_passed": false,
+    "code_applied": true,
+    "code_returncode": null,
+    "code_timed_out": null,
+    "code_duration_s": null,
+    "code_stderr_tail": null,
+    "code_image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "code_checked_at": "2026-11-10T20:12:48-08:00",
+    "passed": false,
+    "failed_first": "code"
+   }
+  ]
+ },
+ "jev": {
+  "model": "jev-1.14.0",
+  "measurements": {
+   "minimal_1": {
+    "body_bytes": 164,
+    "input_tokens": 299,
+    "output_tokens": 20,
+    "request_id": "req_01a1c8cef61277ba83d9de228c216aa4",
+    "server_date": "Wed, 11 Nov 2026 04:12:49 GMT",
+    "seconds": 0.1489848329219967,
+    "attempts": 1
+   },
+   "minimal_2": {
+    "body_bytes": 164,
+    "input_tokens": 299,
+    "output_tokens": 20,
+    "request_id": "req_01a1c8cef6517f4f8f2b9cb090638674",
+    "server_date": "Wed, 11 Nov 2026 04:12:49 GMT",
+    "seconds": 0.0706487080315128,
+    "attempts": 1
+   },
+   "minimal_3": {
+    "body_bytes": 164,
+    "input_tokens": 299,
+    "output_tokens": 20,
+    "request_id": "req_01a1c8cef69b72418f322c124dd7ed71",
+    "server_date": "Wed, 11 Nov 2026 04:12:49 GMT",
+    "seconds": 0.07410187507048249,
+    "attempts": 1
+   },
+   "gate_questions": {
+    "body_bytes": 441,
+    "input_tokens": 338,
+    "output_tokens": 62,
+    "request_id": "req_01a1c8cef6e37bacb0f02b2c89f22c3b",
+    "server_date": "Wed, 11 Nov 2026 04:12:49 GMT",
+    "seconds": 0.06547554093413055,
+    "attempts": 1
+   },
+   "longest_schema": {
+    "body_bytes": 2082,
+    "input_tokens": 931,
+    "output_tokens": 20,
+    "request_id": "req_01a1c8cef72377deaabf85f87c79cdc7",
+    "server_date": "Wed, 11 Nov 2026 04:12:49 GMT",
+    "seconds": 0.11562120798043907,
+    "attempts": 1
+   }
+  },
+  "calls": 28,
+  "refused": 0,
+  "cut": 0,
+  "records": [
+   {
+    "item_id": "banking77:test-0011",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "1737dd96ea3a236dbfade5847d66110930d02c72e3cdeb4e27d31a8443350502",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.98
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.97
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.08
+      }
+     },
+     "usage": {
+      "input_tokens": 1434,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 1434,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cef7b47b94839056038e167007",
+    "server_date": "Wed, 11 Nov 2026 04:12:49 GMT",
+    "seconds": 0.07976866699755192,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:49-08:00"
+   },
+   {
+    "item_id": "banking77:test-0011",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "1737dd96ea3a236dbfade5847d66110930d02c72e3cdeb4e27d31a8443350502",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.98
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.97
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.07
+      }
+     },
+     "usage": {
+      "input_tokens": 1434,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 1434,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cef8097e4bb566a9992d49f627",
+    "server_date": "Wed, 11 Nov 2026 04:12:49 GMT",
+    "seconds": 0.08177583292126656,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:49-08:00"
+   },
+   {
+    "item_id": "banking77:test-0011",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "40fd32b65d0fb88ba2e3016c865b6e414824c451122e8e27e2c34049804849cc",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.34
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.35
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.55
+      }
+     },
+     "usage": {
+      "input_tokens": 1433,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 1433,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cef8637ba1942d5340a820c469",
+    "server_date": "Wed, 11 Nov 2026 04:12:49 GMT",
+    "seconds": 0.09164891694672406,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:49-08:00"
+   },
+   {
+    "item_id": "banking77:test-0011",
+    "config": "opus",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "1737dd96ea3a236dbfade5847d66110930d02c72e3cdeb4e27d31a8443350502",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.98
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.97
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.07
+      }
+     },
+     "usage": {
+      "input_tokens": 1434,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 1434,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cef8b37f119212c61b0b32e5f7",
+    "server_date": "Wed, 11 Nov 2026 04:12:49 GMT",
+    "seconds": 0.06996470899321139,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:49-08:00"
+   },
+   {
+    "item_id": "banking77:test-0016",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "bc8c7d7f1ce5f3bc7f8d68452177ab8c07610451b61f5e8b028997abf8e509e5",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.85
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.81
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.31
+      }
+     },
+     "usage": {
+      "input_tokens": 1436,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 1436,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cef8fb7927a2dee97ea1321fc0",
+    "server_date": "Wed, 11 Nov 2026 04:12:49 GMT",
+    "seconds": 0.07712362497113645,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:49-08:00"
+   },
+   {
+    "item_id": "banking77:test-0016",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "b6fcbb3340e76bd1775db1500a71a110977ef331e668aeb3cc1eb01920c9ea55",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.87
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.85
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.3
+      }
+     },
+     "usage": {
+      "input_tokens": 1437,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 1437,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cef94b7b93aba98ca2e0aa5204",
+    "server_date": "Wed, 11 Nov 2026 04:12:49 GMT",
+    "seconds": 0.08436233305837959,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:49-08:00"
+   },
+   {
+    "item_id": "banking77:test-0016",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "bc8c7d7f1ce5f3bc7f8d68452177ab8c07610451b61f5e8b028997abf8e509e5",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.84
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.81
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.31
+      }
+     },
+     "usage": {
+      "input_tokens": 1436,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 1436,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cef99b7c4cb4cb20a9f0e6d7f9",
+    "server_date": "Wed, 11 Nov 2026 04:12:49 GMT",
+    "seconds": 0.06736958399415016,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:49-08:00"
+   },
+   {
+    "item_id": "mmlu_pro:10019",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "e813a16a0153047a1f0f0a2029eadd8b601fd68b92077e2e3a797e11347f65c0",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.9
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.87
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.09
+      }
+     },
+     "usage": {
+      "input_tokens": 914,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 914,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cef9e3749e9aee24d5c9d162dd",
+    "server_date": "Wed, 11 Nov 2026 04:12:50 GMT",
+    "seconds": 0.07895966595970094,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:50-08:00"
+   },
+   {
+    "item_id": "mmlu_pro:10019",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "7c73226a2f8bdc53cb0b5471c42485ef380773f7c16aaa90cc953fe889b2f4c2",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.87
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.81
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.16
+      }
+     },
+     "usage": {
+      "input_tokens": 892,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 892,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefa2e7e1ca62f7ea0aed4f127",
+    "server_date": "Wed, 11 Nov 2026 04:12:50 GMT",
+    "seconds": 0.06380045809783041,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:50-08:00"
+   },
+   {
+    "item_id": "mmlu_pro:10019",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "6502390905645abc1bcdb1296abadcc765add92d39e9bff73a17b96f60a84b35",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.21
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.25
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.32
+      }
+     },
+     "usage": {
+      "input_tokens": 870,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 870,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefa757d31a3527f756cabdd89",
+    "server_date": "Wed, 11 Nov 2026 04:12:50 GMT",
+    "seconds": 0.08072637498844415,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:50-08:00"
+   },
+   {
+    "item_id": "mmlu_pro:10019",
+    "config": "opus",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "f0b86323ba990e591a1cbe94df757224c5f1d02f11314866bd9fe75928f9715b",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.76
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.67
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.28
+      }
+     },
+     "usage": {
+      "input_tokens": 882,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 882,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefaca738da11dc70be5c8d537",
+    "server_date": "Wed, 11 Nov 2026 04:12:50 GMT",
+    "seconds": 0.08162504190113395,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:50-08:00"
+   },
+   {
+    "item_id": "mmlu_pro:10103",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "33bd1a7d3e9d365a6228ab8d145e7e3a7f9ccbb86d7cd8afa5f28cf13f58977d",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.65
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.6
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.48
+      }
+     },
+     "usage": {
+      "input_tokens": 578,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 578,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefb10711f9c8538e496bfa705",
+    "server_date": "Wed, 11 Nov 2026 04:12:50 GMT",
+    "seconds": 0.056244167033582926,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:50-08:00"
+   },
+   {
+    "item_id": "mmlu_pro:10103",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "86208ec96362fd5a87bf1d89c3a66e15f3ae3c67b4975c440a8884417efc5d48",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.38
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.41
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.8
+      }
+     },
+     "usage": {
+      "input_tokens": 591,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 591,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefb487235b8ec9364773cec6c",
+    "server_date": "Wed, 11 Nov 2026 04:12:50 GMT",
+    "seconds": 0.05923254194203764,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:50-08:00"
+   },
+   {
+    "item_id": "mmlu_pro:10103",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "24b88eba7f6cb5bf2021191a75fe708f6390407fc93203f9a608471d3c2f0efd",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.59
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.57
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.58
+      }
+     },
+     "usage": {
+      "input_tokens": 581,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 581,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefb877e6aacff543c9c68447b",
+    "server_date": "Wed, 11 Nov 2026 04:12:50 GMT",
+    "seconds": 0.0694116250379011,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:50-08:00"
+   },
+   {
+    "item_id": "ifeval:1012",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "f9bde71e20ccd7e4b23c6ec1376396e56ed3e496aa017074d141278b1830480f",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.06
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.04
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.95
+      }
+     },
+     "usage": {
+      "input_tokens": 497,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 497,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefbcc7be396d2628364cf676e",
+    "server_date": "Wed, 11 Nov 2026 04:12:50 GMT",
+    "seconds": 0.06826266704592854,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:50-08:00"
+   },
+   {
+    "item_id": "ifeval:1012",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "419c644e0efd29824b4026e9d1491fd110bd4315f354456c43fde9ed40965fa1",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.08
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.05
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.94
+      }
+     },
+     "usage": {
+      "input_tokens": 486,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 486,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefc0f7b98a5bc787fb667f1a3",
+    "server_date": "Wed, 11 Nov 2026 04:12:50 GMT",
+    "seconds": 0.09748150000814348,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:50-08:00"
+   },
+   {
+    "item_id": "ifeval:1012",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "57ed66583bd06edc0cd683c612bd43c123076496c1dd450bc3569cffb88f9a2f",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.05
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.02
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.96
+      }
+     },
+     "usage": {
+      "input_tokens": 434,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 434,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefc787751970d8319cf007a0f",
+    "server_date": "Wed, 11 Nov 2026 04:12:50 GMT",
+    "seconds": 0.07206904201302677,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:50-08:00"
+   },
+   {
+    "item_id": "ifeval:1012",
+    "config": "opus",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "1933ebf8c81138c2d203a2e2e6938298b99a3a212e5a8dbbb3ec69426e63d864",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.1
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.06
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.94
+      }
+     },
+     "usage": {
+      "input_tokens": 482,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 482,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefcc271688d384a364b4c6678",
+    "server_date": "Wed, 11 Nov 2026 04:12:50 GMT",
+    "seconds": 0.07457841606810689,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:50-08:00"
+   },
+   {
+    "item_id": "ifeval:102",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "1daed14fe6bf17f554418173479929b176a6012a9119ec014bf5709e87a54803",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.24
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.17
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.44
+      }
+     },
+     "usage": {
+      "input_tokens": 472,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 472,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefd0b784d92efb8a642013853",
+    "server_date": "Wed, 11 Nov 2026 04:12:50 GMT",
+    "seconds": 0.06804079189896584,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:50-08:00"
+   },
+   {
+    "item_id": "ifeval:102",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "12ccb026d6e6edbd373c1637c30a0e48e127e8ec1c0abc9ea790240f18df2256",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.08
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.04
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.96
+      }
+     },
+     "usage": {
+      "input_tokens": 446,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 446,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefd48741da4863cbb9909008b",
+    "server_date": "Wed, 11 Nov 2026 04:12:50 GMT",
+    "seconds": 0.09539987496100366,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:50-08:00"
+   },
+   {
+    "item_id": "ifeval:102",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "d0802532d5809496f43bddd209ef676003181aa4b7ffebd49b9e05a44d91681f",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.34
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.26
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.48
+      }
+     },
+     "usage": {
+      "input_tokens": 471,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 471,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefdb4761289da9acacac41c11",
+    "server_date": "Wed, 11 Nov 2026 04:12:51 GMT",
+    "seconds": 0.07161666708998382,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:51-08:00"
+   },
+   {
+    "item_id": "mbppplus:102",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "c904669d02c5698e600fd7d2d375c2c93eac9b5106029518d7bedc0cae605b75",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.85
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.84
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.19
+      }
+     },
+     "usage": {
+      "input_tokens": 431,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 431,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefdf277fc944cbedfe2f01f6e",
+    "server_date": "Wed, 11 Nov 2026 04:12:51 GMT",
+    "seconds": 0.06935833301395178,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:51-08:00"
+   },
+   {
+    "item_id": "mbppplus:102",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "95e503de43e7baa0635735f5a7ba9c01e72841702b7d8b0d2553ea6c75b8d3cf",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.8
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.79
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.26
+      }
+     },
+     "usage": {
+      "input_tokens": 448,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 448,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefe3872a789382ec9b79c3798",
+    "server_date": "Wed, 11 Nov 2026 04:12:51 GMT",
+    "seconds": 0.06576545792631805,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:51-08:00"
+   },
+   {
+    "item_id": "mbppplus:102",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "a6ace0637c0f6ebc60f4f3dc1e46d113811d01fbf9ee4c96a231e8a41311b8ae",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.77
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.76
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.29
+      }
+     },
+     "usage": {
+      "input_tokens": 446,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 446,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefe7a75959ad4335a019095eb",
+    "server_date": "Wed, 11 Nov 2026 04:12:51 GMT",
+    "seconds": 0.05886095797177404,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:51-08:00"
+   },
+   {
+    "item_id": "mbppplus:102",
+    "config": "opus",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "5c90b3d634249b10c8b1b45e8194f90189a9c723660ff5f54359b0c71fe855e8",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.85
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.84
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.19
+      }
+     },
+     "usage": {
+      "input_tokens": 431,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 431,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefeb6775d96c9e85f94c93de1",
+    "server_date": "Wed, 11 Nov 2026 04:12:51 GMT",
+    "seconds": 0.0609586660284549,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:51-08:00"
+   },
+   {
+    "item_id": "mbppplus:139",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "48c13680228aa9e89b04a7d5494080d2cfbb5555daf07d1396648d6c2dabd353",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.55
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.54
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.6
+      }
+     },
+     "usage": {
+      "input_tokens": 454,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 454,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8cefefb708a8b5ccdd911eb683b",
+    "server_date": "Wed, 11 Nov 2026 04:12:51 GMT",
+    "seconds": 0.06737637508194894,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:51-08:00"
+   },
+   {
+    "item_id": "mbppplus:139",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "738a47d815ecbe756f44bdfd63c89b25bbe52b9b25a3e688df8cb9f8e11e6055",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.95
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.93
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.08
+      }
+     },
+     "usage": {
+      "input_tokens": 456,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 456,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8ceff3b79f9a1b40eb9276a3adb",
+    "server_date": "Wed, 11 Nov 2026 04:12:51 GMT",
+    "seconds": 0.0635880830232054,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:51-08:00"
+   },
+   {
+    "item_id": "mbppplus:596",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "jev",
+    "pass": 1,
+    "body_sha256": "426b1eb830e4e40a7f3710d5d4e0ce1a34fa882d4154fa3b5aaaec3cb5b28c64",
+    "response": {
+     "model": "jev-1.14.0",
+     "answers": {
+      "jev_gate_correct": {
+       "type": "noul",
+       "noul": 0.9
+      },
+      "jev_gate_follows": {
+       "type": "noul",
+       "noul": 0.88
+      },
+      "jev_gate_mistake": {
+       "type": "noul",
+       "noul": 0.18
+      }
+     },
+     "usage": {
+      "input_tokens": 456,
+      "output_tokens": 62
+     }
+    },
+    "model": "jev-1.14.0",
+    "usage": {
+     "input_tokens": 456,
+     "output_tokens": 62
+    },
+    "request_id": "req_01a1c8ceff8e703bbcefe685e82acd1b",
+    "server_date": "Wed, 11 Nov 2026 04:12:51 GMT",
+    "seconds": 0.09137379203457385,
+    "attempts": 1,
+    "failed_attempts": [],
+    "new_connection": false,
+    "refused": false,
+    "answer_cut_bytes": 0,
+    "prompt_cut_bytes": 0,
+    "collected_at": "2026-11-10T20:12:51-08:00"
+   }
+  ]
+ },
+ "sonnet": {
+  "model": "claude-sonnet-5-5",
+  "effort": "low",
+  "batch_discount": 0.5,
+  "batch_ids": [
+   "msgbatch_01LZELWfVyNo1avF31ynB6VL"
+  ],
+  "batch_log": [
+   {
+    "id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "split": "smoke",
+    "created_at": "2026-11-11T04:12:52.238327+00:00",
+    "request_count": 24,
+    "custom_ids": [
+     "banking77-test-0011_haiku_r0_sg",
+     "banking77-test-0011_sonnet_r0_sg",
+     "banking77-test-0011_opus_low_r0_sg",
+     "banking77-test-0016_haiku_r0_sg",
+     "banking77-test-0016_sonnet_r0_sg",
+     "banking77-test-0016_opus_low_r0_sg",
+     "mmlu_pro-10019_haiku_r0_sg",
+     "mmlu_pro-10019_sonnet_r0_sg",
+     "mmlu_pro-10019_opus_low_r0_sg",
+     "mmlu_pro-10103_haiku_r0_sg",
+     "mmlu_pro-10103_sonnet_r0_sg",
+     "mmlu_pro-10103_opus_low_r0_sg",
+     "ifeval-1012_haiku_r0_sg",
+     "ifeval-1012_sonnet_r0_sg",
+     "ifeval-1012_opus_low_r0_sg",
+     "ifeval-102_haiku_r0_sg",
+     "ifeval-102_sonnet_r0_sg",
+     "ifeval-102_opus_low_r0_sg",
+     "mbppplus-102_haiku_r0_sg",
+     "mbppplus-102_sonnet_r0_sg",
+     "mbppplus-102_opus_low_r0_sg",
+     "mbppplus-139_haiku_r0_sg",
+     "mbppplus-139_sonnet_r0_sg",
+     "mbppplus-596_sonnet_r0_sg"
+    ],
+    "ingested_at": "2026-11-10T20:14:54-08:00",
+    "counts": {
+     "succeeded": 24
+    },
+    "missing": 0
+   }
+  ],
+  "checks": 24,
+  "refused": 0,
+  "tokens": {
+   "input": 38103,
+   "output": 742
+  },
+  "standard_calls": [
+   {
+    "custom_id": "banking77-test-0011_haiku_r0_sg",
+    "seconds": 2.302724708104506,
+    "first_call": true,
+    "standard_score": 0.9,
+    "batch_score": 0.93
+   },
+   {
+    "custom_id": "mmlu_pro-10019_haiku_r0_sg",
+    "seconds": 1.9369057499570772,
+    "first_call": false,
+    "standard_score": 0.96,
+    "batch_score": 0.96
+   },
+   {
+    "custom_id": "ifeval-1012_haiku_r0_sg",
+    "seconds": 1.7333167500328273,
+    "first_call": false,
+    "standard_score": 0.88,
+    "batch_score": 0.88
+   },
+   {
+    "custom_id": "mbppplus-102_haiku_r0_sg",
+    "seconds": 1.6142622920451686,
+    "first_call": false,
+    "standard_score": 0.93,
+    "batch_score": 0.93
+   }
+  ],
+  "batch_records": [
+   {
+    "item_id": "banking77:test-0011",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "banking77-test-0011_opus_low_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "418a3e37ebfd833c2b8338a57018d26479a8a96ec7f08d8e4bb54f9e9efdcd70",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNrkpZoa8E3itZmrWV",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\": 6}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 2405,
+       "output_tokens": 13,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 2405,
+     "output_tokens": 13
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "mbppplus:139",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "mbppplus-139_sonnet_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "b1e17980ec0445e76c112a2aa64d685e504c55be90d0bf76a78d5eaa7d4c343f",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNshcyLL6G1ck1oGm2",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":93}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 869,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 869,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "mmlu_pro:10019",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "mmlu_pro-10019_haiku_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "135e957c3382971f299832594538903599ac55245f400bc7e5f1a52139147efe",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNrmZqvpN4zZPTrhmF",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\": 96}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 1396,
+       "output_tokens": 16,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 1396,
+     "output_tokens": 16
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "banking77:test-0016",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "banking77-test-0016_haiku_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "79e0fa2ed9bc32de61075939b9279efa24141a720300c7339d4c4d48dd91b465",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNrvzov2dmu68xBzuf",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":80}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 2410,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 2410,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "mmlu_pro:10019",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "mmlu_pro-10019_opus_low_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "75aebef6b24986283e7c11e8f9297fcafa0a6eda6fb5fca70d94dc7fedcecf65",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNsbBRHnviisfmMwFJ",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\": 2}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 1347,
+       "output_tokens": 16,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 1347,
+     "output_tokens": 16
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "ifeval:1012",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "ifeval-1012_sonnet_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "ae6b1767d098477854270cb02e75057306ee1166b65cfe408bdd195e38000546",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNrs29XNk1faNHJm28",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":88}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 949,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 949,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "ifeval:1012",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "ifeval-1012_haiku_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "65206ccaafdd027ae3802ac90e29bb6c3e3a260df8e412883fc2d64fb86df12b",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNrwUvCudnXC88bQxf",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":88}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 959,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 959,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "mmlu_pro:10103",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "mmlu_pro-10103_sonnet_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "38d30af55e82cad6f672165c4f3e1e462e40b506e008b97365e0c06639c23733",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNs6uaT5Aj7Bpu93KF",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":12}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 1044,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 1044,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "banking77:test-0011",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "banking77-test-0011_sonnet_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "ece0773150847030952b92ae8e56512c55afadd9fc244789332cd9b8fd1a4776",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNrsXKY93e8XKjxQaf",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":92}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 2409,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 2409,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "ifeval:1012",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "ifeval-1012_opus_low_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "e107925d665b1bbe5b3ac258804da26a7b6d8ad252bc52ca490dcb70a3cef2a0",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNryE4Azv6E8b8vnZb",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":2}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 877,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 877,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "ifeval:102",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "ifeval-102_haiku_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "6ba243b189b7b66b11280a827306d3eae05314a03b0aeebb01ffd9f0fa5427e6",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNs6Ar6guB1FZA7a8r",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":4}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 928,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 928,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "banking77:test-0016",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "banking77-test-0016_sonnet_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "8c36dfc9073b7ab1172fb875095446a580ee419eb1cc6543bab72afc9ef8b28d",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNs2hMYKUkVxkG5ZRf",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\": 22}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 2414,
+       "output_tokens": 13,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 2414,
+     "output_tokens": 13
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "mmlu_pro:10019",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "mmlu_pro-10019_sonnet_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "c757f58de6d8260491fd216c63a732162a862cf08e755bfa96d61c9aca6d4ae8",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNriM9AAVf78bCZ9yy",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\": 62}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 1373,
+       "output_tokens": 16,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 1373,
+     "output_tokens": 16
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "banking77:test-0016",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "banking77-test-0016_opus_low_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "79e0fa2ed9bc32de61075939b9279efa24141a720300c7339d4c4d48dd91b465",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNs6AVXXdid4quk484",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\": 85}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 2410,
+       "output_tokens": 13,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 2410,
+     "output_tokens": 13
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "ifeval:102",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "ifeval-102_opus_low_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "e5b2c0609a80694f476454cf5b64c9bb9689a0c4e9d0b4c0fefd657a285e5894",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNs7ez4TwVAqvBVV7X",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":12}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 925,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 925,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "mmlu_pro:10103",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "mmlu_pro-10103_haiku_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "7e7e5125dd486cd606b024c378364181933d437d908e2831941052605b960e26",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNszjzm4VZ1nn1Az7W",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\": 22}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 1025,
+       "output_tokens": 13,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 1025,
+     "output_tokens": 13
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "ifeval:102",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "ifeval-102_sonnet_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "f8ec380d4e7d7cf2a75e3dc1821e2303facbd4ec43014d7229d2a8ceb650da22",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNs9dgpp3ftZMMmFVi",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":2}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 897,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 897,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "mbppplus:596",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "mbppplus-596_sonnet_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "cef0eb96d4259bc51a5afc2068cbdc490d90997371980e0855de97246412310f",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNrp4C8rGcdbkk62od",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":72}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 894,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 894,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "mbppplus:102",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "mbppplus-102_opus_low_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "0747656c9d16387e4b5895328a3e562cdfbe348a5ab2a3b725abc1a8854e4ea2",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNs6AdhZJspywpRfNY",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":93}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 883,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 883,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "mbppplus:102",
+    "config": "sonnet",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "mbppplus-102_sonnet_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "78f26d44b2a34dd22329c28e85611b3b2877bd0e79135c8d0098558c11d69eba",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNri6PaAjfUmAFnuhc",
+      "container": null,
+      "content": [
+       {
+        "text": " {\"probability_correct\": 93}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 887,
+       "output_tokens": 16,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 887,
+     "output_tokens": 16
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "banking77:test-0011",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "banking77-test-0011_haiku_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "ece0773150847030952b92ae8e56512c55afadd9fc244789332cd9b8fd1a4776",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNrxE6z139ethmEPkP",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":93}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 2409,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 2409,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "mbppplus:102",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "mbppplus-102_haiku_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "5dba602fd737780ad2161fbfcebc6e03b484986142bdc814b20659971b9f22cd",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNrkaeKcuJqSv4cDfL",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":93}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 868,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 868,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "mbppplus:139",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "mbppplus-139_haiku_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "594e303d8ca89f675c7f2fe4092c7d030481e2b4eae9c984e578787bd7bacc16",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNs4vYZ9Z9zX5k2fdf",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":72}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 863,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 863,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   },
+   {
+    "item_id": "mmlu_pro:10103",
+    "config": "opus_low",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 1,
+    "custom_id": "mmlu_pro-10103_opus_low_r0_sg",
+    "batch_id": "msgbatch_01LZELWfVyNo1avF31ynB6VL",
+    "request_sha256": "cdf39e0723fd7f3c09e6137e4739896072a7b90944e08bde6275d32fb83818d3",
+    "result": {
+     "message": {
+      "id": "msg_011CgvVNs6QmddjnFtMeRrLw",
+      "container": null,
+      "content": [
+       {
+        "signature": "CAQSwAwKEAgTGAI4AUIIdGhpbmtpbmcSDE3gSleQQkEy3lifhBoMyiRWmxGpEgCFVr+oIjDzRDgLvsSXTIpNO1eY+Yts7YLV/HeZGvfOByQLCMx1wH7CcWvP+ljmubKrb8Skf1Mq3QumQel94ilupjnyPh9gGiXp07TOU8gEMvVvVW+GXx9s4gOSx8ozC+o9SQONk3fX29K6A7pb0/p43Zurq9KJ29oBGvwuGHkQygZFXz5t1tSgPgy/svtchjTkdKra3+v4sHA/FmWhqml2gLL52az/+ylla8dIhc/tSOTvlMvZR+Q9xSGubtTgm7OWxDAH9dEpBI9e89XDSLuML9FNrtaBPiF4xDH28kIKje3CB1U1A6Gs3h13PtgJ9RtqotRP1cYCzx+yHCJ+F7Wwa4yHzI1Pu6SU5VMicb5jw8yiIo8wbykJh5h7Mjs0211GsBEKRw9pAZ3R6UPa5ewAPcFEI/kavRxShb8jvOtKF+gy+NU5+kxMYkXaUqjLrc7DBXNhsYeBbcWX6Am3GCU5n63WqlcgAT0uknErPD8WJt+/FkQzAfgeogfp/63eq0brxV9z1CN9jOg5jQcYOv/jpjz3mmlcXe9n7AFhxMH75YFtBHYGqSnjsDMch0BUeYGtKJbJN4BHd10eoDGyYxB60X/SK9PGw55R17AUIeJUtMmjeffdwgE+Dzf++knbhR5k+pG/DqVsBt9MOXHJnGHozVLBanViiRUxvzKLNqdQUSz47HlwR1SkZK+iEBKTXsPW7Skdcl7KBAutMaLVCv1SVGBJCPJcrR9pcNF5WHWk/FS+yFT1ueie0VF8BvLz/txEuTfO2Fizeu1YdbYHOv8psAYhHLl3otBraNPI8C7IRqMl9RQlZnWINpMMJimgL/9kJy/epIfrfCb0FJI3WdrS6QgZO6KjoPrxxUYqX33FE3I6H0icnLOmfah8CEQvPPqobZn1SpvSxtM5KhBIth586Z8PwXCpDNn926pHiL2CypcC+w1GcZmGljjsSUWu81kmIJ/J/ChdOeh5NCN7kJcRms/rv+c1stDbbFUOGvbfFFjGHboHfr3mlUAIdt1kNNhIkMHJRYzia43pj6zjKjNr4KnzNW49ms5KVgqTtRgVXdQCxt/3psBK3DpaOM/KbaUe8FyBF2cDPpdzkPYRPGfhNpM7HBT4BvU7G05rV04YM35XHWe4pdCRjfekpHuIOVxe+WVqJ81+bisKD0mJRXSg3dF3oXsuu+94VFiibb2XWNV8KUUYVFLAcVgrKXSTqrQJ10izAoI67ZGDcCJBu/04fFed/BbRUxu2RvJV7t9QEs0kRxbB31+p0osOnrG9MpiKW2TDQr/oNQ4AbAW1s43hkLBSs2Dho4A01G9trAL/OBcoQdvfR8elT+JGlx4dpYhPdiZ6miYM765cz5YsK/R24fFD8XMyf7oMeVykYVZAbVCCj8feDwfoJP+PkkHyYnDDPXxPRHkgOtFxU1yiV+aEcW84qw/h3ko5CK/5X0JeNdw6spYDNrZ/hw/0OkLA9e4lzjJuYGN7bZsa7DqOg7uju7GuvvTXOSC7VpzIdwjExadMQzC6zJoPuQjDYRBY54LOS6uaeLf1tSgP9Jdl583v3USTjxPmafchD4K7/ryTifMTzV6l4l1MLuqBbbLcZIh+ZBKRIkkXXniz9GscW59lIkm5r3lrNlS00iJnqbVD3zkK36Rfj4+Q0HFsYm3PBbExYgF4zbgEQmLwDHdIapM+GFO87OTd9T5Akkxd5SeuqtMGt+ziMD1nD5Nflt4ZQY3ZSwFRld/toAF/6Ez+WN/BxcUxAJ/j0nn1hdFlNNbeubq6Qnh4CXRLUheQGE3X8RywUeI4bJd2qAo5/mDUC51Sn4xzsRGQ8V9wC84wK53SnTydiWG5qWuCcIAq+gN9B7zjzsdJBpek8YpVUd3V1kCNVbOj7dYPlREfmO1W2SE+44PPaw7NOkuuK2KTcDRFJlzIPPoxhLXlLM03kmaQ7+bKPJmruowwHfGqtrpqCAJms4gggzQUnvVmgoLos3MvtnKLS89D2IwaFr1IQsdC6GhsLGbuSEaWt97xWerXc5McFNTmkUnaDfZciZ/4RkHU5B0Sh57dsjSuyEm5zjQtCjG8qsodETDyGAE=",
+        "thinking": "",
+        "type": "thinking"
+       },
+       {
+        "text": "{\"probability_correct\":27}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 1030,
+       "output_tokens": 393,
+       "output_tokens_details": {
+        "thinking_tokens": 380
+       },
+       "service_tier": "batch",
+       "speed": "standard"
+      }
+     },
+     "type": "succeeded"
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 1030,
+     "output_tokens": 393
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:54-08:00"
+   }
+  ],
+  "standard_records": [
+   {
+    "item_id": "banking77:test-0011",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 2,
+    "custom_id": "banking77-test-0011_haiku_r0_sg",
+    "batch_id": null,
+    "request_sha256": "ece0773150847030952b92ae8e56512c55afadd9fc244789332cd9b8fd1a4776",
+    "result": {
+     "type": "succeeded",
+     "message": {
+      "id": "msg_011CgvVV7r5zejmEq8Uyfj44",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":90}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 2409,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "standard",
+       "speed": "standard"
+      }
+     }
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 2409,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:56-08:00",
+    "api": "standard",
+    "seconds": 2.302724708104506,
+    "first_call": true,
+    "request_id": "req_011CgvVV6EcFpqFiNXX4iete"
+   },
+   {
+    "item_id": "mmlu_pro:10019",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 2,
+    "custom_id": "mmlu_pro-10019_haiku_r0_sg",
+    "batch_id": null,
+    "request_sha256": "135e957c3382971f299832594538903599ac55245f400bc7e5f1a52139147efe",
+    "result": {
+     "type": "succeeded",
+     "message": {
+      "id": "msg_011CgvVVGK65mG4c6EvaZ89F",
+      "container": null,
+      "content": [
+       {
+        "text": " {\"probability_correct\": 96}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 1396,
+       "output_tokens": 17,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "standard",
+       "speed": "standard"
+      }
+     }
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 1396,
+     "output_tokens": 17
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:14:58-08:00",
+    "api": "standard",
+    "seconds": 1.9369057499570772,
+    "first_call": false,
+    "request_id": "req_011CgvVVFyz9DPzG2MAuLVCx"
+   },
+   {
+    "item_id": "ifeval:1012",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 2,
+    "custom_id": "ifeval-1012_haiku_r0_sg",
+    "batch_id": null,
+    "request_sha256": "65206ccaafdd027ae3802ac90e29bb6c3e3a260df8e412883fc2d64fb86df12b",
+    "result": {
+     "type": "succeeded",
+     "message": {
+      "id": "msg_011CgvVVQaAg5euxoo1k2bsy",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":88}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 959,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "standard",
+       "speed": "standard"
+      }
+     }
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 959,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:15:00-08:00",
+    "api": "standard",
+    "seconds": 1.7333167500328273,
+    "first_call": false,
+    "request_id": "req_011CgvVVQJ3bsRd71L1rx51X"
+   },
+   {
+    "item_id": "mbppplus:102",
+    "config": "haiku",
+    "run": 0,
+    "split": "smoke",
+    "gate": "sonnet",
+    "pass": 2,
+    "custom_id": "mbppplus-102_haiku_r0_sg",
+    "batch_id": null,
+    "request_sha256": "5dba602fd737780ad2161fbfcebc6e03b484986142bdc814b20659971b9f22cd",
+    "result": {
+     "type": "succeeded",
+     "message": {
+      "id": "msg_011CgvVVYEHfwUvGr127h3Ns",
+      "container": null,
+      "content": [
+       {
+        "text": "{\"probability_correct\":93}",
+        "type": "text"
+       }
+      ],
+      "diagnostics": null,
+      "model": "claude-sonnet-5-5",
+      "role": "assistant",
+      "stop_details": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+       "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+       },
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0,
+       "inference_geo": "global",
+       "input_tokens": 868,
+       "output_tokens": 12,
+       "output_tokens_details": {
+        "thinking_tokens": 0
+       },
+       "service_tier": "standard",
+       "speed": "standard"
+      }
+     }
+    },
+    "model": "claude-sonnet-5-5",
+    "usage": {
+     "input_tokens": 868,
+     "output_tokens": 12
+    },
+    "stop_reason": "end_turn",
+    "refused": false,
+    "collected_at": "2026-11-10T20:15:02-08:00",
+    "api": "standard",
+    "seconds": 1.6142622920451686,
+    "first_call": false,
+    "request_id": "req_011CgvVVXi3AF4HNDgQ4fKhZ"
+   }
+  ]
+ },
+ "spend": {
+  "jev_measurement_calls_usd": 9.097200000000001e-05,
+  "jev_gate_calls_usd": 0.000914004,
+  "sonnet_batch_usd_at_batch_price": 0.035916,
+  "sonnet_standard_usd": 0.011793999999999999,
+  "total_usd": 0.048714976,
+  "smoke_cap_usd": 2.0
+ },
+ "projection": {
+  "sonnet_train_usd": 4.916945999999999,
+  "sonnet_dev_usd": 3.6899515,
+  "jev_train_with_noise_usd": 0.11203812000000002,
+  "jev_dev_usd": 0.10883400000000001,
+  "latency_sample_usd": 0.23944,
+  "total_usd": 9.067209619999998,
+  "cap_usd": 25.0,
+  "headroom_usd": 15.932790380000002,
+  "within_cap": true
+ },
+ "fixes": []
+}

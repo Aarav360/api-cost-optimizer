@@ -64,7 +64,7 @@ from analysis.pareto import (
 )
 from analysis.plan import PLAN, amendment_item
 from analysis.references import ROUNDING
-from analysis.router_names import F_TRAIN, G_PLUS, LABELS, NAMED_ROUTERS, E, F, G
+from analysis.router_names import CASCADES, F_TRAIN, G_PLUS, LABELS, NAMED_ROUTERS, E, F, G
 from analysis.rules_walk import MIXES
 from analysis.table_v2 import DESCRIPTIVE, DIAGNOSTIC_LABEL
 from analysis.table_v3 import TABLE_V3
@@ -332,13 +332,18 @@ def stage5_kept(headline: dict, per_task: dict) -> None:
 
 def only_added(before: dict, now: dict, kept: Sequence[str]) -> bool:
     """Whether `now` is `before` with other routers' entries added: the routers named in `kept` are equal wherever the
-    figure JSON holds routers, and everything else is equal outright."""
+    figure JSON holds routers, and everything else is equal outright, chart v4's cascades aside (the check that holds
+    them is `check_chart_v4`)."""
 
     def strip(data: dict) -> dict:
         data = json.loads(json.dumps(data))
+        # Chart v4 adds the cascades beside the routers' parts, at the top and in each panel (A17 item 23).
+        for key in ("cascades", "cascade_units"):
+            data.pop(key, None)
         if "routers" in data:
             data["routers"] = {k: v for k, v in data["routers"].items() if k in kept}
         for panel in data["panels"].values():
+            panel.pop("cascades", None)
             panel["routers"] = {k: v for k, v in panel["routers"].items() if k in kept}
         return data
 
@@ -414,8 +419,9 @@ def drawn(headline: dict, per_task: dict) -> None:
         legend = [t.get_text() for t in fig.legends[0].get_texts()]
         steps = [sum(label.startswith(f"{r.label}, its steps") for label in legend) for r in ROUTERS]
         points = [sum(label.startswith(f"{r.short}'s operating points") for label in legend) for r in ROUTERS]
-        check(steps == [1] * 4 and points == [1] * 4,
-              "the headline legend has each of the four routers' steps and operating points once")  # fmt: skip
+        check(steps == [0] * 4 and points == [1] * 4,
+              "the headline legend has each of the four routers' operating points once and, since chart v4, no step "
+              "line (those are in the router-started figure)")  # fmt: skip
         check(set(colours_of.values()) <= colours(fig), "the headline figure draws all four routers' colours")
         check(has_overhead_line(fig), "the headline caption says G's and G+'s costs include Jev's overhead per request, "
               "and E's and F's have none")  # fmt: skip
@@ -626,7 +632,7 @@ def on_dev(headline: dict, per_task: dict, table: dict) -> None:
             rebuilt = router_part_of_task_panel(draws, steps[letter], walks, task)
             check(json.loads(json.dumps(rebuilt)) == per_task["panels"][task]["routers"][name],
                   f"{task}: {letter}'s steps, operating points and McNemar rows in figures/pareto_tasks.json are current")  # fmt: skip
-    check(set(json.loads(OPERATING_POINTS_FILE.read_text())) == {E_SECTION, F_SECTION, *JEV_SECTIONS.values()}
+    check(set(json.loads(OPERATING_POINTS_FILE.read_text())) - set(CASCADES) == {E_SECTION, F_SECTION, *JEV_SECTIONS.values()}
           and all(json.loads(json.dumps(build_section(result.walks[n]))) == read_section(NAMED_ROUTERS[n])
                   for n in (G, G_PLUS)),
           "the walks reproduce G's and G+'s sections of the operating-points file")  # fmt: skip

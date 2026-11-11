@@ -1,0 +1,164 @@
+{
+  "code_check": {
+    "timeout_s": 20,
+    "memory": "512m",
+    "attempts": 3,
+    "wait_s": 5,
+    "image": "api-cost-optimizer-sandbox:py3.13.13-numpy2.5.4",
+    "image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "dockerfile_sha256": "4c1663494718a76f8639e84e8128b3714975c1df3326f71dc822813abf032ab3"
+  },
+  "jev": {
+    "model": "jev-1.14.0",
+    "statements": [
+      {
+        "id": "jev_gate_correct",
+        "text": "This answer correctly and completely addresses the request.",
+        "inverted": false
+      },
+      {
+        "id": "jev_gate_follows",
+        "text": "This answer is fully correct and follows every instruction in the request.",
+        "inverted": false
+      },
+      {
+        "id": "jev_gate_mistake",
+        "text": "This answer contains at least one mistake.",
+        "inverted": true
+      }
+    ],
+    "clip": [0.005, 0.995],
+    "budget_bytes": 29597
+  },
+  "cascades": [
+    {
+      "key": "cascade_haiku_free",
+      "label": "haiku/free",
+      "start": "haiku",
+      "gate": "free"
+    },
+    {
+      "key": "cascade_haiku_jev",
+      "label": "haiku/Jev",
+      "start": "haiku",
+      "gate": "jev"
+    },
+    {
+      "key": "cascade_haiku_sonnet",
+      "label": "haiku/Sonnet",
+      "start": "haiku",
+      "gate": "sonnet"
+    },
+    {
+      "key": "cascade_rules_free",
+      "label": "E/free",
+      "start": "rules",
+      "gate": "free"
+    },
+    {
+      "key": "cascade_rules_jev",
+      "label": "E/Jev",
+      "start": "rules",
+      "gate": "jev"
+    },
+    {
+      "key": "cascade_rules_sonnet",
+      "label": "E/Sonnet",
+      "start": "rules",
+      "gate": "sonnet"
+    },
+    {
+      "key": "cascade_trained_free",
+      "label": "F/free",
+      "start": "trained",
+      "gate": "free"
+    },
+    {
+      "key": "cascade_trained_jev",
+      "label": "F/Jev",
+      "start": "trained",
+      "gate": "jev"
+    },
+    {
+      "key": "cascade_trained_sonnet",
+      "label": "F/Sonnet",
+      "start": "trained",
+      "gate": "sonnet"
+    },
+    {
+      "key": "cascade_jev_free",
+      "label": "G/free",
+      "start": "jev",
+      "gate": "free"
+    },
+    {
+      "key": "cascade_jev_jev",
+      "label": "G/Jev",
+      "start": "jev",
+      "gate": "jev"
+    },
+    {
+      "key": "cascade_jev_sonnet",
+      "label": "G/Sonnet",
+      "start": "jev",
+      "gate": "sonnet"
+    },
+    {
+      "key": "cascade_jev_bolstered_free",
+      "label": "G+/free",
+      "start": "jev_bolstered",
+      "gate": "free"
+    },
+    {
+      "key": "cascade_jev_bolstered_jev",
+      "label": "G+/Jev",
+      "start": "jev_bolstered",
+      "gate": "jev"
+    },
+    {
+      "key": "cascade_jev_bolstered_sonnet",
+      "label": "G+/Sonnet",
+      "start": "jev_bolstered",
+      "gate": "sonnet"
+    }
+  ],
+  "sonnet": {
+    "model": "claude-sonnet-5-5",
+    "effort": "low",
+    "max_tokens": 16000,
+    "prompt": "You are checking another model's answer to a request. Judge whether the answer is fully correct: it answers what was asked, every fact, calculation, label or piece of code in it is right, and it follows every instruction in the request, including any rules about format, length or wording.\n\n<request>\n{prompt}\n</request>\n{schema_block}<answer>\n{answer}\n</answer>\n\nGive the probability, from 0 to 100, that the answer is fully correct.",
+    "schema_block": "<output_schema>\n{output_schema}\n</output_schema>\n",
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "probability_correct": {
+          "type": "integer",
+          "enum": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]
+        }
+      },
+      "required": [
+        "probability_correct"
+      ],
+      "additionalProperties": false
+    },
+    "request_id_suffix": "sg",
+    "gated_configs": [
+      "haiku",
+      "sonnet",
+      "opus_low"
+    ],
+    "list_prices": {
+      "price_snapshot": "2026-10-12",
+      "input_per_million": 2.0,
+      "output_per_million": 10.0
+    }
+  },
+  "noise": {
+    "seed": 2026,
+    "config": "haiku",
+    "tasks": ["banking77", "ifeval", "mbppplus", "mmlu_pro"],
+    "jev_per_task": 25,
+    "sonnet_per_task": 20,
+    "rule": "For each task in the order listed, take haiku's run-0 train answers of that task in item-ID order, put them in the order of random.Random(f\"{seed}/{task}\").shuffle, and take the first jev_per_task (25, the Jev gate's noise pass) that pass every free check; the Sonnet gate's latency sample is the first sonnet_per_task (20) of each task's Jev list. Code: analysis/noise_samples.py."
+  }
+}

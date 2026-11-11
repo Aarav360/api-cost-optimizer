@@ -8,7 +8,7 @@ model per request) and cascades (which try a cheap model first and escalate when
 fails) against two references: a hindsight oracle that shows the most any strategy could save,
 and random mixtures that show what you get with no routing intelligence at all.
 
-**Status:** Stages 0–6 are done. The pilot chose four tasks ([Amendment A3](PLAN_v4.md)), the
+**Status:** Stages 0–7 are done. The pilot chose four tasks ([Amendment A3](PLAN_v4.md)), the
 benchmark of 2,478 items is split and frozen ([Amendment A5](PLAN_v4.md)), and the collection run
 has answered every item through every config for $29.37: train and dev are scored, and test is
 sealed until Stage 8 ([Amendment A6](PLAN_v4.md)). Stage 3 built the offline simulator, the four
@@ -44,12 +44,30 @@ At the 97% target on the realistic mix G costs $3.62 per 1,000 requests and G+ $
 with Jev's overhead in both. Within-task concordance on `haiku` is 0.696 for G and 0.757 for G+, against
 F's 0.571 (diagnostics, dev only). At matched cost G's paired difference from the random-mixture
 envelope excludes 0 at 0 of its six operating points and G+'s at 1 (uniform mix, 97% target: +2.0
-points, interval +0.7 to +3.3), a descriptive reading with no multiplicity correction. Stage 7, gates
-and cascades, is next. Every result so far is on dev, with the test split still sealed.
+points, interval +0.7 to +3.3), a descriptive reading with no multiplicity correction. Stage 7 built
+the gates and cascades ([Amendment A17](PLAN_v4.md)). A gate judges a model's answer, its final text and stop reason,
+and an answer it rejects goes straight to `opus`. There are three free checks (the stop reason, the schema and the
+prompt's own example test run in the sandbox, which cost nothing) and two paid gates: the Jev gate (`jev-1.14.0`,
+three statements per answer) and a low-effort Sonnet verifier (`claude-sonnet-5-5`, collected through the Batches
+API). A paid gate gives a gate score, and a cutoff turns it into a verdict. They make fifteen cascades: three pure
+cascades that start at `haiku` (ending in the free checks, the Jev gate or the Sonnet gate) and E, F, G and G+ each
+started at the router's pick and ending in one of the three. A pure cascade walks its gate's cutoffs on dev, and a
+router-started cascade walks its router's own steps with the gate's cutoff fixed on train by Youden's J. The gates
+were frozen in a settings commit before any gate call on a benchmark answer and the cutoffs in a freeze commit
+before any dev gate verdict, and dev's calls came after both (items 20 and 28). Chart and table v4 add the
+cascades to the headline and per-task figures, a router-started figure with four lines per router, a calibration
+figure for each paid gate, the gate metrics, 51 descriptive comparisons and estimated latency, and item 29 records
+the fifteen cascades' operating points on dev with the hash of each section and of the whole operating-points file.
+By Amendment A17 item 24's rule the best cascade on dev is haiku/Jev, with mean savings against A of 36.8% over its six operating points. At the 97% target on the realistic mix haiku/Jev costs $2.57 per 1,000 requests against A's $8.04, and E/free costs less there. 36 of the 90 operating points fall back to A. Stage 8, the final evaluation on the sealed test split, is next.
+Every result so far is on dev, with the test split still sealed.
 
-![Pareto chart v3 on dev: the four fixed configs with their intervals, the random-mixture envelope, the hindsight oracle, the rules router E, the trained router F, the Jev router G and the bolstered Jev router G+, each with its steps as a line and a cross at each of its operating points, under the realistic and uniform task mixes](figures/pareto.png)
+![Pareto chart v4 on dev: the four fixed configs with their intervals, the random-mixture envelope, the hindsight oracle, a cross at each operating point of the rules router E, the trained router F, the Jev router G and the bolstered Jev router G+, and the pure cascades (the free-checks-only cascade as a point, the Jev-gated and Sonnet-gated ones as step curves with crosses), under the realistic and uniform task mixes](figures/pareto.png)
 
-For the same numbers as an interactive page, with routers and references to toggle, zoom and a readout for
+![The router-started cascades on dev: for each router and mix, the router alone and its free-checks, Jev-gated and Sonnet-gated cascades on the same steps, with a cross at each operating point](figures/pareto_routed.png)
+
+![Calibration of the Jev gate and the Sonnet gate on dev, with train as hollow markers: gate score against success rate in about ten equal-count bins with 95% intervals](figures/calibration.png)
+
+For the same numbers as an interactive page, with the routers, the fifteen cascades and the references to toggle, zoom and a readout for
 every point, open [`figures/pareto_explorer.html`](figures/pareto_explorer.html) in a browser (it loads Plotly
 from jsDelivr).
 
@@ -65,7 +83,8 @@ from jsDelivr).
 - **Routers, simplest first:** a rules baseline, then a classifier trained on prompt embeddings,
   then Jev (TypeSafe's decision model, zero-shot and bolstered). Routers are compared at matched cost or matched quality,
   not as single points.
-- **Gates and cascades:** schema and code-execution checks, Jev as a gate, and a Sonnet verifier.
+- **Gates and cascades:** free checks (stop reason, schema, the prompt's example test run in the sandbox) and two paid
+  gates, Jev and a low-effort Sonnet verifier, make fifteen cascades, each of which hands a rejected answer to `opus`.
 - **A sealed test split.** Items are split 40 / 30 / 30 into train / dev / test. Test answers are
   collected in the same run as dev but aren't scored until the final stage. Every operating
   threshold is chosen on dev and must clear its quality target by a stated margin (by default,
@@ -137,7 +156,7 @@ uv run python -m analysis.fit_rules_router # fit E on train and write routers/ru
 uv run python -m analysis.rules_table      # E's dev router-score table: score(request) on every dev request
 uv run python -m analysis.dev_diagnostic   # the dev task-inference diagnostic, on this benchmark's templates
 uv run python -m analysis.rules_walk       # the walk on dev: writes E's section of routers/operating_points.json
-uv run python -m analysis.pareto           # chart v3 on dev: E's, F's, G's and G+'s steps and operating points, tables v0 and v1, the figures and their JSONs
+uv run python -m analysis.pareto           # chart v4 on dev: E's, F's, G's and G+'s steps and operating points, the cascades' lines and crosses (needs table_v4.json), tables v0 and v1, the headline, per-task and router-started figures and their JSONs
 uv run python -m analysis.check_simulator  # the analysis package on hand-worked cases, then on dev against the figures and A8's record
 uv run python -m analysis.check_routers    # the router foundation, the benchmark reader and the router-score table
 uv run python -m analysis.check_comparisons  # McNemar's test and the matched-cost difference
@@ -173,7 +192,7 @@ uv run python -m analysis.jev_table        # G's and G+'s dev router-score table
 uv run python -m analysis.jev_walk         # G's and G+'s walks on dev and their sections jev and jev_bolstered of routers/operating_points.json
 uv run python -m analysis.jev_comparisons  # G's and G+'s same-target comparisons, matched-cost rows, McNemar rows, within-task concordance and dev latency (nothing written)
 uv run python -m analysis.table_v3         # table v3: G's and G+'s operating points, the comparisons, the diagnostics and dev latency, into figures/table_v3.json
-uv run python -m analysis.explorer         # the interactive explorer: chart v3's two JSONs into figures/pareto_explorer.html (rerun after pareto)
+uv run python -m analysis.explorer         # the interactive explorer: chart v4's three JSONs into figures/pareto_explorer.html (rerun after pareto)
 uv run python -m analysis.check_jev_settings  # the settings builder on a synthetic benchmark; the hook compares the committed file with a rebuild
 uv run python -m analysis.check_jev_call   # call bodies equal hand-written JSON, the byte budget's cut, malformed settings refused
 uv run python -m analysis.check_jev_client # the client's retries and G's scoring against a fake Jev server on a loopback port (no network)
@@ -185,7 +204,22 @@ uv run python -m analysis.check_jev_freeze # A15 item 19 against the committed f
 uv run python -m analysis.check_jev_dev    # G's and G+'s dev tables, quantiles and walks; the hook adds the stored dev responses and the freeze commit's order
 uv run python -m analysis.check_jev_comparisons  # the comparisons on a hand-worked synthetic matrix; the hook adds dev and the stored records
 uv run python -m analysis.check_stage6     # chart and table v3 and A15's record of G and G+ (item 20) against the committed files; the hook adds the rebuild from the dev matrix and the stored records
-uv run python -m analysis.check_explorer   # the explorer against chart v3's JSONs: the committed page is their build, and its numbers and words are theirs
+uv run python -m analysis.check_explorer   # the explorer against chart v4's JSONs: the committed page is their build, and its numbers and words are theirs
+uv run python -m analysis.smoke_gates      # before the settings commit: made-up answers to real train prompts through every gate (A17 item 20.1); needs both API keys
+uv run python -m analysis.collect_gates free --split train|dev      # the free checks on every answer, into results/gates/ (the code check runs in the sandbox, so it needs Docker)
+uv run python -m analysis.collect_jev_gate collect --split train|dev  # the Jev gate on every answer that passes the free checks (also noise, report); needs TYPESAFE_API_KEY in .env
+uv run python -m analysis.collect_sonnet_gate batch --split train|dev --cost-per-check 0.002 --max-usd 25  # the Sonnet gate's batch (also latency); both paid collectors share the $25 cap
+uv run python -m analysis.gate_train_report   # train's measures and A17 item 28 (D6, counts, Youden's J, latency, spend); --write in the freeze commit
+uv run python -m analysis.gate_dev_run measures | record --write | walks --write  # dev's collection record, then the fifteen walks and their sections of routers/operating_points.json
+uv run python -m analysis.table_v4         # table v4: the cascades' rows, the 51 comparisons, the gate metrics, estimated latency and the best cascade, into figures/table_v4.json
+uv run python -m analysis.calibration_figure  # the calibration figure: each paid gate's bins on dev and train, into figures/calibration.png and .json
+uv run python -m analysis.check_gates | check_gate_metrics | check_jev_gate | check_sonnet_gate | check_gates_routed | check_gate_cap  # the gates, metrics, cascades and the cap, on synthetic data and fake servers (no call)
+uv run python -m analysis.check_gates_settings_commit | check_gates_freeze | check_gates_dev  # the settings commit, the freeze record (item 28) and the dev run against the committed files, the git order and, where results/ is present, the stored records
+uv run python -m analysis.check_gates_sandbox  # the code check in the real sandbox on made-up code (needs Docker)
+uv run python -m analysis.check_gates_design   # the design review's train and dev facts, recomputed (the hook only)
+uv run python -m analysis.check_table_v4   # the 51 pairs, the best-cascade rule, a row, the gate metrics and latency on synthetic data; against table_v4.json, and where results/ is present a rebuild
+uv run python -m analysis.check_chart_v4   # chart v4: the cascade lines on a hand-worked table, the committed JSONs and figures, the calibration figure; the hook adds a rebuild
+uv run python -m analysis.check_stage7     # A17's record of the cascades (item 29) and the README's numbers about Stage 7 against the committed files
 ```
 
 The matrix-reading commands need the dev results matrix in `results/`, so they need the collection
@@ -194,7 +228,7 @@ hook runs where the matrix is present, and the refit half of `check_rules_router
 that read stored answers also need `results/jev/`, which holds each call's whole response and is never
 committed. No check calls Jev: the checks use a fake Jev server (`analysis/fake_jev.py`) on a loopback
 port, and only `collect_jev` (and `smoke_jev` before the settings commit) sends a request, with the key
-from `.env`. Chart v3 takes about half a minute, and `table_v3` and `check_stage6` (with its rebuild)
+from `.env`. Chart v4 takes about a minute, `calibration_figure` about half a minute, and `table_v3` and `check_stage6` (with its rebuild)
 a minute or two each. Chart v2 took about 15 seconds, and `table_v2` about 30 more for the learning curve's 60 refits: the paired bootstrap
 re-solves the hindsight oracle on every resample. Run the three E steps in the order `rules_table`,
 `dev_diagnostic`, `rules_walk` (A9 item 13), which is also the order of their commits. F's steps follow
@@ -203,7 +237,13 @@ folds` (the fit commit), then `trained_table`, `trained_walk`, the diagnostics, 
 The diagnostics' walks stay in memory and never enter the operating-points file. G's and G+'s steps
 follow A15 item 13: `build_jev_settings` and `smoke_jev` (made-up requests only), the settings commit,
 `collect_jev` on train, the noise pass, `fit_jev_router`, the freeze commit, `collect_jev` on dev,
-`jev_table`, `jev_walk`, `jev_comparisons`, then `pareto`, `table_v3` and the record (item 20).
+`jev_table`, `jev_walk`, `jev_comparisons`, then `pareto`, `table_v3` and the record (item 20). Stage 7's steps
+follow A17 item 20: `smoke_gates` (made-up answers only), the settings commit, then on train `collect_gates free`,
+`collect_jev_gate` (and its noise pass) and `collect_sonnet_gate` (its batch, then the latency calls), then
+`gate_train_report --write` and the freeze commit, then the same three collections on dev, `gate_dev_run record` and
+`walks --write`, `table_v4`, `pareto`, `calibration_figure`, `explorer`, and the record (item 29, printed by
+`check_stage7 --print`). The gates need `results/gates/` (never committed) and Docker for the code check; no check
+calls Jev or the Anthropic API, and only the collectors send a request.
 
 The first LiveCodeBench load downloads about 690 MB and writes its decoded tests (about 500 MB)
 to `.cache/`.
@@ -228,7 +268,7 @@ system, none of your files, an unprivileged user, and caps on memory, processes,
 ## Layout
 
 ```text
-PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A15)
+PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A17)
 GLOSSARY.md          the study's vocabulary from Stage 3 on: policy, trace, config ladder, reference, request,
                      router score, threshold, walk, operating point, ...
 WRITEUP.md           the final write-up (to come) and running notes for it
@@ -246,9 +286,10 @@ analysis/            the offline simulator (traces to outcomes and totals), the 
                      the walk and operating points, McNemar's test, E's fit on train and its freeze hashes,
                      E's table, diagnostic and walk on dev, the trained router's fold builder, fit script and
                      freeze measurements, F's and F-train's tables and F's walk, the diagnostics and the
-                     learning curve, G's and G+'s collection, fit, tables, walks and comparisons, chart v3,
-                     tables v2 and v3, the interactive explorer's build and template (explorer.py,
-                     explorer_template.html) and the check scripts (jev_*.py and collect_jev.py are Stage 6's;
+                     learning curve, G's and G+'s collection, fit, tables, walks and comparisons, the gates'
+                     collectors, gate-score tables, walks, metrics and latency estimate (Stage 7), chart v4,
+                     tables v2 to v4, the calibration figure, the interactive explorer's build and template
+                     (explorer.py, explorer_template.html) and the check scripts (jev_*.py and collect_jev.py are Stage 6's;
                      fake_jev.py is the fake server the checks use)
 routers/             the deployable routers (imports nothing from analysis or harness): the config ladder,
                      the request, the decision rule (frozen, A10 item 1), the rules router E (frozen, A9
@@ -261,12 +302,17 @@ routers/             the deployable routers (imports nothing from analysis or ha
                      jev_settings.json (question texts, past requests with outcomes, rates, noise sample)
                      and jev_weights.json (G+'s C, standardizer and three heads; the freeze commit), and
                      operating_points.json, E's, F's, G's and G+'s thresholds from the walk (never
-                     F-train's or a diagnostic's)
-figures/             chart v3 on dev: the headline and per-task figures, each a PNG with a JSON of every
-                     number it plots, tables v0 and v1 included, E's, F's, G's and G+'s rows alike;
-                     table_v2.json, the same-target comparisons and the diagnostics; learning_curve.png and
-                     .json; table_v3.json, G's and G+'s operating points, comparisons and diagnostics;
-                     pareto_explorer.html, chart v3's numbers as an interactive page
+                     F-train's or a diagnostic's) and, from Stage 7, the fifteen cascades' sections; and the
+                     gates (A17 item 19): gates.py (the free checks), jev_gate.py, sonnet_gate.py, cascade.py
+                     (one cascade decision), sandbox.py (the grader's sandbox, moved from harness/),
+                     gate_settings.json and gate_cutoffs.json (the fixed cutoffs, from train)
+figures/             chart v4 on dev: the headline, per-task and router-started figures, each a PNG with a JSON
+                     of every number it plots, tables v0 and v1 included, E's, F's, G's and G+'s rows alike and
+                     the cascades'; calibration.png and .json, the paid gates' calibration; table_v2.json, the
+                     same-target comparisons and the diagnostics; learning_curve.png and .json; table_v3.json,
+                     G's and G+'s operating points, comparisons and diagnostics; table_v4.json, the fifteen
+                     cascades' rows, the 51 comparisons, the gate metrics, estimated latency and the best
+                     cascade; pareto_explorer.html, chart v4's numbers as an interactive page
 sandbox/             Dockerfile for the code sandbox image
 data/benchmark.jsonl the frozen benchmark: 2,478 items split 40/30/30, plus its hash manifest
 data/dev_folds.json  dev's five folds for cross-fitting F, and train_folds.json, train's five folds for choosing C
@@ -274,15 +320,15 @@ data/dev_folds.json  dev's five folds for cross-fitting F, and train_folds.json,
 data/pilot*.jsonl    Stage 0 pilot items: 20 per candidate dataset, 20 MATH Level 5 items, and
                      20 each from IFBench and LiveCodeBench
 data/collection_manifest.json  batch IDs, counts and the sealed test store's hash (Amendment A6)
-results/             response store, dev matrix, Jev's stored responses (results/jev/) and sealed test store (not
-                     committed)
+results/             response store, dev matrix, Jev's stored responses (results/jev/), the gates' stored records
+                     (results/gates/) and sealed test store (not committed)
 .cache/              downloaded tool data and LiveCodeBench's decoded tests (not committed)
 docs/history/        earlier versions of the plan
 ```
 
 ## Progress
 
-- [x] Study plan frozen (v4, amendments A1–A15)
+- [x] Study plan frozen (v4, amendments A1–A17)
 - [x] Harness: API client, on-disk response store, pinned model configs
 - [x] Dataset loaders at pinned revisions, and 120 pilot items
 - [x] Docker code sandbox (18/18 escape checks; 377/377 MBPP+ reference solutions pass under the
@@ -311,7 +357,11 @@ docs/history/        earlier versions of the plan
       each; the settings frozen before any Jev call on a benchmark request and G+'s weights before any
       dev call (A15 items 13 and 19); their dev tables, walks and operating points; the comparisons and
       diagnostics; chart and table v3; A15's record of G and G+ (item 20)
-- [ ] Stages 7–8: gates and cascades, final evaluation on the sealed test split
+- [x] Stage 7: the free checks and the two paid gates (Jev, and a low-effort Sonnet verifier); the settings
+      frozen before any gate call on a benchmark answer and the fixed cutoffs before any dev verdict (A17 items 20
+      and 28); the fifteen cascades walked on dev; the 51 comparisons, gate metrics, calibration and estimated
+      latency; chart and table v4, the calibration figure and the explorer; A17's record of the cascades (item 29)
+- [ ] Stage 8: final evaluation on the sealed test split
 
 ## License
 

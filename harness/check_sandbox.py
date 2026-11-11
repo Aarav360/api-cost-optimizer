@@ -179,6 +179,11 @@ def check_mbppplus_references() -> int:
     The grader's time and memory limits are used, including the 3 GB it gives
     mbppplus:255 (evaluators.CODE_MEMORY), so a pass here means code_tests would
     score the reference correct. Items in loaders.EXCLUDED are skipped.
+
+    Eight run at once. A reference that runs out of time among them is run once
+    more on its own, still under the grader's limits, and fails only if it fails
+    there: mbppplus:599's takes about 18 s of the 20 s alone, so the parallel
+    pass can push it over (Amendment A18, item 1).
     """
     from datasets import load_dataset
 
@@ -195,13 +200,17 @@ def check_mbppplus_references() -> int:
     items = load_mbppplus()
     kept = [item for item in items if item["item_id"] not in EXCLUDED]
     with ThreadPoolExecutor(max_workers=8) as pool:
-        results = list(pool.map(run, kept))
+        parallel = list(pool.map(run, kept))
+    by_id = {item["item_id"]: item for item in kept}
+    rerun = [item_id for item_id, r in parallel if r.timed_out]
+    results = [run(by_id[item_id]) if r.timed_out else (item_id, r) for item_id, r in parallel]
 
     # The grader's pass rule (evaluators.code_tests).
     failed = [(item_id, r) for item_id, r in results if r.returncode != 0 or r.timed_out]
     durations = [r.duration_s for _, r in results]
     print(
-        f"MBPP+ references: {len(results) - len(failed)}/{len(results)} pass, {len(items) - len(kept)} excluded | "
+        f"MBPP+ references: {len(results) - len(failed)}/{len(results)} pass, {len(items) - len(kept)} excluded, "
+        f"{len(rerun)} rerun alone after a timeout ({', '.join(rerun) or 'none'}) | "
         f"duration median {statistics.median(durations):.2f}s, max {max(durations):.2f}s"
     )
     for item_id, r in failed:
