@@ -8,7 +8,28 @@
     "image_digest": null,
     "dockerfile_sha256": null
   },
-  "jev": {},
+  "jev": {
+    "model": "jev-1.14.0",
+    "statements": [
+      {
+        "id": "jev_gate_correct",
+        "text": "This answer correctly and completely addresses the request.",
+        "inverted": false
+      },
+      {
+        "id": "jev_gate_follows",
+        "text": "This answer is fully correct and follows every instruction in the request.",
+        "inverted": false
+      },
+      {
+        "id": "jev_gate_mistake",
+        "text": "This answer contains at least one mistake.",
+        "inverted": true
+      }
+    ],
+    "clip": [0.005, 0.995],
+    "budget_bytes": null
+  },
   "cascades": [
     {
       "key": "cascade_haiku_free",

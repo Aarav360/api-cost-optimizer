@@ -70,6 +70,10 @@ uv run python -m analysis.check_jev_review | grep -E "^FAIL|checks"
 # gate-score table, the cascade decision and a pure cascade's traces, walk and section, on synthetic data. No results/,
 # no Docker, no Jev or Anthropic call. CI runs it too.
 uv run python -m analysis.check_gates | grep -E "^FAIL|checks"
+# The Jev gate (A17 items 5, 7, 13 and 14; A15 items 8 and 9; A16 items 7 and 8) end to end against the fake Jev server and a
+# temporary results folder: call body, byte budget and cut, gate score, refusals, retries, run stops, collection, the table's
+# Jev column and haiku/Jev's walk. No results/, no Docker, no Jev call, no key. CI runs it too.
+uv run python -m analysis.check_jev_gate | grep -E "^FAIL|checks"
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
 uv run python -m analysis.check_gates_sandbox | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
