@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.78rem; }
 <div class="wrap">
   <header>
     <h1>Router Pareto Explorer</h1>
-    <p class="sub">Quality against cost on dev for the four routers: E (rules), F (trained), G (Jev) and G+ (bolstered Jev), with the fixed configs, the random-mixture envelope and the hindsight oracle. The numbers are chart v3's, from <code>figures/pareto.json</code> and <code>figures/pareto_tasks.json</code>.</p>
+    <p class="sub">Quality against cost on dev for the four routers (E rules, F trained, G Jev, G+ bolstered Jev) and the fifteen cascades (the free checks, the Jev gate or the Sonnet gate, started at haiku or at a router's pick), with the fixed configs, the random-mixture envelope and the hindsight oracle. Every router and every cascade switches on and off. The numbers are chart v4's, from <code>figures/pareto.json</code>, <code>figures/pareto_tasks.json</code> and <code>figures/pareto_routed.json</code>.</p>
   </header>
 
   <nav class="views" aria-label="Panel">
@@ -119,6 +119,14 @@ footer { color: var(--muted); font-size: 0.78rem; }
       <div class="group" id="routerChips"></div>
       <span class="spacer"></span>
       <div class="group" id="presets"></div>
+    </div>
+    <div class="row">
+      <span class="group-label">Pure cascades</span>
+      <div class="group" id="pureChips"></div>
+    </div>
+    <div class="row" style="align-items:flex-start">
+      <span class="group-label">Router-started cascades</span>
+      <div class="group" id="routedChips" style="flex-direction:column;align-items:flex-start"></div>
     </div>
     <div class="row">
       <span class="group-label">References</span>
@@ -157,6 +165,12 @@ const ROUTERS = [
   { key: "jev", short: "G", token: "--s-g", step: "circle", point: "cross", dash: "dashdot" },
   { key: "jev_bolstered", short: "G+", token: "--s-gp", step: "x", point: "pentagon", dash: "dot" },
 ];
+// Every series the page can draw: the four routers, then the fifteen cascades the data lists, each with its colour, markers and line.
+const SERIES = [
+  ...ROUTERS.map((r) => ({ key: r.key, label: DATA.labels[r.key], kind: "router", color: () => css(r.token), step: r.step, point: r.point, dash: r.dash })),
+  ...DATA.cascades.map((c) => ({ key: c.key, label: c.label, kind: c.pure ? "pure" : "routed", start: c.start, color: () => (c.color === "#000000" ? css("--ink") : c.color), step: c.step, point: c.point, dash: c.dash })),
+];
+const PRESETS = DATA.presets;
 const REFS = [
   { key: "configs", label: "Configs A, B, sonnet, opus_low" },
   { key: "envelope", label: "C: random-mixture envelope" },
@@ -168,18 +182,12 @@ const LAYERS = [
   { key: "labels", label: "Target labels" },
   { key: "steps", label: "Step markers" },
 ];
-const PRESETS = [
-  { label: "All four", on: ["rules", "trained", "jev", "jev_bolstered"] },
-  { label: "G vs G+", on: ["jev", "jev_bolstered"] },
-  { label: "Jev vs E", on: ["rules", "jev", "jev_bolstered"] },
-  { label: "E vs F", on: ["rules", "trained"] },
-];
 const VIEW_SLUGS = { realistic: "realistic", uniform: "uniform", ifeval: "ifeval", banking77: "banking77", mmlu_pro: "mmlu-pro", mbppplus: "mbpp-plus" };
 const SLUG_VIEWS = Object.fromEntries(Object.entries(VIEW_SLUGS).map(([k, v]) => [v, k]));
 
 const state = {
   view: "realistic",
-  routers: { rules: true, trained: true, jev: true, jev_bolstered: true },
+  series: Object.fromEntries(SERIES.map((r) => [r.key, r.kind !== "routed"])),
   refs: { configs: true, envelope: true, oracle: true, targets: true },
   layers: { intervals: false, labels: true, steps: true },
   axis: "log",
@@ -188,14 +196,18 @@ const state = {
 };
 try {
   const saved = JSON.parse(localStorage.getItem("pareto-explorer") || "null");
-  if (saved) for (const k of ["routers", "refs", "layers"]) Object.assign(state[k], saved[k] || {});
+  if (saved) for (const k of ["series", "refs", "layers"]) Object.assign(state[k], saved[k] || {});
   if (saved && (saved.axis === "log" || saved.axis === "linear")) state.axis = saved.axis;
 } catch (e) { /* storage unavailable: defaults stand */ }
 function save() {
-  try { localStorage.setItem("pareto-explorer", JSON.stringify({ routers: state.routers, refs: state.refs, layers: state.layers, axis: state.axis })); } catch (e) {}
+  try { localStorage.setItem("pareto-explorer", JSON.stringify({ series: state.series, refs: state.refs, layers: state.layers, axis: state.axis })); } catch (e) {}
 }
 
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+// What a series offers on a view: a router's or a cascade's part, or nothing (a task view has no router-started cascades).
+const partOf = (v, r) => (r.kind === "router" ? v.routers[r.key] : v.cascades[r.key]);
+const dialText = (threshold, cutoff) => [threshold == null ? null : "threshold " + threshold.toFixed(4), cutoff == null ? null : "gate cutoff " + cutoff.toFixed(4)].filter(Boolean).join(" · ");
+const shortDial = (threshold, cutoff) => [threshold, cutoff].filter((x) => x != null).map((x) => x.toFixed(4)).join(" / ");
 const pct = (x, d = 1) => (x * 100).toFixed(d) + "%";
 const money = (x) => "$" + (x >= 10 ? x.toFixed(1) : x.toFixed(2));
 const pts = (x) => (x >= 0 ? "+" : "−") + Math.abs(x * 100).toFixed(1);
@@ -218,10 +230,13 @@ function densify(points) {
 
 function glyph(symbol, dash, color, size = 26) {
   const dashes = { solid: "", dash: "5 3", dashdot: "6 2 1.5 2", dot: "1.5 2.5" };
+  const dashed = (d) => (d in dashes ? dashes[d] : d.replace(/px/g, "").split(",").map((n) => n / 2).join(" "));
   const m = { square: '<rect x="9.5" y="2.5" width="7" height="7" />', "triangle-up": '<path d="M13 2 L17 9.5 L9 9.5 Z" />',
     circle: '<circle cx="13" cy="6" r="3.6" />', x: '<path d="M10 3 L16 9 M16 3 L10 9" stroke-width="2.2" fill="none" />',
-    dot: '<circle cx="13" cy="6" r="3.6" />', line: "" }[symbol] || "";
-  const line = dash === null ? "" : `<line x1="1" y1="6" x2="25" y2="6" stroke-width="2" stroke-dasharray="${dashes[dash] || ""}" />`;
+    dot: '<circle cx="13" cy="6" r="3.6" />', line: "",
+    hexagon: '<path d="M13 2 L16.5 4 L16.5 8 L13 10 L9.5 8 L9.5 4 Z" />', "triangle-left": '<path d="M9 6 L16 2.5 L16 9.5 Z" />',
+    "triangle-right": '<path d="M17 6 L10 2.5 L10 9.5 Z" />' }[symbol] || "";
+  const line = dash === null ? "" : `<line x1="1" y1="6" x2="25" y2="6" stroke-width="2" stroke-dasharray="${dashed(dash)}" />`;
   return `<svg width="${size}" height="12" viewBox="0 0 26 12" aria-hidden="true" style="color:${color}"><g stroke="currentColor" fill="currentColor">${line}${m}</g></svg>`;
 }
 
@@ -233,18 +248,28 @@ function buildControls() {
     b.addEventListener("click", () => { location.hash = VIEW_SLUGS[key]; });
     (v.kind === "mix" ? mixSeg : taskSeg).appendChild(b);
   }
-  const rc = document.getElementById("routerChips");
-  for (const r of ROUTERS) {
+  const hosts = { router: document.getElementById("routerChips"), pure: document.getElementById("pureChips") };
+  const routedRows = {};
+  for (const r of SERIES) {
     const b = document.createElement("button");
-    b.type = "button"; b.className = "chip"; b.id = "chip-" + r.key; b.dataset.router = r.key;
-    b.addEventListener("click", () => { state.routers[r.key] = !state.routers[r.key]; save(); render(); });
-    rc.appendChild(b);
+    b.type = "button"; b.className = "chip"; b.id = "chip-" + r.key; b.dataset.series = r.key;
+    b.addEventListener("click", () => { state.series[r.key] = !state.series[r.key]; save(); render(); });
+    let host = hosts[r.kind];
+    if (!host) {
+      host = routedRows[r.start];
+      if (!host) {
+        host = routedRows[r.start] = document.createElement("div");
+        host.className = "group";
+        document.getElementById("routedChips").appendChild(host);
+      }
+    }
+    host.appendChild(b);
   }
   const pr = document.getElementById("presets");
   PRESETS.forEach((p, i) => {
     const b = document.createElement("button");
     b.type = "button"; b.className = "btn"; b.id = "preset-" + i; b.textContent = p.label;
-    b.addEventListener("click", () => { for (const r of ROUTERS) state.routers[r.key] = p.on.includes(r.key); save(); render(); });
+    b.addEventListener("click", () => { for (const r of SERIES) state.series[r.key] = p.on.includes(r.key); save(); render(); });
     pr.appendChild(b);
   });
   const mk = (host, list, bucket) => list.forEach((it) => {
@@ -271,10 +296,12 @@ function buildControls() {
 function paintControls() {
   const v = DATA.views[state.view];
   document.querySelectorAll("#mixSeg button, #taskSeg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === state.view)));
-  for (const r of ROUTERS) {
+  for (const r of SERIES) {
     const b = document.getElementById("chip-" + r.key);
-    b.setAttribute("aria-pressed", String(state.routers[r.key]));
-    b.innerHTML = glyph(r.step, r.dash, css(r.token)) + `<span>${DATA.labels[r.key]}</span>`;
+    const there = r.kind === "router" ? !!v.routers[r.key] : !!v.cascades[r.key];
+    b.disabled = !there; b.title = there ? "" : "Per-task figures hold the routers and the pure cascades only";
+    b.setAttribute("aria-pressed", String(state.series[r.key] && there));
+    b.innerHTML = glyph(r.step, r.dash, r.color()) + `<span>${r.label}</span>`;
   }
   const refGlyph = { configs: glyph("dot", null, css("--s-ref"), 14), envelope: glyph("line", "solid", css("--s-ref")),
     oracle: glyph("line", "solid", css("--s-oracle")), targets: glyph("line", "dot", css("--s-target")) };
@@ -305,7 +332,7 @@ function errorBars(list, axis, on, color) {
 function traces(v) {
   const T = [], ink2 = css("--ink-2");
   const fellBack = {};
-  if (v.kind === "mix") for (const r of ROUTERS) for (const o of v.routers[r.key].ops) if (o.fell_back) (fellBack[r.short] ||= []).push(o.target);
+  if (v.kind === "mix") for (const r of SERIES) { const part = partOf(v, r); if (state.series[r.key] && part) for (const o of part.ops) if (o.fell_back) (fellBack[r.label] ||= []).push(o.target); }
 
   if (state.refs.oracle) {
     const d = densify(v.oracle);
@@ -318,30 +345,41 @@ function traces(v) {
     T.push({ x: d.x, y: d.y, mode: "lines", line: { color: css("--s-ref"), width: 4 },
       hovertext: d.x.map((x, i) => `<b>C: random-mixture envelope</b><br>quality ${pct(d.y[i])}<br>${money(x)} per 1,000 requests`), hoverinfo: "text", name: "C" });
   }
-  for (const r of ROUTERS) {
-    if (!state.routers[r.key]) continue;
-    const part = v.routers[r.key], color = css(r.token), label = DATA.labels[r.key];
-    const d = densify(part.steps);
-    T.push({ x: d.x, y: d.y, mode: "lines", line: { color, width: 2, dash: r.dash }, hoverinfo: "skip", name: r.short });
-    T.push({ x: part.steps.map((s) => s[0]), y: part.steps.map((s) => s[1]), mode: "markers",
-      marker: { symbol: r.step, size: state.layers.steps ? 7 : 12, color, opacity: state.layers.steps ? 1 : 0, line: { width: r.step === "x" ? 0 : 1, color: css("--surface") } },
-      hovertext: part.steps.map((s) => `<b>${label}</b><br>${s[2] === null ? "always A (the walk's start)" : "step at threshold " + s[2].toFixed(4)}<br>quality ${pct(s[1])}<br>${money(s[0])} per 1,000 requests`),
-      hoverinfo: "text", name: r.short });
+  for (const r of SERIES) {
+    const part = partOf(v, r);
+    if (!state.series[r.key] || !part) continue;
+    const color = r.color(), label = r.label, short = r.label;
+    const stepText = (s) => (s[2] == null && s[3] == null ? "always A (the walk's start)" : "step at " + dialText(s[2], s[3]));
+    if (part.point && v.kind === "mix") {
+      // The free checks alone: one point with its intervals, not a curve (item 23).
+      T.push({ x: [part.point.c[0]], y: [part.point.q[0]], mode: "markers",
+        marker: { symbol: r.step + "-open", size: 16, color, line: { width: 2.5, color } },
+        error_x: errorBars([{ c: part.point.c }], "x", state.layers.intervals, color), error_y: errorBars([{ q: part.point.q }], "y", state.layers.intervals, color),
+        hovertext: [`<b>${label}</b> (one point)<br>quality ${pct(part.point.q[0])} (${pct(part.point.q[1])} to ${pct(part.point.q[2])})<br>${money(part.point.c[0])} per 1,000 (${money(part.point.c[1])} to ${money(part.point.c[2])})`],
+        hoverinfo: "text", cliponaxis: false, name: short });
+    } else {
+      const d = densify(part.steps);
+      T.push({ x: d.x, y: d.y, mode: "lines", line: { color, width: 2, dash: r.dash }, hoverinfo: "skip", name: short });
+      T.push({ x: part.steps.map((s) => s[0]), y: part.steps.map((s) => s[1]), mode: "markers",
+        marker: { symbol: r.step, size: state.layers.steps ? 7 : 12, color, opacity: state.layers.steps ? 1 : 0, line: { width: r.step === "x" ? 0 : 1, color: css("--surface") } },
+        hovertext: part.steps.map((s) => `<b>${label}</b><br>${stepText(s)}<br>quality ${pct(s[1])}<br>${money(s[0])} per 1,000 requests`),
+        hoverinfo: "text", name: short });
+    }
     if (v.kind !== "mix") continue;
     const ops = part.ops.filter((o) => !o.fell_back);
     if (!ops.length) continue;
     T.push({
       x: ops.map((o) => o.c[0]), y: ops.map((o) => o.q[0]), mode: state.layers.labels ? "markers+text" : "markers",
       marker: { symbol: r.point, size: 15, color, line: { width: 2, color: css("--surface") } },
-      text: ops.map((o) => `${r.short} ${o.target}`), textposition: "top right", textfont: { family: css("--font-ui"), size: 11, color: ink2 },
+      text: ops.map((o) => `${short} ${o.target}`), textposition: "top right", textfont: { family: css("--font-ui"), size: 11, color: ink2 },
       error_x: errorBars(ops, "x", state.layers.intervals, color), error_y: errorBars(ops, "y", state.layers.intervals, color),
       hovertext: ops.map((o) => {
         const m = o.matched ? `<br>vs envelope at matched cost: ${pts(o.matched[0])} pts (${pts(o.matched[1])} to ${pts(o.matched[2])})${excludesZero(o.matched) ? " · excludes 0" : ""}` : "";
-        return `<b>${label} · ${o.target} target</b><br>threshold ${o.threshold.toFixed(4)}${o.certified ? ` · ${o.certified} of ${o.tried} steps tried certified` : ""}` +
+        return `<b>${label} · ${o.target} target</b><br>${dialText(o.threshold, o.cutoff)}${o.certified ? ` · ${o.certified} of ${o.tried} steps tried certified` : ""}` +
           `<br>quality ${pct(o.q[0])} (${pct(o.q[1])} to ${pct(o.q[2])})<br>${money(o.c[0])} per 1,000 (${money(o.c[1])} to ${money(o.c[2])})` +
           `<br>saves ${pct(o.save_share)} against A (${money(o.save_per_1k)} per 1,000)${m}`;
       }),
-      hoverinfo: "text", cliponaxis: false, name: r.short + " points",
+      hoverinfo: "text", cliponaxis: false, name: short + " points",
     });
   }
   if (state.refs.configs) {
@@ -368,7 +406,7 @@ function yRangeFor(v, xmin, xmax) {
   const take = (c, q) => { if (c >= xmin && c <= xmax) ys.push(q); };
   if (state.refs.envelope) { const d = densify(v.envelope); d.x.forEach((x, i) => take(x, d.y[i])); }
   if (state.refs.configs) v.configs.forEach((c) => take(c.c[0], c.q[0]));
-  for (const r of ROUTERS) if (state.routers[r.key]) v.routers[r.key].steps.forEach((s) => take(s[0], s[1]));
+  for (const r of SERIES) { const part = partOf(v, r); if (state.series[r.key] && part) part.steps.forEach((s) => take(s[0], s[1])); }
   if (state.refs.oracle) v.oracle.forEach((p) => take(p[0], p[1]));
   if (!ys.length) return null;
   const lo = Math.min(...ys), hi = Math.max(...ys), pad = Math.max(0.006, (hi - lo) * 0.12);
@@ -410,13 +448,13 @@ function caption(v) {
   if (v.note) parts.push(`<span class="note">${v.note}</span>`);
   if (v.kind === "mix") {
     const fb = [];
-    for (const r of ROUTERS) for (const o of v.routers[r.key].ops) if (o.fell_back) fb.push(`${r.short} at ${o.target}`);
-    parts.push("Large markers are operating points, chosen on dev by each router's walk at the 100%, 99% and 97% targets." +
+    for (const r of SERIES) { const part = partOf(v, r); if (state.series[r.key] && part) for (const o of part.ops) if (o.fell_back) fb.push(`${r.label} at ${o.target}`); }
+    parts.push("Large markers are operating points, chosen on dev by each policy's walk at the 100%, 99% and 97% targets; the free checks alone are one point." +
       (fb.length ? ` Falling back to A (drawn at A: opus): ${fb.join(", ")}.` : ""));
   } else {
-    parts.push(`${v.items} dev items. Each task has its own envelope and oracle. There are no quality targets per task, so the routers' steps are drawn with no operating points (Amendment A7).`);
+    parts.push(`${v.items} dev items. Each task has its own envelope and oracle. There are no quality targets per task, so the routers' and the pure cascades' steps are drawn with no operating points (Amendment A7). The router-started cascades are on the two mix views only.`);
   }
-  parts.push("G's and G+'s costs include Jev's overhead per request, and E's and F's have none. Differences between routers are judged by the paired intervals in table v3, not by whether intervals overlap.");
+  parts.push("G's and G+'s costs include Jev's overhead per request, and E's and F's have none; a cascade's costs include every gate call it makes. Differences between policies are judged by the paired intervals in tables v3 and v4, not by whether intervals overlap.");
   cap.innerHTML = parts.map((p) => `<span>${p}</span>`).join("");
 }
 
@@ -428,22 +466,25 @@ function table(v) {
       <div class="scroll"><table><thead><tr><th>Config</th><th></th><th>Quality (95% interval)</th><th>$ per 1,000 (95% interval)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     return;
   }
-  let rows = "";
-  for (const r of ROUTERS) {
-    v.routers[r.key].ops.forEach((o, i) => {
-      const dim = state.routers[r.key] ? "" : " dim";
-      const name = i === 0 ? `<span class="swatch">${glyph(r.step, r.dash, css(r.token), 22)}${DATA.labels[r.key]}</span>` : "";
-      const thr = o.fell_back ? "falls back to A" : o.threshold.toFixed(4);
+  let rows = "", first = true;
+  for (const r of SERIES) {
+    const part = partOf(v, r);
+    if (!state.series[r.key] || !part) continue;
+    part.ops.forEach((o, i) => {
+      const name = i === 0 ? `<span class="swatch">${glyph(r.step, r.dash, r.color(), 22)}${r.label}</span>` : "";
+      const thr = o.fell_back ? "falls back to A" : shortDial(o.threshold, o.cutoff);
       const m = o.matched ? `${pts(o.matched[0])} <span class="ci">(${pts(o.matched[1])} to ${pts(o.matched[2])})</span>${excludesZero(o.matched) ? '<span class="pill">excludes 0</span>' : ""}` : "—";
-      rows += `<tr class="${i === 0 ? "group-start" : ""}${dim}"><td>${name}</td><td>${o.target}</td><td class="num">${thr}</td>` +
+      rows += `<tr class="${i === 0 ? "group-start" : ""}"><td>${name}</td><td>${o.target}</td><td class="num">${thr}</td>` +
         `<td class="num">${pct(o.q[0])} <span class="ci">(${pct(o.q[1])} to ${pct(o.q[2])})</span></td>` +
         `<td class="num">${money(o.c[0])} <span class="ci">(${money(o.c[1])} to ${money(o.c[2])})</span></td>` +
         `<td class="num">${pct(o.save_share)}</td><td class="num">${m}</td></tr>`;
     });
+    first = false;
   }
+  if (first) { box.innerHTML = `<h2>Operating points, ${v.title.toLowerCase()}</h2><p>No router or cascade is switched on.</p>`; return; }
   box.innerHTML = `<h2>Operating points, ${v.title.toLowerCase()}</h2>
-    <p>Each router's certified threshold at each target. The last column is the paired difference from the envelope at the router's own cost, in points; descriptive, with no multiplicity correction (A15 item 14). Hidden routers are dimmed.</p>
-    <div class="scroll"><table><thead><tr><th>Router</th><th>Target</th><th>Threshold</th><th>Quality (95% interval)</th><th>$ per 1,000 (95% interval)</th><th>Saves vs A</th><th>vs envelope, pts (95% interval)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <p>Each switched-on policy's certified step at each target: a router's threshold, a pure cascade's gate cutoff, or a router-started cascade's threshold and fixed gate cutoff. The last column is the paired difference from the envelope at the policy's own cost, in points; descriptive, with no multiplicity correction (A15 item 14, A17 item 22).</p>
+    <div class="scroll"><table><thead><tr><th>Policy</th><th>Target</th><th>Threshold / cutoff</th><th>Quality (95% interval)</th><th>$ per 1,000 (95% interval)</th><th>Saves vs A</th><th>vs envelope, pts (95% interval)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 function render() {

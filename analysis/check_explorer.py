@@ -1,16 +1,20 @@
-"""Check the interactive Pareto explorer against chart v3's JSONs (PLAN_v4.md §12; CODING_STANDARDS.md, Numbers in
+"""Check the interactive Pareto explorer against chart v4's JSONs (PLAN_v4.md §12; CODING_STANDARDS.md, Numbers in
 documents).
 
 Run from the project root:  uv run python -m analysis.check_explorer
 
-Reads the committed figure JSONs, the task mixes, the template and figures/pareto_explorer.html, so CI runs it. No
+Reads the committed figure JSONs (the headline's, the per-task figure's and the router-started figure's), the task mixes, the template and figures/pareto_explorer.html, so CI runs it. No
 results matrix, never a test item.
 
 - the committed page is the build from the committed JSONs, byte for byte (known positive: a JSON with one config's
   quality nudged by 1e-6 builds a different page), so a rebuilt chart with a stale page fails;
-- the numbers the page carries are the JSONs', read straight from both files and not through the build: every view,
-  every config's quality and cost as [value, low, high], every router's steps, and at each mix's targets each operating
-  point's threshold, fallback, quality, cost, savings against A and matched-cost difference;
+- the numbers the page carries are the JSONs', read straight from the files and not through the build: every view,
+  every config's quality and cost as [value, low, high], every router's steps, every cascade's steps (the router-started
+  ones from the router-started figure's JSON, on the two mix views), and at each mix's targets each operating point's
+  threshold, cutoff, fallback, quality, cost, savings against A and matched-cost difference; the free checks' one point;
+- each of the fifteen cascades is a series the page can switch on and off, in item 8's order, with the label and the
+  gate's colour and line from `CASCADE_STYLES`; the presets name only series that exist; a task view holds the routers and
+  the pure cascades;
 - the page's own words agree with the JSONs: the split and run in its footer, the kind of interval, the targets its
   caption names, the routers' labels;
 - the template: one data placeholder, Plotly pinned to an exact version on jsDelivr, and its router list is chart
@@ -22,9 +26,11 @@ import json
 import re
 import sys
 
-from analysis.chart_routers import ROUTERS
-from analysis.explorer import EXPLORER, PLACEHOLDER, TEMPLATE, page
+from analysis.chart_routers import CASCADE_STYLES, ROUTERS
+from analysis.explorer import EXPLORER, MARKERS, PLACEHOLDER, TEMPLATE, dash_of, page
 from analysis.pareto import FIGURE_DATA, PANELS, TASK_FIGURE_DATA, TASKS
+from analysis.routed_figure import ROUTED_FIGURE_DATA
+from analysis.router_names import CASCADES, GATE_LABELS
 from analysis.simulator import load_mixes
 
 problems: list[str] = []
@@ -45,6 +51,36 @@ def embedded(html: str) -> dict | None:
 
 def spread(estimate: dict) -> list[float]:
     return [estimate[key] for key in SPREAD]
+
+
+def check_cascades(name: str, view: dict, source: dict, routed: dict | None, mix: bool) -> None:
+    """One view's cascades against the figure JSONs: the pure ones from the panel, the router-started ones (a mix view
+    only) from the router-started panel's lines."""
+    wanted = dict(source["cascades"])
+    if routed is not None:
+        wanted |= {key: line for router in routed["routers"].values() for key, line in router["lines"].items()
+                   if key in CASCADES}  # fmt: skip
+    drawn = view["cascades"]
+    check(set(drawn) == set(wanted) and all(key in CASCADES for key in drawn),
+          f"{name}: {len(drawn)} cascades, {'the pure three and the twelve router-started' if routed else 'the pure three'}")  # fmt: skip
+    for key, part in wanted.items():
+        steps = [[s["cost_per_1k"], s["quality"], s["threshold"], s["cutoff"]] for s in part["steps"]]
+        check(drawn[key]["steps"] == steps, f"{name}: {CASCADES[key]}'s {len(steps)} steps, A first, in walk order")
+        if "point" in part:
+            check(drawn[key]["point"] == {"q": spread(part["point"]["quality"]), "c": spread(part["point"]["cost_per_1k"])},
+                  f"{name}: {CASCADES[key]} is one point with its intervals")  # fmt: skip
+        if not mix:
+            check("ops" not in drawn[key], f"{name}: {CASCADES[key]} has no operating points")
+            continue
+        ops = {op["target"]: op for op in drawn[key]["ops"]}
+        for target, point in part["operating_points"].items():
+            op, matched = ops.get(target, {}), point.get("matched_cost") or {}
+            check(op.get("threshold") == point["threshold"] and op.get("cutoff") == point["cutoff"]
+                  and op.get("fell_back") == point["fell_back"] and op.get("q") == spread(point["quality"])
+                  and op.get("c") == spread(point["cost_per_1k"])
+                  and op.get("save_share") == (point.get("savings_vs_A") or {}).get("share")
+                  and op.get("matched") == ([matched[k] for k in ("difference", "low", "high")] if matched else None),
+                  f"{name}: {CASCADES[key]} at {target}: threshold, cutoff, fallback, quality, cost, savings, matched cost")  # fmt: skip
 
 
 def check_view(name: str, view: dict, source: dict, mix: bool) -> None:
@@ -73,16 +109,17 @@ def check_view(name: str, view: dict, source: dict, mix: bool) -> None:
 
 
 def main() -> int:
-    head, tasks = (json.loads(path.read_text(encoding="utf-8")) for path in (FIGURE_DATA, TASK_FIGURE_DATA))
+    head, tasks, routed = (json.loads(path.read_text(encoding="utf-8"))
+                           for path in (FIGURE_DATA, TASK_FIGURE_DATA, ROUTED_FIGURE_DATA))  # fmt: skip
     mixes = load_mixes()
     committed = EXPLORER.read_text(encoding="utf-8") if EXPLORER.exists() else ""
 
     print("-- the committed page is the build from the committed JSONs --")
-    check(page(head, tasks, mixes) == committed,
+    check(page(head, tasks, routed, mixes) == committed,
           "figures/pareto_explorer.html is the build, byte for byte (rerun analysis.explorer after analysis.pareto)")  # fmt: skip
     nudged = copy.deepcopy(head)
     nudged["panels"]["realistic"]["configs"]["haiku"]["quality"]["value"] += 1e-6
-    check(page(nudged, tasks, mixes) != committed, "known positive: a JSON with one quality nudged by 1e-6 builds "
+    check(page(nudged, tasks, routed, mixes) != committed, "known positive: a JSON with one quality nudged by 1e-6 builds "
           "a different page")  # fmt: skip
 
     print("\n-- the page's numbers are the JSONs' --")
@@ -95,8 +132,10 @@ def main() -> int:
           f"order: {', '.join(data['views'])}")  # fmt: skip
     for name in PANELS:
         check_view(name, data["views"][name], head["panels"][name], mix=True)
+        check_cascades(name, data["views"][name], head["panels"][name], routed["panels"][name], mix=True)
     for name in TASKS:
         check_view(name, data["views"][name], tasks["panels"][name], mix=False)
+        check_cascades(name, data["views"][name], tasks["panels"][name], None, mix=False)
         check(data["views"][name]["items"] == tasks["panels"][name]["items"], f"{name}: its dev item count")
     check(data["meta"] == {"n": head["n"], "prices": head["price_snapshot"], "resamples": head["bootstrap"]["resamples"]},
           f"the run's facts: {head['n']} dev requests, prices of {head['price_snapshot']}, "
@@ -117,6 +156,16 @@ def main() -> int:
           "hold them")  # fmt: skip
     check(data["labels"] == {router.name: router.label for router in ROUTERS},
           "the routers' labels are chart v3's (analysis/chart_routers.py)")  # fmt: skip
+    series = data["cascades"]
+    check([c["key"] for c in series] == list(CASCADES) and [c["label"] for c in series] == list(CASCADES.values()),
+          "the page lists the fifteen cascades, in item 8's order, under their labels (analysis/router_names.py)")  # fmt: skip
+    check(all(c["color"] == CASCADE_STYLES[next(g for g in GATE_LABELS if GATE_LABELS[g] == c["gate"])].color
+              and c["dash"] == dash_of(CASCADE_STYLES[next(g for g in GATE_LABELS if GATE_LABELS[g] == c["gate"])].linestyle)
+              and c["step"] in MARKERS.values() and c["point"] in MARKERS.values() for c in series),
+          "each cascade has its gate's colour and line, and markers Plotly knows")  # fmt: skip
+    keys = {router.name for router in ROUTERS} | set(CASCADES)
+    check(all(set(p["on"]) <= keys for p in data["presets"]) and data["presets"][-1] == {"label": "All off", "on": []},
+          f"the {len(data['presets'])} presets name series that exist, and the last switches everything off")  # fmt: skip
 
     print("\n-- the template --")
     check(template.count(PLACEHOLDER) == 1, f"the template has one data placeholder, {PLACEHOLDER}")

@@ -143,7 +143,9 @@ def main() -> int:
         panels = headline["panels"]
         fig = draw_headline(panels, NOTES, "caption", folder / "a.png", (RULES,))
         legend = [t.get_text() for t in fig.legends[0].get_texts()]
-        check(e_steps in legend and e_points in legend, "the headline legend has E's steps and operating points")
+        check(e_points in legend and e_steps not in legend,
+              "the headline legend has E's operating points and, since chart v4, no step line: those are in the "
+              "router-started figure")  # fmt: skip
         check(f_steps not in legend and f_points not in legend, "and nothing of F's")
         check(RULES.style.color in colours(fig) and F_STYLE.color not in colours(fig),
               "the headline figure draws E's colour and not F's")  # fmt: skip
@@ -162,10 +164,17 @@ def main() -> int:
         }  # fmt: skip
         fig = draw_headline(with_twin, NOTES, "caption", folder / "c.png", two)
         legend = [t.get_text() for t in fig.legends[0].get_texts()]
-        check(all(legend.count(label) == 1 for label in (e_steps, e_points, f_steps, f_points)),
-              "the legend has each router's steps and operating points once")  # fmt: skip
-        check(max(legend.index(e_steps), legend.index(e_points)) < min(legend.index(f_steps), legend.index(f_points)),
-              "E's entries come before F's")  # fmt: skip
+        check(legend.count(e_points) == 1 and legend.count(f_points) == 1 and e_steps not in legend
+              and f_steps not in legend,
+              "the headline legend has each router's operating points once, and no step line")  # fmt: skip
+        check(legend.index(e_points) < legend.index(f_points), "E's entry comes before F's")
+        fig_tasks = draw_tasks({
+            task: {**panel, "routers": {**panel["routers"], "twin": panel["routers"]["rules"]}}
+            for task, panel in per_task["panels"].items()
+        }, "caption", folder / "d0.png", two)  # fmt: skip
+        legend = [t.get_text() for t in fig_tasks.legends[0].get_texts()]
+        check(all(legend.count(label) == 1 for label in (e_steps, f_steps)) and legend.index(e_steps) < legend.index(f_steps),
+              "the per-task legend has each router's steps once, E's before F's")  # fmt: skip
         check({RULES.style.color, F_STYLE.color} <= colours(fig), "the headline figure draws both colours")
         tasks_with_twin = {
             task: {**panel, "routers": {**panel["routers"], "twin": panel["routers"]["rules"]}}
