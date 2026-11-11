@@ -54,7 +54,7 @@ from analysis.operating_points import (
 from analysis.pareto import FIGURE_DATA, PANELS, TASK_FIGURE_DATA
 from analysis.plan import PLAN, amendment_item
 from analysis.references import ROUNDING
-from analysis.router_names import F_TRAIN, G_PLUS, LABELS, NAMED_ROUTERS, TASK_RATES, E, F, G
+from analysis.router_names import CASCADES, F_TRAIN, G_PLUS, LABELS, NAMED_ROUTERS, TASK_RATES, E, F, G
 from analysis.rules_walk import MIXES
 from analysis.table_v2 import DESCRIPTIVE, DIAGNOSTIC_LABEL, TABLE_V2
 from harness.client import PROJECT_ROOT
@@ -264,8 +264,8 @@ def v1_kept(headline: dict, per_task: dict) -> None:
     check(F_TRAIN not in text and TASK_RATES not in text and "diagnostic, dev only" not in text,
           "neither figure JSON holds a diagnostic: F-train and the task-rates diagnostic are not policies")  # fmt: skip
     check(not any("band" in key for key in headline), "no band")
-    check(set(json.loads(OPERATING_POINTS_FILE.read_text())) == {E_SECTION, F_SECTION, *JEV_SECTIONS},
-          "the operating-points file holds E's section and F's and, since Stage 6, G's and G+'s, and no other")  # fmt: skip
+    check(set(json.loads(OPERATING_POINTS_FILE.read_text())) - set(CASCADES) == {E_SECTION, F_SECTION, *JEV_SECTIONS},
+          "the operating-points file holds E's section and F's and, since Stage 6, G's and G+'s, and (since Stage 7) the cascades' and no other")  # fmt: skip
     check_sections(required=(E_SECTION, F_SECTION, *JEV_SECTIONS))
     check(refused(lambda: check_sections(required=(F_TRAIN,))), f"known positive: the allowlist refuses {F_TRAIN}")
 
@@ -374,8 +374,8 @@ def table_v2_file(headline: dict, table: dict, curve: dict) -> None:
         check(set(rows) == set(MIXES) and all(set(by) == set(TARGETS) for by in rows.values()),
               f"{name}'s operating points: both mixes and all three targets, none in the operating-points file")  # fmt: skip
     check(
-        set(json.loads(OPERATING_POINTS_FILE.read_text())) == {E_SECTION, F_SECTION, *JEV_SECTIONS},
-        "and the file still holds the routers an amendment names only (E, F, G and G+), no diagnostic",
+        set(json.loads(OPERATING_POINTS_FILE.read_text())) - set(CASCADES) == {E_SECTION, F_SECTION, *JEV_SECTIONS},
+        "and the file still holds the routers an amendment names only (E, F, G and G+, and the cascades), no diagnostic",
     )
     concordance = table["diagnostics"]["within_task_concordance"]
     check(all(concordance[TASK_RATES][c]["pooled"][k] == 0.5 for c in SCORED for k in ("value", "low", "high")),

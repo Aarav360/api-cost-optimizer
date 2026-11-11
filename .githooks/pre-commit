@@ -98,6 +98,11 @@ uv run python -m analysis.check_gates_settings_commit | grep -E "^FAIL|checks"
 # train's records, their hashes, model IDs and body hashes, the rebuilt tables, cutoffs and noise lists, and item 28's text
 # against the records. No Jev or Anthropic call. CI runs the parts that need no results/ or history.
 uv run python -m analysis.check_gates_freeze | grep -E "^FAIL|checks"
+# Stage 7's dev run and the fifteen sections (A17 items 8 to 11, 20.5, 20.6): the fifteen walks, their sections and the committed file
+# on synthetic tables, the walk rules with known positives; where results/gates holds dev's records, the table rebuilt from them, the
+# order against the freeze commit, the run's record, and the walks rebuilt from the records against the committed sections. No Jev or
+# Anthropic call. CI runs the synthetic part.
+uv run python -m analysis.check_gates_dev | grep -E "^FAIL|checks"
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
 uv run python -m analysis.check_gates_sandbox | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
