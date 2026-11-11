@@ -117,6 +117,10 @@ uv run python -m analysis.check_chart_v4 | grep -E "^FAIL|checks"
 # A17's record of the cascades (item 29) and the README's numbers about Stage 7, against table v4, the operating-points file,
 # the dev run's record and the git order, through the plan's amendment-item reader. No results/ needed.
 uv run python -m analysis.check_stage7 | grep -E "^FAIL|checks"
+# Amendment A18's records (the Stage 7 review): the hashed-file lists, the findings recorded in hashed files, the
+# prefactor's merge and the two commits it names (where the history is present), and its numbers against their sources.
+# No results/ needed; CI runs it too.
+uv run python -m analysis.check_gates_review | grep -E "^FAIL|checks"
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
 uv run python -m analysis.check_gates_sandbox | grep -E "^FAIL|checks"
 # The grader's sandbox since its move to routers/sandbox.py (A17 items 19 and 27): the escape checks and every MBPP+
