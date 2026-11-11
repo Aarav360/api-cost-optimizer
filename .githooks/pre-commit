@@ -73,6 +73,10 @@ uv run python -m analysis.check_gates | grep -E "^FAIL|checks"
 # Stage 7's gate metrics, calibration bins and latency estimate (A17 items 16 and 21) on hand-worked synthetic tables with
 # made-up paid scores. No results/, no Docker, no Jev or Anthropic call. CI runs it too.
 uv run python -m analysis.check_gate_metrics | grep -E "^FAIL|checks"
+# The Jev gate (A17 items 5, 7, 13 and 14; A15 items 8 and 9; A16 items 7 and 8) end to end against the fake Jev server and a
+# temporary results folder: call body, byte budget and cut, gate score, refusals, retries, run stops, collection, the table's
+# Jev column and haiku/Jev's walk. No results/, no Docker, no Jev call, no key. CI runs it too.
+uv run python -m analysis.check_jev_gate | grep -E "^FAIL|checks"
 # Stage 7's router-started cascades and fixed cutoffs (A17 items 11, 12, 15): Youden's J on a made-up train table, the twelve
 # cascades' traces, walks and sections on made-up dev tables. No results/, no Docker, no Jev or Anthropic call. CI runs it too.
 uv run python -m analysis.check_gates_routed | grep -E "^FAIL|checks"
