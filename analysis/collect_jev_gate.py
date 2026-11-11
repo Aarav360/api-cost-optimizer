@@ -46,6 +46,7 @@ from analysis.collect_gates import (
     read_smoke_inputs,
 )
 from analysis.collect_jev import RESULTS_DIR, append_record, now_local, trim_torn_line
+from analysis.gate_spend import STAGE_CAP_USD, jev_projected_cost, over_cap, recorded_spend
 from analysis.gate_table import PaidScore
 from analysis.router_names import JEV_GATE
 from routers import jev, jev_gate
@@ -87,13 +88,16 @@ def collect(
     results_dir: Path = RESULTS_DIR,
     budget_bytes: int | None = None,
     pass_number: int = 1,
+    stage_cap_usd: float = STAGE_CAP_USD,
     now: Callable[[], str] = now_local,
     progress: Callable[[int, int], None] | None = None,
 ) -> Summary:
     """Call the Jev gate on every input whose free checks passed and that is not yet stored for this pass, storing each
     record as it comes. Everything that can be refused (GateCollectError, GateCallError) is refused before the first call.
 
-    `budget_bytes` replaces the settings' (null there until the smoke test). A `RunStop` from the client ends the run
+    `budget_bytes` replaces the settings' (null there until the smoke test). Before the first call the run is refused
+    (GateCollectError) if the spend recorded in `results/gates/` (both gates, every split) plus these calls' projected
+    cost is over `stage_cap_usd`, Stage 7's $25 (A17 item 18; `analysis.gate_spend`). A `RunStop` from the client ends the run
     and names the answer; the records stored before it stay valid."""
     if split not in SPLITS or pass_number not in PASSES:
         raise GateCollectError(f"unknown split {split!r} or pass {pass_number!r}")
@@ -116,12 +120,19 @@ def collect(
         raise GateCollectError(
             f"{len(missing)} answers have no pass 1 stored, e.g. {missing[0].item_id} {missing[0].config}"
         )
+    calls = {(i.item_id, i.config): jev_gate.gate_call(i.request, i.answer, settings, budget_bytes=budget)
+             for i in callable_inputs if (i.item_id, i.config, pass_number) not in done}  # fmt: skip
+    if calls and (stage := over_cap(recorded_spend(results_dir).total,
+                                    jev_projected_cost([len(c.body) for c in calls.values()],
+                                                       client.settings.price_per_million_input_tokens),
+                                    stage_cap_usd)):  # fmt: skip
+        raise GateCollectError(stage)
     new = skipped = refused = cut = 0
     for number, item in enumerate(callable_inputs, start=1):
         if (item.item_id, item.config, pass_number) in done:
             skipped += 1
             continue
-        call = jev_gate.gate_call(item.request, item.answer, settings, budget_bytes=budget)
+        call = calls[(item.item_id, item.config)]
         label = f"Jev gate {split} {item.item_id} {item.config} (pass {pass_number})"
         result = client.call(call.body, call.sha256, label)
         key = {"item_id": item.item_id, "config": item.config, "run": 0, "split": split, "gate": JEV_GATE,
