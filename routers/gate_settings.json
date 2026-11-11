@@ -1,0 +1,105 @@
+{
+  "code_check": {
+    "timeout_s": 20,
+    "memory": "512m",
+    "attempts": 3,
+    "wait_s": 5,
+    "image": "api-cost-optimizer-sandbox:py3.13.13-numpy2.5.4",
+    "image_digest": null,
+    "dockerfile_sha256": null
+  },
+  "jev": {},
+  "cascades": [
+    {
+      "key": "cascade_haiku_free",
+      "label": "haiku/free",
+      "start": "haiku",
+      "gate": "free"
+    },
+    {
+      "key": "cascade_haiku_jev",
+      "label": "haiku/Jev",
+      "start": "haiku",
+      "gate": "jev"
+    },
+    {
+      "key": "cascade_haiku_sonnet",
+      "label": "haiku/Sonnet",
+      "start": "haiku",
+      "gate": "sonnet"
+    },
+    {
+      "key": "cascade_rules_free",
+      "label": "E/free",
+      "start": "rules",
+      "gate": "free"
+    },
+    {
+      "key": "cascade_rules_jev",
+      "label": "E/Jev",
+      "start": "rules",
+      "gate": "jev"
+    },
+    {
+      "key": "cascade_rules_sonnet",
+      "label": "E/Sonnet",
+      "start": "rules",
+      "gate": "sonnet"
+    },
+    {
+      "key": "cascade_trained_free",
+      "label": "F/free",
+      "start": "trained",
+      "gate": "free"
+    },
+    {
+      "key": "cascade_trained_jev",
+      "label": "F/Jev",
+      "start": "trained",
+      "gate": "jev"
+    },
+    {
+      "key": "cascade_trained_sonnet",
+      "label": "F/Sonnet",
+      "start": "trained",
+      "gate": "sonnet"
+    },
+    {
+      "key": "cascade_jev_free",
+      "label": "G/free",
+      "start": "jev",
+      "gate": "free"
+    },
+    {
+      "key": "cascade_jev_jev",
+      "label": "G/Jev",
+      "start": "jev",
+      "gate": "jev"
+    },
+    {
+      "key": "cascade_jev_sonnet",
+      "label": "G/Sonnet",
+      "start": "jev",
+      "gate": "sonnet"
+    },
+    {
+      "key": "cascade_jev_bolstered_free",
+      "label": "G+/free",
+      "start": "jev_bolstered",
+      "gate": "free"
+    },
+    {
+      "key": "cascade_jev_bolstered_jev",
+      "label": "G+/Jev",
+      "start": "jev_bolstered",
+      "gate": "jev"
+    },
+    {
+      "key": "cascade_jev_bolstered_sonnet",
+      "label": "G+/Sonnet",
+      "start": "jev_bolstered",
+      "gate": "sonnet"
+    }
+  ],
+  "sonnet": {}
+}

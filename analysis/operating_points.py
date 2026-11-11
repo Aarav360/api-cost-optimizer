@@ -51,17 +51,34 @@ def target_key(share: float) -> str:
     return f"{share:.0%}"
 
 
-def _step(step: Step) -> dict[str, Any]:
-    return {"threshold": step.threshold, "quality": step.quality, "cost_per_1k": step.cost_per_1k,
+# A cascade's section (Amendment A17, item 10 and #59): the same fields as a router's, with the dials it has. A pure
+# cascade carries its walked `cutoff` in place of a `threshold`; a router-started cascade carries its router's
+# `threshold` and the gate's fixed `cutoff`; the free-checks-only pure cascade has a single step and so neither. A
+# router-started cascade with no paid gate has a threshold and no cutoff.
+CASCADE_SELECTION_METHOD = (
+    "Fixed-sequence walk from always-frontier (A) down a cascade's steps, the strictest first, by the same rule as "
+    "the routers' (Amendment A9, item 9 and A17, items 10 and 11): a step clears if its dev quality less the quality "
+    "target is at least one paired standard error of its quality difference from A under the mix, from "
+    f"{RESAMPLES} paired bootstrap resamples with seed {SEED}; the walk stops at the first step that does not clear, "
+    "and every step before it is certified. Operating point: the cheapest certified step by cost per 1k under the "
+    "mix, ties to the earlier step, or A itself (falls back to A) where no certified step costs less. A pure cascade "
+    f"walks its gate's cutoffs: the gate scores of haiku's dev answers that pass the free checks, every distinct one "
+    f"if there are {ALL_STEPS_UP_TO} or fewer, otherwise the 0%, 5%, ..., 95% quantiles ({QUANTILE_STEPS} of them) "
+    "by the lower empirical quantile, with duplicates removed; an answer is accepted when its gate score is at least "
+    "the cutoff. The free-checks-only pure cascade has a single step. A router-started cascade walks its router's "
+    "own steps (A9, item 9) with its gate's cutoff fixed on train (A17, item 12)."
+)
+
+
+def _step(step: Step, dials: tuple[str, ...] = ("threshold",)) -> dict[str, Any]:
+    values = {"threshold": step.threshold, "cutoff": step.cutoff}
+    return {**{dial: values[dial] for dial in dials}, "quality": step.quality, "cost_per_1k": step.cost_per_1k,
             "margin": step.margin, "clears": step.clears}  # fmt: skip
 
 
-def build_section(walks: Mapping[str, Mapping[float, Walk]]) -> dict[str, Any]:
-    """One router's section from its walks, keyed by task mix name and then quality target share.
-
-    Refuses (OperatingPointsError) a section with no mix, or a mix that lacks one of §11's targets: a router has
-    one operating point per mix and target (Amendment A9, item 10).
-    """
+def _section(
+    walks: Mapping[str, Mapping[float, Walk]], dials: tuple[str, ...], selection_method: str
+) -> dict[str, Any]:
     if not walks:
         raise OperatingPointsError("a router's section needs at least one task mix")
     section: dict[str, Any] = {}
@@ -71,15 +88,36 @@ def build_section(walks: Mapping[str, Mapping[float, Walk]]) -> dict[str, Any]:
         section[mix] = {}
         for share, result in by_share.items():
             operating = result.operating
+            values = {"threshold": operating.threshold, "cutoff": operating.cutoff}
             section[mix][target_key(share)] = {
-                "threshold": operating.threshold,
+                **{dial: values[dial] for dial in dials},
                 "margin": operating.margin,
                 "target": result.target,
-                "selection_method": SELECTION_METHOD,
-                "steps": [_step(step) for step in result.steps],
+                "selection_method": selection_method,
+                "steps": [_step(step, dials) for step in result.steps],
                 "fell_back": result.fell_back,
             }
     return section
+
+
+def build_section(walks: Mapping[str, Mapping[float, Walk]]) -> dict[str, Any]:
+    """One router's section from its walks, keyed by task mix name and then quality target share.
+
+    Refuses (OperatingPointsError) a section with no mix, or a mix that lacks one of §11's targets: a router has
+    one operating point per mix and target (Amendment A9, item 10).
+    """
+    return _section(walks, ("threshold",), SELECTION_METHOD)
+
+
+def build_cascade_section(
+    walks: Mapping[str, Mapping[float, Walk]], *, threshold: bool, cutoff: bool
+) -> dict[str, Any]:
+    """One cascade's section from its walks, as `build_section` builds a router's, with the dials the cascade has:
+    `threshold` for a router-started cascade, `cutoff` for one with a paid gate (the walked cutoff of a pure cascade,
+    the fixed cutoff of a router-started one). A pure cascade with a paid gate is `threshold=False, cutoff=True`; the
+    free-checks-only pure cascade is `threshold=False, cutoff=False`. Refuses what `build_section` refuses."""
+    dials = tuple(dial for dial, has in (("threshold", threshold), ("cutoff", cutoff)) if has)
+    return _section(walks, dials, CASCADE_SELECTION_METHOD)
 
 
 def _text(data: Any) -> str:
