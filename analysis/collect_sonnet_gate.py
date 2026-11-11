@@ -20,7 +20,9 @@ The batch safeguards (A6 item 6, A1 item 5), each with its check:
   expired. Any other kind of result that is not a success (canceled, which nothing here does) stops the run.
 - Results are matched to jobs by request ID, never by order; a result for an ID the batch never held stops the run.
 - Submission is refused, before anything is sent, if the projected cost (requests to send times a cost per check given
-  on the command line, measured by the smoke test) is over the cap.
+  on the command line, measured by the smoke test) is over the cap. A second, cumulative cap is Stage 7's $25 (A17 item
+  18): the spend already recorded in `results/gates/` (every split, both gates, the latency calls) plus the projection
+  must stay within it (`analysis.gate_spend`). Batch requests are projected at batch prices, latency calls at list.
 
 Storage is JSON Lines, uncommitted: `sonnet_gate_{split}.jsonl` holds one record per verdict, with the keys every gate
 record has (`GATE_KEYS`) and `SONNET_FIELDS`: the request ID, the batch ID, the request's sha256, the whole batch
@@ -52,6 +54,7 @@ from analysis.collect_gates import (
     read_smoke_inputs,
 )
 from analysis.collect_jev import RESULTS_DIR, append_record, now_local, trim_torn_line
+from analysis.gate_spend import STAGE_CAP_USD, over_cap, recorded_spend
 from analysis.gate_table import PaidScore
 from analysis.router_names import SONNET_GATE
 from routers import sonnet_gate
@@ -223,12 +226,13 @@ def submit(
     results_dir: Path = RESULTS_DIR,
     max_requests: int = MAX_BATCH_REQUESTS,
     max_bytes: int = MAX_BATCH_BYTES,
+    stage_cap_usd: float = STAGE_CAP_USD,
     now: Callable[[], str] = now_local,
 ) -> Submitted:
     """Send the jobs with no stored verdict and no unfinished batch, in as few batches as the API's limits allow.
 
-    Refuses (CapExceeded) before sending anything if `cost_per_check` times the requests to send is over `max_usd`.
-    Each batch's ID is written to the batch log as soon as `create` returns."""
+    Refuses (CapExceeded) before sending anything if `cost_per_check` times the requests to send is over `max_usd`, or
+    if it and the spend recorded in `results/gates/` are over `stage_cap_usd` (Stage 7's $25, A17 item 18). Each batch's ID is written to the batch log as soon as `create` returns."""
     if not (cost_per_check >= 0 and max_usd >= 0):
         raise SonnetCollectError("the cost per check and the cap must be given, and can't be negative")
     trim_torn_line(gate_path("sonnet_gate", split, results_dir))
@@ -237,6 +241,8 @@ def submit(
     if projected > max_usd:
         raise CapExceeded(f"{len(pending)} requests at ${cost_per_check:.4f} is a projected ${projected:.2f}, over the "
                           f"cap of ${max_usd:.2f}; nothing was sent")  # fmt: skip
+    if pending and (stage := over_cap(recorded_spend(results_dir).total, projected, stage_cap_usd)):
+        raise CapExceeded(stage)
     path = batch_log_path(results_dir)
     created: list[str] = []
     for chunk in _chunks(pending, max_requests, max_bytes):
@@ -332,11 +338,13 @@ def run_latency(
     max_usd: float,
     results_dir: Path = RESULTS_DIR,
     clock: Callable[[], float] = time.perf_counter,
+    stage_cap_usd: float = STAGE_CAP_USD,
     now: Callable[[], str] = now_local,
 ) -> int:
     """Send each job through the standard API, one call at a time, timing it on `clock` (a monotonic clock), and store
     each call as it is made. The first call of the run is flagged `first_call`; the latency leaves it out. Calls
-    already stored are skipped. Refuses (CapExceeded) over the cap, like a batch. An API error stops the run and is no
+    already stored are skipped. Refuses (CapExceeded) over the cap, like a batch, and over Stage 7's $25 with the recorded
+    spend. An API error stops the run and is no
     verdict. Returns the number of calls made."""
     path = latency_path(split, results_dir)
     trim_torn_line(path)
@@ -344,6 +352,8 @@ def run_latency(
     todo = [j for j in jobs if j.custom_id not in stored]
     if cost_per_check * len(todo) > max_usd:
         raise CapExceeded(f"{len(todo)} calls at ${cost_per_check:.4f} is over the cap of ${max_usd:.2f}; none made")
+    if todo and (stage := over_cap(recorded_spend(results_dir).total, cost_per_check * len(todo), stage_cap_usd)):
+        raise CapExceeded(stage)
     for number, job in enumerate(todo, start=1):
         start = clock()
         outcome = sonnet_gate.check_answer(client, settings, job.request, job.answer)
