@@ -133,6 +133,11 @@ def synthetic_checks() -> None:
     bad["uniform"]["97%"]["steps"][0]["margin"] = 0.5
     check(gate_dev.section_problems(bad, cascade_section(NAMED_ROUTERS["E"], FREE_GATE)) != [],
           "a walk that does not start at A (margin not 0) is found")  # fmt: skip
+    bad = copy.deepcopy(sections[cascade_section(HAIKU, JEV_GATE)])
+    bad["realistic"]["100%"]["steps"][0]["clears"] = False
+    found = gate_dev.section_problems(bad, cascade_section(HAIKU, JEV_GATE))
+    check(any("certifies no step" in problem for problem in found),
+          "a walk whose first step, A, does not clear is found, not a crash")  # fmt: skip
     check(gate_dev.captured_problems([0.0, 0.5, 1.0, None]) == [] and gate_dev.captured_problems([1.2]) != []
           and gate_dev.captured_problems([-0.1]) != [],
           "a captured fraction outside 0 to 1 is found, n/a is allowed")  # fmt: skip

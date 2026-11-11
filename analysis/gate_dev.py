@@ -35,6 +35,7 @@ from analysis.router_names import (
     HAIKU,
     NAMED_ROUTERS,
     cascade_section,
+    parse_cascade,
 )
 from analysis.router_table import RouterScoreTable
 from analysis.simulator import always, load_mixes, simulate
@@ -91,7 +92,8 @@ def cascade_sections(walks: Mapping[str, Walks]) -> dict[str, dict[str, Any]]:
 def dial_of(key: str) -> str:
     """The dial a cascade's steps are ordered by: the router's threshold for a router-started cascade, the gate's
     cutoff for a pure one (its free-checks-only form has none, its two steps being A and the one policy)."""
-    return "cutoff" if key.startswith(f"cascade_{HAIKU}_") else "threshold"
+    start, _ = parse_cascade(key)
+    return "cutoff" if start == HAIKU else "threshold"
 
 
 def section_problems(section: Mapping[str, Any], key: str) -> list[str]:
@@ -117,6 +119,9 @@ def section_problems(section: Mapping[str, Any], key: str) -> list[str]:
                 dials = [step[dial] for step in steps[1:]]
                 if dials != sorted(dials, reverse=True):
                     found.append(f"{where}: the steps do not run from the strictest {dial} down")
+            if not certified:  # A always clears its own target by a margin of 0, so this is a broken section
+                found.append(f"{where}: the walk certifies no step, not even A")
+                continue
             cheapest = certified[0]
             for step in certified[1:]:
                 if step["cost_per_1k"] < cheapest["cost_per_1k"] - ROUNDING:

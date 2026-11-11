@@ -43,6 +43,7 @@ from analysis.gate_table import (
     PaidScore,
     build_table,
     cascade_trace,
+    gate_problem,
     pure_traces,
 )
 from analysis.gate_walk import MIXES, cutoff_steps, pure_candidates, pure_section, pure_walks
@@ -576,6 +577,15 @@ def main() -> int:
         refused(GateTableError, lambda: pure_traces(table, "log-probabilities", 0.5)),
         "a gate no amendment names is refused",
     )
+    check(refused(GateTableError, lambda: cascade_trace(table, "i1", "haiku", "log-probabilities", 0.5))
+          and refused(GateTableError, lambda: cascade_trace(table, "i0", "opus", "log-probabilities", 0.5)),
+          "known positive: so is it where no paid gate is called, on an answer a free check rejected or a start at opus")  # fmt: skip
+    check(gate_problem(FREE_GATE, None) is None and gate_problem(JEV_GATE, 0.7) is None
+          and gate_problem(SONNET_GATE, 0.0) is None,
+          "the one guard passes the free checks with no cutoff and a paid gate with one")  # fmt: skip
+    check(all(gate_problem(gate, cutoff) is not None
+              for gate, cutoff in ((FREE_GATE, 0.5), (JEV_GATE, None), ("oracle", 0.5), ("oracle", None))),
+          "and names what is wrong with a cutoff given to the free checks, none to a paid gate and an unknown gate")  # fmt: skip
 
     dev = synthetic({i: ("t1", {"haiku": (0.001, h), "opus": (0.010, o)}) for i, h, o in
                      (("i0", 1, 1), ("i1", 0, 1), ("i2", 1, 1), ("i3", 1, 0))})  # fmt: skip

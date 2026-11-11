@@ -20,7 +20,7 @@ would have stopped.
 """
 
 import json
-from collections.abc import Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,7 +29,9 @@ from harness.client import load_models
 from routers import jev, sonnet_gate
 
 STAGE_CAP_USD = 25.0
-JEV_OVERHEAD_TOKENS = 512  # above the 291 the smoke test measured: a projection errs high
+# Above the 299 tokens the gates' smoke test measured (`measured.jev_fixed_overhead_tokens` in
+# analysis/gates_smoke_record.json; `check_gate_cap` holds this above it): a projection errs high.
+JEV_OVERHEAD_TOKENS = 512
 TOLERANCE_USD = 1e-9  # float sums of many small prices should not tip a total that is exactly on the cap
 
 
@@ -50,23 +52,43 @@ class Spend:
 
 
 def _billed(record: object, name: str, number: int) -> tuple[int, int]:
-    usage = record.get("usage") if isinstance(record, dict) else None
-    counts = (usage.get("input_tokens"), usage.get("output_tokens")) if isinstance(usage, dict) else (None, None)
+    usage = record.get("usage") if isinstance(record, Mapping) else None
+    counts = (usage.get("input_tokens"), usage.get("output_tokens")) if isinstance(usage, Mapping) else (None, None)
     if not all(type(c) is int and c >= 0 for c in counts):
         raise GateSpendError(f"{name} line {number} has no whole, non-negative billed token counts")
-    return counts  # type: ignore[return-value]
+    return counts  # type: ignore[return-value]  # both are ints, as the line above proved; mypy can't narrow a tuple
 
 
-def _tokens(path: Path) -> list[tuple[int, int]]:
-    """Each complete record's billed (input, output) tokens."""
+def billed_tokens(records: Iterable[object], name: str = "a record") -> tuple[int, int]:
+    """The billed (input, output) tokens of stored records, summed. The one reader of a record's usage: the cap counts
+    with it, and so does the train and dev report (`analysis.gate_train`), so the two can't read a record differently.
+    Refuses (GateSpendError) a record without whole, non-negative counts; `name` says where it is."""
+    total_in = total_out = 0
+    for number, record in enumerate(records, start=1):
+        billed_in, billed_out = _billed(record, name, number)
+        total_in, total_out = total_in + billed_in, total_out + billed_out
+    return total_in, total_out
+
+
+def jev_dollars(input_tokens: int, price_per_million: float) -> float:
+    """Jev calls' cost: their billed input tokens at Jev's price (A15 item 10)."""
+    return input_tokens * price_per_million / 1e6
+
+
+def list_dollars(input_tokens: int, output_tokens: int, input_per_million: float, output_per_million: float) -> float:
+    """Anthropic calls' cost at list price: input and output (thinking included) at their prices per million."""
+    return (input_tokens * input_per_million + output_tokens * output_per_million) / 1e6
+
+
+def _records(path: Path) -> list[object]:
+    """Each complete record of a stored file; a torn last line (no newline) is a write that did not finish."""
     lines = path.read_bytes().decode("utf-8").split("\n")[:-1]
     result = []
     for number, line in enumerate(lines, start=1):
         try:
-            record = json.loads(line)
+            result.append(json.loads(line))
         except ValueError as error:
             raise GateSpendError(f"{path.name} line {number} is not JSON") from error
-        result.append(_billed(record, path.name, number))
     return result
 
 
@@ -89,11 +111,11 @@ def recorded_spend(
     for path in sorted(folder.glob("*.jsonl")) if folder.is_dir() else []:
         if path.name.startswith("jev_gate_"):
             files += 1
-            jev_total += sum(i for i, _ in _tokens(path)) * jev_price_per_million / 1e6
+            jev_total += jev_dollars(billed_tokens(_records(path), path.name)[0], jev_price_per_million)
         elif path.name.startswith("sonnet_gate_"):
             files += 1
-            list_price = sum((i * sonnet.input_per_million + o * sonnet.output_per_million) / 1e6
-                             for i, o in _tokens(path))  # fmt: skip
+            billed_in, billed_out = billed_tokens(_records(path), path.name)
+            list_price = list_dollars(billed_in, billed_out, sonnet.input_per_million, sonnet.output_per_million)
             if path.name.startswith("sonnet_gate_latency"):
                 standard_total += list_price
             else:

@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 
+from analysis import gate_spend
 from routers import jev_gate, sonnet_gate
 
 SONNET_FLOOR = 0.01  # A17 item 17: whole-number scores can repeat exactly, so the Sonnet gate's D6 is at least this
@@ -230,11 +231,6 @@ class TrainSpend:
         return self.jev + self.batch + self.latency
 
 
-def _usage(records: Sequence[Mapping[str, Any]]) -> tuple[int, int]:
-    return (sum(int(r["usage"]["input_tokens"]) for r in records),
-            sum(int(r["usage"]["output_tokens"]) for r in records))  # fmt: skip
-
-
 def train_spend(
     *,
     jev: Sequence[Mapping[str, Any]],
@@ -246,12 +242,14 @@ def train_spend(
     batch_discount: float,
 ) -> TrainSpend:
     """The train calls' tokens and cost from the stored records' usage: Jev (both passes) at its price per million input
-    tokens, the batch verdicts at list price and as billed (less the discount), the latency calls at list price."""
-    jev_in, _ = _usage(jev)
-    batch_in, batch_out = _usage(batch)
-    latency_in, latency_out = _usage(latency)
-    batch_list = (batch_in * input_price + batch_out * output_price) / 1e6
+    tokens, the batch verdicts at list price and as billed (less the discount), the latency calls at list price. The
+    tokens are read and priced by the $25 cap's own code (`analysis.gate_spend`), so the report and the cap agree;
+    refuses (GateSpendError) what the cap refuses."""
+    jev_in, _ = gate_spend.billed_tokens(jev, "a Jev gate record")
+    batch_in, batch_out = gate_spend.billed_tokens(batch, "a Sonnet batch verdict")
+    latency_in, latency_out = gate_spend.billed_tokens(latency, "a Sonnet latency call")
+    batch_list = gate_spend.list_dollars(batch_in, batch_out, input_price, output_price)
     return TrainSpend(
-        jev_in, jev_in * jev_price / 1e6, batch_in, batch_out, batch_list, batch_list * batch_discount,
-        latency_in, latency_out, (latency_in * input_price + latency_out * output_price) / 1e6,
+        jev_in, gate_spend.jev_dollars(jev_in, jev_price), batch_in, batch_out, batch_list, batch_list * batch_discount,
+        latency_in, latency_out, gate_spend.list_dollars(latency_in, latency_out, input_price, output_price),
     )  # fmt: skip

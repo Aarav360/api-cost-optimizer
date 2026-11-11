@@ -24,9 +24,9 @@ import email.utils
 import hashlib
 import json
 import re
-import subprocess
 import sys
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 
 from dotenv import dotenv_values
@@ -37,11 +37,12 @@ from analysis import gate_train_report as report
 from analysis.benchmark import read_rows
 from analysis.check_gates_settings_commit import COMMIT_FILES, SETTINGS, SMOKE_RECORD
 from analysis.check_jev_settings_commit import changed_since, settings_commit
-from analysis.checking import git, refused
+from analysis.checking import git, git_bytes, refused
 from analysis.collect_gates import read_free_records
 from analysis.collect_jev_gate import read_records as read_jev_records
 from analysis.gate_answers import read_answers
 from analysis.gate_cutoff import youden_cutoff
+from analysis.gate_spend import GateSpendError
 from analysis.gate_table import PAID_GATES
 from analysis.plan import PLAN, amendment_item
 from harness.client import PROJECT_ROOT
@@ -242,6 +243,13 @@ def spend_checks() -> None:
           "the batch verdict: 1000 in and 100 out is $0.003 at list price, $0.0015 billed at half")  # fmt: skip
     check(abs(got.latency - 0.006) < 1e-12 and abs(got.total - (0.042 + 0.0015 + 0.006)) < 1e-12,
           "the latency call is billed at list ($0.006), and the total adds what was billed: 0.042 + 0.0015 + 0.006")  # fmt: skip
+    # The report reads billed tokens with the $25 cap's reader (A17 item 18), so it refuses what the cap refuses.
+    prices = {"jev_price": 0.042, "input_price": 2.0, "output_price": 10.0, "batch_discount": 0.5}
+    for what, bad in {"a fractional token count": verdict(1000, 100) | {"usage": {"input_tokens": 1000.5, "output_tokens": 100}},
+                      "a count written as text": verdict(1000, 100) | {"usage": {"input_tokens": "1000", "output_tokens": 100}},
+                      "a negative count": verdict(-1, 100), "no usage at all": {}}.items():  # fmt: skip
+        check(refused(GateSpendError, partial(train.train_spend, jev=[], batch=[bad], latency=[], **prices)),
+              f"known positive: a record with {what} is refused, as the cap refuses it")  # fmt: skip
 
 
 def missing_lines(item: str, expected: list[str]) -> list[str]:
@@ -253,8 +261,9 @@ def sha256_of(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def git_bytes(commit: str, relative: str) -> bytes | None:
-    done = subprocess.run(["git", "show", f"{commit}:{relative}"], cwd=PROJECT_ROOT, capture_output=True, check=False)
+def held_bytes(commit: str, relative: str) -> bytes | None:
+    """The file as `commit` holds it, byte for byte, or None where the commit holds no such file."""
+    done = git_bytes("show", f"{commit}:{relative}")
     return done.stdout if done.returncode == 0 else None
 
 
@@ -360,7 +369,7 @@ def history(item: str) -> None:
     check(git("merge-base", "--is-ancestor", freeze, commit).returncode != 0,
           "known positive: the freeze commit is not an ancestor of the settings commit")  # fmt: skip
     recorded = dict(HASHED.findall(item))
-    held = {p: git_bytes(freeze, p) for p in recorded if not p.startswith("results/")}
+    held = {p: held_bytes(freeze, p) for p in recorded if not p.startswith("results/")}
     check(all(b is not None and sha256_of(b) == recorded[p] for p, b in held.items()),
           "the freeze commit held each committed file as item 28 records it")  # fmt: skip
     when_freeze = datetime.fromisoformat(git("show", "-s", "--format=%cI", freeze).stdout.strip())

@@ -40,7 +40,7 @@ from analysis import jev_train_report as report
 from analysis.benchmark import read_rows
 from analysis.check_jev_settings_commit import COMMIT_FILES, changed_since, settings_commit
 from analysis.checking import git, refused
-from analysis.freeze import closure
+from analysis.freeze import closure, sha256
 from analysis.plan import PLAN, amendment_item
 from analysis.router_names import G_PLUS, NAMED_ROUTERS, G
 from harness.client import PROJECT_ROOT
@@ -168,7 +168,7 @@ def committed_files(item: str) -> None:
           "and the weights, and no other committed file")  # fmt: skip
     for path in expected:
         target = PROJECT_ROOT / path
-        check(target.exists() and files.get(path) == report.file_sha256(target), f"{path} hashes as item 19 records it")
+        check(target.exists() and files.get(path) == sha256(target), f"{path} hashes as item 19 records it")
     check(sorted(path for path in recorded if path.startswith("results/")) == sorted(STORED.values()),
           "item 19 hashes train's stored responses for each router")  # fmt: skip
 
@@ -276,7 +276,7 @@ def stored(item: str) -> None:
     by_router = {}
     for router, relative in STORED.items():
         check(
-            report.file_sha256(PROJECT_ROOT / relative) == recorded.get(relative),
+            sha256(PROJECT_ROOT / relative) == recorded.get(relative),
             f"{relative} hashes as item 19 records it",
         )
         records = collect_jev.read_records(router, "train")

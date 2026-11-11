@@ -17,7 +17,7 @@ from collections.abc import Collection, Mapping
 from dataclasses import asdict
 
 from analysis.bootstrap import Bootstrap
-from analysis.gate_metrics import GateRates, gate_concordance, gate_rates
+from analysis.gate_metrics import GateMetricsError, GateRates, gate_concordance, gate_rates
 from analysis.gate_table import PAID_GATES, GateScoreTable
 from analysis.latency_estimate import GateMedians, Seconds, cascade_gate_calls, estimate_latency
 from analysis.matrix import Matrix
@@ -58,7 +58,7 @@ def gate_metrics_data(
 
     `pure_walks` maps a paid gate to the walks of its pure cascade (`haiku/Jev`, `haiku/Sonnet`), whose operating points
     each have a walked cutoff; a gate without walks gets no `operating_points`. A point that fell back to A has no cutoff
-    and no rates. Refuses (GateMetricsError) what `gate_rates` refuses."""
+    and no rates. Refuses (GateMetricsError) what `gate_rates` refuses, and an operating point off A with no cutoff."""
     data: dict[str, dict] = {FREE_GATE: {"rates": rates_data(gate_rates(table, dev, FREE_GATE, None))}}
     sizes = _task_sizes(dev)
     for gate, cutoff in cutoffs.items():
@@ -76,12 +76,14 @@ def gate_metrics_data(
         for mix, by_share in pure_walks.get(gate, {}).items():
             points[mix] = {}
             for share, walk in by_share.items():
-                point = walk.operating
-                found = None if walk.fell_back else at(point.cutoff)  # type: ignore[arg-type]
+                cut = None if walk.fell_back else walk.operating.cutoff
+                if not walk.fell_back and cut is None:
+                    raise GateMetricsError(f"the {gate} gate's pure cascade has an operating point off A with no "
+                                           f"cutoff ({mix} {target_key(share)}), so its rates can't be read")  # fmt: skip
                 points[mix][target_key(share)] = {
-                    "cutoff": None if walk.fell_back else point.cutoff,
+                    "cutoff": cut,
                     "fell_back": walk.fell_back,
-                    "rates": found,
+                    "rates": None if cut is None else at(cut),
                 }
         data[gate] = {
             "fixed_cutoff": cutoff,
@@ -120,9 +122,9 @@ def walk_latency(
     operating point holds) adds each item's gate calls (`cascade_gate_calls`: the code check where the request has an
     `assert` line, then the paid gate where the trace paid one). A plain router passes `gate=None`."""
     outcomes = list(walk.operating.outcomes)
-    traces = [Trace(o.item_id, o.configs) for o in outcomes]
     if walk.fell_back:
         return estimate_latency(dev, [Trace(o.item_id, (FRONTIER,)) for o in outcomes], mix)
+    traces = [Trace(o.item_id, o.configs) for o in outcomes]
     calls = None
     if gate is not None:
         if medians is None:

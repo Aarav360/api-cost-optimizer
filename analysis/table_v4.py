@@ -48,6 +48,7 @@ from analysis.router_names import (
     SONNET_GATE,
     G,
     cascade_section,
+    parse_cascade,
 )
 from analysis.router_table import RouterScoreTable
 from analysis.rules_walk import MIXES, dev_walks
@@ -210,7 +211,7 @@ def comparisons_data(inputs: Inputs, walks: Mapping[str, cc.Walks]) -> dict[str,
             group: {
                 "question": QUESTIONS[group],
                 "pairs": diagnostics.same_target_data(
-                    {(pair.split(" less ")[0], pair.split(" less ")[1]): cells for pair, cells in by_pair.items()}
+                    {(cc.label(a), cc.label(b)): cells for (a, b), cells in by_pair.items()}
                 ),
             }
             for group, by_pair in found.items()
@@ -251,7 +252,7 @@ def latency_data(inputs: Inputs, walks: Mapping[str, cc.Walks]) -> dict[str, Any
             key: at(
                 key,
                 router=inputs.router_seconds[letter] if (letter := _letter_of(key)) else 0.0,
-                gate=_gate_of(key), medians=medians, code_items=inputs.code_items,
+                gate=parse_cascade(key)[1], medians=medians, code_items=inputs.code_items,
             )
             for key in CASCADES
         },
@@ -260,12 +261,8 @@ def latency_data(inputs: Inputs, walks: Mapping[str, cc.Walks]) -> dict[str, Any
 
 def _letter_of(key: str) -> str | None:
     """The router letter a router-started cascade starts at, None for a pure one."""
-    start = key.removeprefix("cascade_").rsplit("_", 1)[0]
+    start, _ = parse_cascade(key)
     return None if start == HAIKU else CASCADE_STARTS[start]
-
-
-def _gate_of(key: str) -> str:
-    return key.rsplit("_", 1)[1]
 
 
 def mcnemar_data(inputs: Inputs, walks: Mapping[str, cc.Walks]) -> dict[str, Any]:
@@ -297,8 +294,8 @@ def build(inputs: Inputs) -> dict[str, Any]:
                       "resampled": "source groups within each task, the mix weights applied afterwards"},  # fmt: skip
         "units": UNITS,
         "cascades": {
-            key: {"label": CASCADES[key], "start": key.removeprefix("cascade_").rsplit("_", 1)[0],
-                  "gate": _gate_of(key), "pure": _letter_of(key) is None, "operating_points": rows[key]}  # fmt: skip
+            key: {"label": CASCADES[key], "start": parse_cascade(key)[0],
+                  "gate": parse_cascade(key)[1], "pure": _letter_of(key) is None, "operating_points": rows[key]}  # fmt: skip
             for key in CASCADES
         },
         "comparisons": {

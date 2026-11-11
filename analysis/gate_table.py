@@ -33,6 +33,17 @@ class GateTableError(ValueError):
     """A gate-score table that fails a check, or a trace asked of a table that can't give it. Nothing is built."""
 
 
+def gate_problem(gate: str, cutoff: float | None) -> str | None:
+    """What is wrong with a cascade's gate and its cutoff together, or None: a gate that is neither the free checks nor
+    a paid gate, a paid gate with no cutoff, or the free checks with one. The one guard the trace builder, the gate
+    rates and the latency estimate share; each raises its own error with these words."""
+    if gate != FREE_GATE and gate not in PAID_GATES:
+        return f"{gate!r} is neither the free checks nor a paid gate ({list(PAID_GATES)})"
+    if (gate == FREE_GATE) != (cutoff is None):
+        return f"a cutoff goes with a paid gate and only with one, not {cutoff!r} with {gate!r}"
+    return None
+
+
 @dataclass(frozen=True)
 class PaidScore:
     """One paid gate's entry for one answer: the gate score, None for a refused call (a rejection), the call's
@@ -161,11 +172,11 @@ def cascade_trace(
 
     The configs are `routers.cascade.configs_called`'s. The overhead is the router's (`router_overhead`, 0 for a pure
     cascade) plus the paid gate's own overhead when `paid_gate_called` says it was called: nothing for the free
-    checks, nothing for an answer a free check rejected, nothing for a start at `opus`. Refuses (GateTableError) a
-    paid gate with no cutoff or a free-checks-only cascade with one, and a gate call the table has no entry for.
+    checks, nothing for an answer a free check rejected, nothing for a start at `opus`. Refuses (GateTableError) what
+    `gate_problem` names, whether or not a paid gate is called, and a gate call the table has no entry for.
     """
-    if (gate == FREE_GATE) != (cutoff is None):
-        raise GateTableError(f"a cutoff goes with a paid gate and only with one, not {cutoff!r} with {gate!r}")
+    if problem := gate_problem(gate, cutoff):
+        raise GateTableError(problem)
     if start == FRONTIER:  # no answer is looked up: an item sent straight to the frontier gets no gate
         return Trace(item_id, configs_called(start, False, None, cutoff), router_overhead)
     row = table.row(item_id, start)

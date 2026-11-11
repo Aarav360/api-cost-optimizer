@@ -14,13 +14,26 @@ from fractions import Fraction
 
 from analysis import cascade_comparisons as cc
 from analysis import cascade_metrics as cm
-from analysis import table_v4
+from analysis import checking, table_v4
 from analysis.bootstrap import resample
 from analysis.check_gates_dev import CUTOFFS, TASKS, synthetic_dev
 from analysis.check_simulator import CASCADED, HAND, HAND_MIX, synthetic
+from analysis.gate_metrics import GateMetricsError
 from analysis.gate_table import GateRow, GateScoreTable, PaidScore
 from analysis.latency_estimate import PILOT_MEDIANS, GateMedians
-from analysis.router_names import CASCADES, FREE_GATE, G_PLUS, HAIKU, JEV_GATE, NAMED_ROUTERS, E, F, G, cascade_section
+from analysis.router_names import (
+    CASCADES,
+    FREE_GATE,
+    G_PLUS,
+    HAIKU,
+    JEV_GATE,
+    NAMED_ROUTERS,
+    SONNET_GATE,
+    E,
+    F,
+    G,
+    cascade_section,
+)
 from analysis.simulator import Outcome, always, simulate
 from analysis.walk import Step, Walk
 
@@ -165,21 +178,24 @@ def compare_checks() -> None:
     mixes = {"m": HAND_MIX}
     cascaded = walk_of(simulate(HAND, CASCADED))
     fell = walk_of(simulate(HAND, CASCADED), fell_back=True)
-    walks = {name: {"m": {1.0: cascaded}} for name in (*cc.ROUTERS, *CASCADES)}
+    walks = {name: {"m": {1.0: cascaded}} for name in (*cc.ROUTER_LETTERS, *CASCADES)}
     walks[E] = {"m": {1.0: fell}}
     walks[cascade_section("haiku", "free")] = {"m": {1.0: fell}}
     walks[cascade_section(NAMED_ROUTERS[E], "free")] = {"m": {1.0: fell}}
     found = cc.compare_pairs(draws, mixes, walks)
     check({g: len(p) for g, p in found.items()} == {g: len(p) for g, p in cc.comparison_pairs().items()},
           "every group is compared pair by pair")  # fmt: skip
-    cell = found["gate_adds"]["E/free less E"]["m"][1.0]
+    cell = found["gate_adds"][(cascade_section(NAMED_ROUTERS[E], FREE_GATE), E)]["m"][1.0]
     check(cell.both_fall_back, "the cascade and the router both falling back read 'both fall back to A'")
-    cell = found["cascades_against_routers"]["haiku/Jev less E"]["m"][1.0]
+    cell = found["cascades_against_routers"][(cascade_section(HAIKU, JEV_GATE), E)]["m"][1.0]
     check(cell.cost is not None and abs(cell.cost.value - (4.225 - 6.25)) < 1e-9 and cell.second_fell_back and not cell.first_fell_back,
           "haiku/Jev's $4.225 less E's fall back to A at $6.25")  # fmt: skip
-    check(list(found["jev_against_sonnet"]) == ["haiku/Jev less haiku/Sonnet", "E/Jev less E/Sonnet", "F/Jev less F/Sonnet",
-                                                "G/Jev less G/Sonnet", "G+/Jev less G+/Sonnet"],
-          "pairs are keyed 'first less second' by label")  # fmt: skip
+    check(list(found["jev_against_sonnet"]) == [(cascade_section(start, JEV_GATE), cascade_section(start, SONNET_GATE))
+                                                for start in (HAIKU, *NAMED_ROUTERS.values())],
+          "pairs are keyed (first, second) by the walks' names, haiku first and then E, F, G and G+, as item 22 has them")  # fmt: skip
+    check([f"{cc.label(a)} less {cc.label(b)}" for a, b in found["jev_against_sonnet"]][:2]
+          == ["haiku/Jev less haiku/Sonnet", "E/Jev less E/Sonnet"],
+          "and their labels read 'first less second'")  # fmt: skip
     short = dict(walks)
     del short[F]
     try:
@@ -257,6 +273,10 @@ def metric_checks() -> None:
           "a pure cascade's operating point: the gate measured at the cutoff it walked to (.8 accepts x1 .9 and x3 .8, rejects y1 .4)")  # fmt: skip
     check(points["99%"] == {"cutoff": None, "fell_back": True, "rates": None},
           "a point that fell back to A has no cutoff and no rates")  # fmt: skip
+    uncut = Step(None, 0.75, 1.0, 0.0, True, tuple(simulate(TINY, always(TINY, "haiku"))))
+    broken = {"m": {1.0: Walk(1.0, 0.75, (a, uncut))}}
+    check(checking.refused(GateMetricsError, lambda: cm.gate_metrics_data(table, TINY, draws, {JEV_GATE: 0.5}, {JEV_GATE: broken})),
+          "known positive: a pure cascade's operating point off A with no cutoff is refused, not read at no cutoff")  # fmt: skip
 
 
 def latency_checks() -> None:

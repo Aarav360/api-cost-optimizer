@@ -34,6 +34,7 @@ from analysis.collect_jev import RESULTS_DIR
 from analysis.collect_jev_gate import paid_scores as jev_paid_scores
 from analysis.collect_jev_gate import read_records as read_jev_records
 from analysis.collect_sonnet_gate import paid_scores as sonnet_paid_scores
+from analysis.freeze import sha256
 from analysis.gate_answers import read_answers
 from analysis.gate_cutoff import fixed_cutoff
 from analysis.gate_metrics import signal_check
@@ -78,10 +79,6 @@ class Train:
     spend: gate_train.TrainSpend
     table: GateScoreTable
     matrix: Matrix
-
-
-def file_sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def load(results_dir: Path = RESULTS_DIR) -> Train:
@@ -269,8 +266,8 @@ def render(train: Train, conditions: str, root: Path = PROJECT_ROOT) -> str:
     settings = json.loads((root / "routers/gate_settings.json").read_text(encoding="utf-8"))
     client = json.loads((root / "routers/jev_settings.json").read_text(encoding="utf-8"))["jev"]
     sonnet = settings["sonnet"]
-    hashed = "\n".join(f"      - `{path}`: `{file_sha256(root / path)}`" for path in sorted(COMMIT_FILES))
-    stored = "\n".join(f"      - `{path}`: `{file_sha256(root / path)}`" for path in STORED)
+    hashed = "\n".join(f"      - `{path}`: `{sha256(root / path)}`" for path in sorted(COMMIT_FILES))
+    stored = "\n".join(f"      - `{path}`: `{sha256(root / path)}`" for path in STORED)
     date, created, batch_ids = first_dates(train)
 
     def bullets(lines: Sequence[str], indent: int = 6) -> str:

@@ -31,7 +31,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from analysis.bootstrap import Bootstrap, percentile_interval
-from analysis.gate_table import PAID_GATES, GateScoreTable
+from analysis.gate_table import PAID_GATES, GateScoreTable, gate_problem
 from analysis.matrix import Matrix
 from analysis.router_metrics import Reading, within_task_concordance
 from analysis.router_names import FREE_GATE
@@ -84,10 +84,8 @@ def gate_rates(
     answer of has no row. Refuses (GateMetricsError) a cutoff that doesn't go with the gate or isn't a number from 0
     to 1, an answer the matrix has no success for, and a gated answer with no entry for the gate.
     """
-    if gate != FREE_GATE and gate not in PAID_GATES:
-        raise GateMetricsError(f"{gate!r} is neither the free checks nor a paid gate ({list(PAID_GATES)})")
-    if (gate == FREE_GATE) != (cutoff is None):
-        raise GateMetricsError(f"a cutoff goes with a paid gate and only with one, not {cutoff!r} with {gate!r}")
+    if problem := gate_problem(gate, cutoff):
+        raise GateMetricsError(problem)
     if cutoff is not None and not (isinstance(cutoff, int | float) and 0 <= cutoff <= 1):
         raise GateMetricsError(f"the cutoff must be a number from 0 to 1, not {cutoff!r}")
     tallies: dict[tuple[str, str | None], Counter[str]] = {}
@@ -168,7 +166,8 @@ def subset_draws(draws: Bootstrap, item_ids: Collection[str]) -> Bootstrap:
     column = {item_id: i for i, item_id in enumerate(draws.item_ids)}
     if unknown := sorted(set(item_ids) - set(column)):
         raise GateMetricsError(f"{len(unknown)} items are not in the resamples, e.g. {unknown[0]}")
-    keep = [i for item_id, i in column.items() if item_id in set(item_ids)]
+    wanted = set(item_ids)  # once: a set built inside the comprehension would be rebuilt for every column
+    keep = [i for item_id, i in column.items() if item_id in wanted]
     return Bootstrap(tuple(draws.item_ids[i] for i in keep), tuple(draws.tasks[i] for i in keep), draws.counts[:, keep])
 
 

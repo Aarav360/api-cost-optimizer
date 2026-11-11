@@ -39,7 +39,7 @@ from analysis.check_stage5 import numeric
 from analysis.operating_points import OPERATING_POINTS_FILE, read_section, section_hash, target_key
 from analysis.plan import PLAN, amendment_item
 from analysis.references import ROUNDING, TARGETS
-from analysis.router_names import CASCADES
+from analysis.router_names import CASCADES, FREE_GATE, HAIKU, JEV_GATE, SONNET_GATE, parse_cascade
 from analysis.rules_walk import MIXES
 from analysis.table_v2 import DESCRIPTIVE
 from analysis.table_v4 import TABLE_V4
@@ -85,10 +85,10 @@ def best_of(means: Mapping[str, float]) -> str | None:
     cheaper gate (the free checks, then Jev, then Sonnet); None where that leaves more than one."""
     top = max(means.values())
     tied = [key for key in CASCADES if means[key] >= top - ROUNDING]
-    pure = [key for key in tied if key.startswith("cascade_haiku_")] or tied
-    order = ["free", "jev", "sonnet"]
-    cheapest = min(order.index(key.rsplit("_", 1)[1]) for key in pure)
-    left = [key for key in pure if order.index(key.rsplit("_", 1)[1]) == cheapest]
+    pure = [key for key in tied if parse_cascade(key)[0] == HAIKU] or tied
+    order = [FREE_GATE, JEV_GATE, SONNET_GATE]  # item 24's "cheaper gate", typed out here as the rule states it
+    cheapest = min(order.index(parse_cascade(key)[1]) for key in pure)
+    left = [key for key in pure if order.index(parse_cascade(key)[1]) == cheapest]
     return left[0] if len(left) == 1 else None
 
 

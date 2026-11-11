@@ -45,6 +45,7 @@ from typing import Any
 
 from analysis.collect_gates import (
     GATE_KEYS,
+    SPLITS,
     GateCollectError,
     GateInput,
     gate_inputs,
@@ -398,7 +399,7 @@ def paid_scores(
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
     parser.add_argument("what", choices=["batch", "latency"])
-    parser.add_argument("--split", choices=["train", "dev", "smoke"])
+    parser.add_argument("--split", choices=SPLITS)  # the gates' files' splits; test is Stage 8's, after its unlock
     parser.add_argument("--smoke-file", type=Path)
     parser.add_argument("--sample-file", type=Path, help="latency: a JSON list of {item_id, config} to call")
     parser.add_argument("--cost-per-check", type=float, required=True)
