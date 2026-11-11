@@ -1,0 +1,163 @@
+{
+  "purpose": "A17 item 20.5's dev run: the free checks, the Jev gate and the Sonnet gate's batch on dev's answers",
+  "conditions": {
+    "captured_at": "2026-11-10T22:15:50-08:00",
+    "machine": "Apple M5 Pro, Darwin 27.0.0 arm64, Python 3.13.13",
+    "network": "Wi-Fi (en0) behind a private gateway, no network name or address recorded"
+  },
+  "cutoffs": {
+    "jev": 0.8097612537302109,
+    "sonnet": 0.77
+  },
+  "counts": {
+    "haiku": {
+      "answers": 744,
+      "rejected": 0,
+      "failed_first": {
+        "stop": 0,
+        "schema": 0,
+        "code": 0
+      },
+      "failing": {
+        "stop": 0,
+        "schema": 0,
+        "code": 0
+      },
+      "jev_calls": 744,
+      "jev_refused": 0,
+      "jev_cut": 0,
+      "jev_retries": 0,
+      "jev_failed_attempts": 0,
+      "sonnet_calls": 744,
+      "sonnet_refused": 16,
+      "sonnet_cap_stops": 16
+    },
+    "sonnet": {
+      "answers": 744,
+      "rejected": 1,
+      "failed_first": {
+        "stop": 1,
+        "schema": 0,
+        "code": 0
+      },
+      "failing": {
+        "stop": 1,
+        "schema": 1,
+        "code": 0
+      },
+      "jev_calls": 743,
+      "jev_refused": 0,
+      "jev_cut": 0,
+      "jev_retries": 0,
+      "jev_failed_attempts": 0,
+      "sonnet_calls": 743,
+      "sonnet_refused": 11,
+      "sonnet_cap_stops": 11
+    },
+    "opus_low": {
+      "answers": 744,
+      "rejected": 2,
+      "failed_first": {
+        "stop": 1,
+        "schema": 0,
+        "code": 1
+      },
+      "failing": {
+        "stop": 1,
+        "schema": 1,
+        "code": 1
+      },
+      "jev_calls": 742,
+      "jev_refused": 0,
+      "jev_cut": 0,
+      "jev_retries": 0,
+      "jev_failed_attempts": 0,
+      "sonnet_calls": 742,
+      "sonnet_refused": 9,
+      "sonnet_cap_stops": 9
+    },
+    "opus": {
+      "answers": 744,
+      "rejected": 1,
+      "failed_first": {
+        "stop": 1,
+        "schema": 0,
+        "code": 0
+      },
+      "failing": {
+        "stop": 1,
+        "schema": 1,
+        "code": 0
+      },
+      "jev_calls": 743,
+      "jev_refused": 0,
+      "jev_cut": 0,
+      "jev_retries": 0,
+      "jev_failed_attempts": 0,
+      "sonnet_calls": 0,
+      "sonnet_refused": 0,
+      "sonnet_cap_stops": 0
+    }
+  },
+  "jev_latency": {
+    "median_s": 0.06258925003930926,
+    "p90_s": 0.08253841726109387,
+    "count": 2969,
+    "first_s": 0.10366133297793567,
+    "reconnects_s": [
+      0.08713308302685618,
+      0.10071170807350427
+    ],
+    "by_task": {
+      "banking77": {
+        "median_s": 0.06377970799803734,
+        "p90_s": 0.08118084161542356,
+        "count": 959
+      },
+      "ifeval": {
+        "median_s": 0.06357937504071742,
+        "p90_s": 0.08641416679602115,
+        "count": 627
+      },
+      "mbppplus": {
+        "median_s": 0.06230891600716859,
+        "p90_s": 0.08962227478623393,
+        "count": 427
+      },
+      "mmlu_pro": {
+        "median_s": 0.060742687492165715,
+        "p90_s": 0.07867293746676296,
+        "count": 956
+      }
+    }
+  },
+  "code_checks": 428,
+  "code_check_median_s": 0.2,
+  "first_jev_date": "Wed, 11 Nov 2026 06:15:56 GMT",
+  "first_jev_date_parsed": "2026-11-11T06:15:56+00:00",
+  "jev_collected": [
+    "2026-11-10T22:15:56-08:00",
+    "2026-11-10T22:19:22-08:00"
+  ],
+  "batches": [
+    {
+      "id": "msgbatch_011A6fqiaDRubpDN6jr5q8u4",
+      "created_at": "2026-11-11T06:20:39.570771+00:00"
+    }
+  ],
+  "batch_resent": 0,
+  "spend": {
+    "jev_input_tokens": 2939003,
+    "jev": 0.12343812600000001,
+    "batch_input_tokens": 3722016,
+    "batch_output_tokens": 650807,
+    "batch_list": 13.952102,
+    "batch": 6.976051,
+    "total": 7.099489126
+  },
+  "stored_sha256": {
+    "free_checks_dev.jsonl": "0c0c043385e5eb9a0d33b3af6b8c863c8c33e43f2da39aee8e319a6b1ef3fbf4",
+    "jev_gate_dev.jsonl": "36d69fba5f277e13963821197f5924beda78a147648f85160850c5ee51419786",
+    "sonnet_gate_dev.jsonl": "a47326ab05282633300569097133f144d5e11f64c3f4098486c91cbca7e84139"
+  }
+}
