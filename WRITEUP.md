@@ -190,7 +190,7 @@ Topics to come back to for the write-up, newest last. Details are in PLAN_v4.md'
 ### 2026-11-10 · A free test that could take a paid gate's credit (Amendment A17, items 4 and 8)
 - Every MBPP+ prompt carries one example `assert`, and the code check runs it for free. MBPP+ is 65% of the realistic mix.
 - So every cascade also runs with free checks only (`haiku/free`, `E/free`, …). Without that baseline, a Jev cascade's gain on the realistic mix could just be the example test.
-- A pass isn't the hidden tests passing. The example's input is among the hidden inputs for 135 of 143 train items, but the hidden tests check many more inputs.
+- A pass isn't the hidden tests passing. The example's input is among the hidden inputs for 140 of 143 train items (by exact match of the literal arguments; A17 item 4), but the hidden tests check many more inputs.
 - Talking point: before crediting an expensive component, measure the free thing it comes bundled with.
 
 ### 2026-11-10 · Fixing a gate's cutoff on train without the frontier's answers (Amendment A17, item 12)
@@ -210,6 +210,23 @@ Topics to come back to for the write-up, newest last. Details are in PLAN_v4.md'
 - On train, of the 139 items `haiku` fails, `sonnet` gets 36% right and `opus_low` 50%. A gate that works would reject more of their answers than either limit allows.
 - So a rejected answer goes straight to `opus`: one escalation, one cutoff, and latency capped at two model calls.
 - Talking point: a longer cascade isn't more careful if its middle steps can't pay for themselves.
+
+### 2026-11-10 · Checking the amendment's own numbers (Amendment A17, items 3, 4 and 20.1)
+- Before any gate ran, a hook check recomputed every fact A17 states about the data from the stored files.
+- It found three numbers that were wrong in A17's text: the number of run-0 train and dev rows (5,949), the number of MBPP+ train items whose example `assert` input is among the hidden test inputs (140 of 143), and how much longer Banking77's prompts are than MMLU-Pro's (about 3.4× in mean input tokens). They were corrected before the settings commit, so the frozen design and its premises agree.
+- Talking point: a pre-registered plan can be wrong about its own data. Check its stated facts by machine before freezing.
+
+### 2026-11-10 · The free checks caught nothing (Amendment A17, items 21 and 28)
+- On train, the free checks rejected 0 of 2,973 answers. All 429 code checks passed, including 17 of `haiku`'s MBPP+ answers that the grader fails: real answers pass the prompt's example `assert` and fail only the hidden tests.
+- So the code check's train concordance is exactly 0.5, and each `/free` cascade equals its router alone on train. The paid gates do carry signal: concordance 0.77–0.82 for the Jev gate and 0.81–0.86 for the Sonnet gate.
+- The checks were frozen before any real answer was seen, so they stay as they are. Loosening them now would tune on train.
+- Talking point: a check that a made-up wrong answer fails can still miss every real mistake, because real mistakes are subtler than made-up ones.
+
+### 2026-11-11 · Jev as a gate, not a router (Amendment A17, items 22 and 24)
+- The best cascade on dev, by A17 item 24's rule, is `haiku/Jev`. It saves an average of 36.8% of A's cost over its six operating points, against 34.5% for `G+/free` and 30.2% for `G/free`. On the realistic mix it costs $7.95 / $5.02 / $2.57 per 1k at the 100 / 99 / 97% targets, against A's $8.04.
+- Against G, the Jev router: $0.76 cheaper per 1k at 99% [0.30, 1.24] and $1.05 cheaper at 97% [0.47, 1.69], but $0.67 dearer at 100%. Against G+ the cost differences are small, and most intervals include 0. The quality intervals include 0 in both comparisons. This is descriptive, with no multiplicity correction.
+- The Sonnet gate mostly costs more than it saves. `haiku/Jev` is $3.0–5.8 per 1k cheaper than `haiku/Sonnet` at 99% and 97%, and 36 of the 90 cascade operating points fall back to A.
+- Talking point: §9 asked whether "Jev may fit better as a gate than as a router". On dev, used as a gate on `haiku`, it is cheaper than G at the 99% and 97% targets and about level with G+. Neither Jev router beats it on the realistic mix's looser targets.
 
 ## Part 2
 
