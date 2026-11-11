@@ -81,7 +81,7 @@ from analysis.chart_routers import CASCADE_STYLES, ROUTERS, RouterEntry
 from analysis.matrix import LADDER, Matrix, load
 from analysis.operating_points import OPERATING_POINTS_FILE, build_section, read_section, section_hash
 from analysis.references import START, Curve, Oracle, envelope, oracle, quality_targets, task_oracles
-from analysis.router_names import CASCADES, GATE_LABELS, HAIKU, JEV_GATE, cascade_section
+from analysis.router_names import CASCADES, GATE_LABELS, HAIKU, JEV_GATE, SONNET_GATE, cascade_section
 from analysis.router_panels import config_mcnemar, router_part_of_mix_panel, router_part_of_task_panel, step_outcomes
 from analysis.simulator import Outcome, Total, always, item_weights, load_mixes, simulate, task_totals, totals
 from analysis.task_warnings import task_warning
@@ -103,9 +103,12 @@ OFFSETS = {"haiku": (8, -9, "left"), "sonnet": (8, 0, "left"), "opus_low": (-8, 
 TASK_OFFSETS = {task: OFFSETS | {"sonnet": (8, -9, "left")} for task in TASKS}
 TASK_OFFSETS["mbppplus"] |= {"sonnet": (-8, -9, "right")}
 # Chart v4's cascades: operating-point labels by (gate, mix, label) and the free checks' one point by (gate, mix), placed
-# by eye on the committed figure, as the routers' are (A15 item 15: layout is presentation, not selection).
+# by eye on the committed figure, as the routers' are (A15 item 15: layout is presentation, not selection). The Sonnet
+# gate's fall back to A sits highest of the labels at A, clear of the target shares in the right margin.
 CASCADE_OFFSETS: dict[tuple[str, str, str], tuple[int, int, str]] = {
     (JEV_GATE, "realistic", "99%"): (-6, -60, "right"),
+    (SONNET_GATE, "realistic", "100%, 99%: falls back to A"): (40, 125, "right"),
+    (SONNET_GATE, "uniform", "100%, 99%: falls back to A"): (40, 110, "right"),
 }
 CASCADE_POINT_OFFSETS: dict[tuple[str, str], tuple[int, int, str]] = {}
 
@@ -330,30 +333,12 @@ def draw_steps(ax: Axes, part: dict, router: RouterEntry) -> None:
             markersize=4, color=style.color, markeredgecolor=SURFACE, markeredgewidth=0.8, zorder=3)  # fmt: skip
 
 
-def kept_points(points: dict[str, dict]) -> dict[str, dict]:
-    """The operating points that are drawn: those the walk moved off A. A fall back to A is A itself (no router call,
-    captured fraction 0), so its cross would only repeat A's; chart v4 says where each policy falls back in a note under
-    the panel instead (`fall_back_note`)."""
-    return {target: point for target, point in points.items() if not point["fell_back"]}
-
-
-def fall_back_note(panel: dict, routers: tuple[RouterEntry, ...]) -> str:
-    """The targets at which each policy falls back to A on a headline panel: "E 100%; F 100%; haiku/free 100%, 99%, 97%"."""
-    parts = []
-    for router in routers:
-        if fell := [t for t, p in panel["routers"][router.name]["operating_points"].items() if p["fell_back"]]:
-            parts.append(f"{router.short} {', '.join(fell)}")
-    for part in panel.get("cascades", {}).values():
-        if fell := [t for t, p in part["operating_points"].items() if p["fell_back"]]:
-            parts.append(f"{part['label']} {', '.join(fell)}")
-    return "Falls back to A (drawn at A, not repeated): " + "; ".join(parts) if parts else ""
-
-
 def draw_operating_points(ax: Axes, part: dict, router: RouterEntry, mix: str) -> None:
     """A cross at each of a router's operating points on a headline panel, `mix` naming it; the per-task panels show
-    them in the table only (Amendment A7, item 2). A fall back to A is not drawn (`kept_points`)."""
+    them in the table only (Amendment A7, item 2). A fall back to A is drawn at A and labeled so, as chart v3 drew it
+    (A17 item 23 keeps the routers' crosses; Amendment A18)."""
     style = router.style
-    shown_points = point_labels(kept_points(part["operating_points"]))
+    shown_points = point_labels(part["operating_points"])
     for point, _ in shown_points:
         spread = as_spread(point)
         quality, cost = spread.quality, spread.cost_per_1k
@@ -397,10 +382,10 @@ def draw_cascade_steps(ax: Axes, part: dict) -> None:
 
 
 def draw_cascade_operating_points(ax: Axes, part: dict, mix: str, offsets: dict) -> None:
-    """A cross at each of a cascade's operating points, in its gate's style; `offsets` places the labels by (gate, mix,
-    label), as a router's style does."""
+    """A cross at each of a cascade's operating points, in its gate's style, a fall back to A at A and labeled so, as a
+    router's (A17 item 23); `offsets` places the labels by (gate, mix, label), as a router's style does."""
     style = CASCADE_STYLES[part["gate"]]
-    shown_points = point_labels(kept_points(part["operating_points"]))
+    shown_points = point_labels(part["operating_points"])
     for point, _ in shown_points:
         spread = as_spread(point)
         quality, cost = spread.quality, spread.cost_per_1k
@@ -546,9 +531,6 @@ def draw_headline(panels: dict[str, dict], notes: dict[str, str], caption: str, 
             draw_operating_points(ax, panel["routers"][router.name], router, mix)
         frame_panel(ax, f"{mix.capitalize()} mix", notes.get(mix), note_lines)
         ax.set_xlim(0.2, 20)
-        if fell := fall_back_note(panel, routers):
-            ax.annotate(textwrap.fill(fell, 58), (0.99, 0.02), xycoords="axes fraction", ha="right", va="bottom",
-                        fontsize=7.5, color=INK_SECONDARY, linespacing=1.3)  # fmt: skip
         ax.set_xlabel("Cost per 1,000 requests, list price (log scale)", fontsize=9, color=INK_SECONDARY)
         ax.set_ylabel("Mix-weighted quality", fontsize=9, color=INK_SECONDARY)
     first = next(iter(panels.values()))

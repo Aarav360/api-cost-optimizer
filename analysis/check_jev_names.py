@@ -37,12 +37,12 @@ from functools import partial
 from pathlib import Path
 
 from analysis.chart_routers import CASCADE_STYLES, E_STYLE, F_STYLE, G_PLUS_STYLE, G_STYLE, ROUTERS
-from analysis.check_chart_routers import APART, gap
+from analysis.check_chart_routers import APART, gap, linear_rgb
 from analysis.check_jev_freeze import frozen_paths
 from analysis.check_jev_settings_commit import COMMIT_FILES
 from analysis.checking import refused
 from analysis.operating_points import OperatingPointsError, check_sections, write_section
-from analysis.pareto import SERIES_1, SERIES_2, SERIES_3
+from analysis.pareto import SERIES_1, SERIES_2, SERIES_3, SURFACE
 from analysis.router_names import (
     CASCADE_STARTS,
     CASCADES,
@@ -98,6 +98,17 @@ def check(ok: bool, what: str) -> None:
     print(f"{'PASS' if ok else 'FAIL'}  {what}")
     if not ok:
         problems.append(what)
+
+
+def contrast(first: str, second: str) -> float:
+    """WCAG 2's contrast ratio of two hex colours, from 1:1 to 21:1."""
+
+    def luminance(colour: str) -> float:
+        red, green, blue = linear_rgb(colour)
+        return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+    light, dark = sorted((luminance(first), luminance(second)), reverse=True)
+    return (light + 0.05) / (dark + 0.05)
 
 
 def spelled_in(source: str, names: tuple[str, ...] = SPELLED) -> list[str]:
@@ -324,6 +335,14 @@ def main() -> int:
         )
         check(worst >= APART, f"{letter}'s panel: each of the three lines is at least {APART} ({worst:.1f}) from its router, A, "
               "the envelope and the other lines")  # fmt: skip
+    # The Sonnet gate's lavender is as dark as the rule above lets it be (Amendment A18): of every colour 15 apart from the
+    # headline's other nine, none stands more than about 2.2:1 against the page, and chart v4's first lavender stood 2.0:1.
+    sonnet = CASCADE_STYLES[SONNET_GATE].color
+    check(contrast(sonnet, SURFACE) >= 2.15 > contrast("#cca4f8", SURFACE),
+          f"the Sonnet gate's colour ({sonnet}) stands {contrast(sonnet, SURFACE):.2f}:1 against the page, darker than "
+          f"chart v4's first lavender (#cca4f8, {contrast('#cca4f8', SURFACE):.2f}:1), the known positive")  # fmt: skip
+    check(abs(contrast("#000000", "#ffffff") - 21) < 1e-9 and contrast(SURFACE, SURFACE) == 1,
+          "the contrast reads 21:1 from black to white and 1:1 from a colour to itself (WCAG 2's ratio)")  # fmt: skip
     nudged = "#e65a2c"
     check(gap(nudged, SERIES_2) < APART, f"known positive: the envelope's orange nudged to {nudged} is "
           f"{gap(nudged, SERIES_2):.1f} from it, and the check says so")  # fmt: skip
