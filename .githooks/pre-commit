@@ -74,6 +74,9 @@ uv run python -m analysis.check_gates | grep -E "^FAIL|checks"
 # (every train and dev ID too), the batch collector's safeguards and the latency caller against a fake Anthropic client,
 # the table's Sonnet column and haiku/Sonnet's walk. No results/, no Docker, no Anthropic call, no key. CI runs it too.
 uv run python -m analysis.check_sonnet_gate | grep -E "^FAIL|checks"
+# Stage 7's router-started cascades and fixed cutoffs (A17 items 11, 12, 15): Youden's J on a made-up train table, the twelve
+# cascades' traces, walks and sections on made-up dev tables. No results/, no Docker, no Jev or Anthropic call. CI runs it too.
+uv run python -m analysis.check_gates_routed | grep -E "^FAIL|checks"
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
 uv run python -m analysis.check_gates_sandbox | grep -E "^FAIL|checks"
 if [ -f results/dev_matrix.sqlite ]; then
