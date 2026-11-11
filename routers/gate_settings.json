@@ -5,8 +5,8 @@
     "attempts": 3,
     "wait_s": 5,
     "image": "api-cost-optimizer-sandbox:py3.13.13-numpy2.5.4",
-    "image_digest": null,
-    "dockerfile_sha256": null
+    "image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+    "dockerfile_sha256": "4c1663494718a76f8639e84e8128b3714975c1df3326f71dc822813abf032ab3"
   },
   "jev": {
     "model": "jev-1.14.0",
@@ -28,7 +28,7 @@
       }
     ],
     "clip": [0.005, 0.995],
-    "budget_bytes": null
+    "budget_bytes": 29597
   },
   "cascades": [
     {
@@ -152,5 +152,13 @@
       "input_per_million": 2.0,
       "output_per_million": 10.0
     }
+  },
+  "noise": {
+    "seed": 2026,
+    "config": "haiku",
+    "tasks": ["banking77", "ifeval", "mbppplus", "mmlu_pro"],
+    "jev_per_task": 25,
+    "sonnet_per_task": 20,
+    "rule": "For each task in the order listed, take haiku's run-0 train answers of that task in item-ID order, put them in the order of random.Random(f\"{seed}/{task}\").shuffle, and take the first jev_per_task (25, the Jev gate's noise pass) that pass every free check; the Sonnet gate's latency sample is the first sonnet_per_task (20) of each task's Jev list. Code: analysis/noise_samples.py."
   }
 }
