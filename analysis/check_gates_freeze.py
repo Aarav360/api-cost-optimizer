@@ -15,7 +15,10 @@ item 28 with its sources:
   builds; the gate-score tables rebuild from the records; both cutoffs recompute from them; the noise lists rebuild from
   the drawing rule; item 28's text is the one `analysis.gate_train_report` writes from the records; the first train Jev
   call's Date and the train batch's creation time come after the settings commit's time;
-- the keys: no stored byte holds a real key (where a key and results are present).
+- the keys: no stored or committed byte holds a real key, searched for byte for byte where `.env` holds one, or a
+  key-shaped string where it holds none (CI); the section says which search ran.
+
+`frozen_code_checks` is also `analysis/check_gates_dev.py`'s, for dev's stored records (Amendment A18).
 
 Until the freeze commit writes item 28, the sections that read it say so and pass.
 """
@@ -25,9 +28,11 @@ import hashlib
 import json
 import re
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from functools import partial
 from pathlib import Path
+from typing import Any
 
 from dotenv import dotenv_values
 
@@ -275,6 +280,22 @@ def key_in(root: Path, key: str) -> list[str]:
     return [str(p.relative_to(root)) for p in sorted(root.rglob("*")) if p.is_file() and needle in p.read_bytes()]
 
 
+# What a key looks like where no real key is here to search for (CI has no .env): an Anthropic key's public prefix, or
+# a long token after a key's or a header's name, as a stored request or a pasted line would hold it. A check's own made-up
+# key says so ("FAKE", "dummy"), and a real key never would.
+KEY_SHAPED = re.compile(
+    rb"sk-ant-[A-Za-z0-9_-]{20,}|(?i:(?:api[_-]?key|x-api-key|authorization|bearer)[\"':= ]{1,4}[A-Za-z0-9_.-]{24,})"
+)
+MADE_UP = re.compile(rb"(?i)fake|dummy")
+
+
+def key_shaped_in(root: Path) -> list[str]:
+    """Files under `root` holding a key-shaped string that no check made up. Python's byte-code caches are left out:
+    they are built here, never committed, and hold a check's own strings joined."""
+    return [str(p.relative_to(root)) for p in sorted(root.rglob("*")) if p.is_file() and "__pycache__" not in p.parts
+            and any(not MADE_UP.search(m[0]) for m in KEY_SHAPED.finditer(p.read_bytes()))]  # fmt: skip
+
+
 def guard_checks() -> None:
     check(missing_lines("... alpha 0.4063 ...", ["alpha 0.4063"]) == [], "an entry that is in the record is found")
     check(missing_lines("... alpha 0.4064 ...", ["alpha 0.4063"]) == ["alpha 0.4063"],
@@ -290,6 +311,13 @@ def guard_checks() -> None:
         check(key_in(root, "dummy-key-0123") == [] and key_in(root, "") == [], "a folder without the key names nothing")
         (root / "b.txt").write_text("x dummy-key-0123 y\n")
         check(key_in(root, "dummy-key-0123") == ["b.txt"], "known positive: a file holding the key is named")
+        # Joined as the check runs, so neither this file nor its byte code holds a key-shaped string.
+        (root / "c.txt").write_text("".join(["headers: x-api-key: ", "Q7" * 16, "\n"]))
+        (root / "d.txt").write_text("".join(['{"key": "', "sk-ant-", "api03-", "r4Nd0m" * 6, '"}\n']))
+        (root / "e.txt").write_text("".join(["sk-ant-", "api03-THIS-IS-A-FAKE-KEY-FOR-THE-CHECK\n"]))
+        check(key_shaped_in(root) == ["c.txt", "d.txt"],
+              "known positive: a key-shaped string is found after a header's name and by Anthropic's prefix, and a "
+              "check's made-up key is not")  # fmt: skip
     check(re.fullmatch(r"msgbatch_\w+", "msgbatch_011MfgV77vzfmuexkbFAX8t7") is not None, "a batch ID is a word")
 
 
@@ -386,6 +414,64 @@ def history(item: str) -> None:
         )
 
 
+def frozen_code_mismatches(
+    split: str, jev_records: Sequence[Mapping[str, Any]], sonnet_records: Sequence[Mapping[str, Any]]
+) -> tuple[list[str], list[str]]:
+    """The stored Jev records whose body, and the Sonnet records whose request, don't hash to what the frozen gate code
+    builds from the split's own requests and answers (A17 item 27): each Jev record's `item_id config`, each Sonnet
+    record's `custom_id`."""
+    requests = {r["item_id"]: from_row(r) for r in read_rows(split=split)}
+    answers = {(a.item_id, a.config): a.answer for a in read_answers(split)}
+    jev_settings = jev_gate.read_settings()
+    sonnet_settings = sonnet_gate.load_settings()
+    bad_jev = [
+        f"{r['item_id']} {r['config']}" for r in jev_records
+        if jev_gate.gate_call(requests[r["item_id"]], answers[(r["item_id"], r["config"])], jev_settings,
+                              budget_bytes=jev_settings.budget_bytes).sha256 != r["body_sha256"]
+    ]  # fmt: skip
+    bad_sonnet = [
+        r["custom_id"] for r in sonnet_records
+        if sonnet_gate.request_sha256(sonnet_gate.build_request(sonnet_settings, requests[r["item_id"]],
+                                                                answers[(r["item_id"], r["config"])])) != r["request_sha256"]
+    ]  # fmt: skip
+    return bad_jev, bad_sonnet
+
+
+def unpinned(records: Sequence[Mapping[str, Any]], pinned: str, *, in_response: bool = False) -> list[str]:
+    """The records whose stored model ID (and, `in_response`, the response's own) is not the pinned one."""
+    return [f"{r['item_id']} {r['config']}" for r in records
+            if r["model"] != pinned or (in_response and r["response"]["model"] != pinned)]  # fmt: skip
+
+
+def frozen_code_checks(
+    split: str, jev_records: Sequence[Mapping[str, Any]], sonnet_records: Sequence[Mapping[str, Any]]
+) -> None:
+    """A split's stored gate records against the frozen code: every returned model ID is the pinned one, and every Jev
+    body and Sonnet request hashes to what the frozen code builds (A17 item 27), with a known positive for each: a
+    record with one hex digit of its hash changed is named."""
+    check(jev_records != [] and unpinned(jev_records, PINNED_JEV, in_response=True) == [],
+          f"every {split} Jev gate record returned model ID {PINNED_JEV}")  # fmt: skip
+    check(sonnet_records != [] and unpinned(sonnet_records, PINNED_SONNET) == [],
+          f"every {split} Sonnet gate record returned model ID {PINNED_SONNET}")  # fmt: skip
+    older = {**jev_records[0], "response": {**jev_records[0]["response"], "model": "jev-1.13.0"}} if jev_records else {}
+    check(jev_records != [] and unpinned([older], PINNED_JEV, in_response=True) != [],
+          "known positive: a Jev response that names another release is found")  # fmt: skip
+    bad_jev, bad_sonnet = frozen_code_mismatches(split, jev_records, sonnet_records)
+    check(bad_jev == [], f"every stored {split} Jev body hashes to what the frozen code builds ({len(bad_jev)} differ)")
+    check(bad_sonnet == [],
+          f"every stored {split} Sonnet request hashes to what the frozen code builds ({len(bad_sonnet)} differ)")  # fmt: skip
+
+    def flipped(record: Mapping[str, Any], field: str) -> dict[str, Any]:
+        return {**record, field: ("1" if record[field][0] == "0" else "0") + record[field][1:]}
+
+    one_jev, one_sonnet = jev_records[:1], sonnet_records[:1]
+    found = frozen_code_mismatches(split, [flipped(r, "body_sha256") for r in one_jev],
+                                   [flipped(r, "request_sha256") for r in one_sonnet])  # fmt: skip
+    check(one_jev != [] and one_sonnet != [] and found == ([f"{one_jev[0]['item_id']} {one_jev[0]['config']}"],
+                                                           [one_sonnet[0]["custom_id"]]),
+          f"known positive: a {split} Jev record and a Sonnet record with one hex digit of their hash changed are named")  # fmt: skip
+
+
 def items_in(path: Path) -> set[str]:
     return {json.loads(line)["item_id"] for line in path.read_text(encoding="utf-8").splitlines() if line}
 
@@ -418,32 +504,7 @@ def stored(item: str) -> None:
           "the free checks cover every train answer of haiku, sonnet and opus_low once")  # fmt: skip
 
     # The model IDs are the pinned ones, and every body and request hashes to what the frozen code builds.
-    check({r["model"] for r in jev_records} == {PINNED_JEV}
-          and all(r["response"]["model"] == PINNED_JEV for r in jev_records),
-          f"every Jev gate record returned model ID {PINNED_JEV}")  # fmt: skip
-    check(
-        {r["model"] for r in batch + latency} == {PINNED_SONNET},
-        f"every Sonnet gate record returned model ID {PINNED_SONNET}",
-    )
-    requests = {r["item_id"]: from_row(r) for r in read_rows(split="train")}
-    answers = {(a.item_id, a.config): a.answer for a in read_answers("train")}
-    jev_settings = jev_gate.read_settings()
-    sonnet_settings = sonnet_gate.load_settings()
-    bad_jev = [
-        r["item_id"] for r in jev_records
-        if jev_gate.gate_call(requests[r["item_id"]], answers[(r["item_id"], r["config"])], jev_settings,
-                              budget_bytes=jev_settings.budget_bytes).sha256 != r["body_sha256"]
-    ]  # fmt: skip
-    check(bad_jev == [], f"every stored Jev body hashes to what the frozen code builds ({len(bad_jev)} differ)")
-    bad_sonnet = [
-        r["custom_id"] for r in batch + latency
-        if sonnet_gate.request_sha256(sonnet_gate.build_request(sonnet_settings, requests[r["item_id"]],
-                                                                answers[(r["item_id"], r["config"])])) != r["request_sha256"]
-    ]  # fmt: skip
-    check(
-        bad_sonnet == [],
-        f"every stored Sonnet request hashes to what the frozen code builds ({len(bad_sonnet)} differ)",
-    )
+    frozen_code_checks("train", jev_records, batch + latency)
 
     first = min(email.utils.parsedate_to_datetime(r["server_date"]) for r in jev_records if r["pass"] == 1)
     named = FIRST_CALL.search(item)
@@ -481,7 +542,7 @@ def stored(item: str) -> None:
         {r["item_id"] for r in latency} == {i for i, _ in lists["sonnet"]},
         "the Sonnet latency calls are the list and nothing else",
     )
-    check(len(batch) == sum(r["passed"] for r in free if r["config"] in sonnet_settings.gated_configs)
+    check(len(batch) == sum(r["passed"] for r in free if r["config"] in sonnet_gate.load_settings().gated_configs)
           and sum(r["pass"] == 1 for r in jev_records) == sum(r["passed"] for r in free),
           "every answer that passed the free checks has its Jev call (and its Sonnet verdict, bar opus)")  # fmt: skip
     item_lists = [
@@ -507,15 +568,26 @@ def stored(item: str) -> None:
 
 
 def keys_not_stored() -> None:
+    """No stored or committed byte holds a key. With the real keys in `.env`, they are searched for byte for byte; with
+    none (CI), key-shaped strings are, so the section can fail anywhere and says which search ran."""
     values = dotenv_values(PROJECT_ROOT / ".env")
     keys = [v for k in (jev.KEY_VARIABLE, "ANTHROPIC_API_KEY") if (v := values.get(k))]
     folder = PROJECT_ROOT / "results" / "gates"
-    if not keys or not folder.exists():
-        print("(no key or no results/gates here: this section is skipped)")
-        return
-    check(all(key_in(folder, key) == [] for key in keys), "results/gates holds no copy of a real key")
-    check(all(key_in(PROJECT_ROOT / name, key) == [] for key in keys for name in ("routers", "analysis", "docs", "figures")),
-          "nor do the committed folders")  # fmt: skip
+    committed = [PROJECT_ROOT / name for name in ("routers", "analysis", "docs", "figures")]
+    if keys:
+        print(f"      (mode: the {len(keys)} real keys in .env, searched for byte for byte)")
+
+        def found_in(root: Path) -> list[str]:
+            return sorted({path for key in keys for path in key_in(root, key)})
+    else:
+        print("      (mode: no key in .env here, so key-shaped strings are searched for instead)")
+        found_in = key_shaped_in
+    if folder.exists():
+        check(found_in(folder) == [], "results/gates holds no copy of a key")
+    else:
+        print("      (no results/gates here: only the committed folders are searched)")
+    stray = sorted(f"{root.name}/{path}" for root in committed for path in found_in(root))
+    check(stray == [], f"the committed folders hold no key {stray}")
 
 
 def main() -> int:

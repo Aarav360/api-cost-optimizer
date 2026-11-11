@@ -1521,6 +1521,71 @@ Nine records from Stage 6's branch review, made after G's and G+'s record (A15 i
       | G+/Jev | 0.0% / 100.0% | 33.8% / 89.6% | 33.8% / 99.8% | 0.7% / 100.0% | 25.3% / 94.2% | 25.3% / 100.0% | 19.8% |
       | G+/Sonnet | 0.2% / 95.0% | 0.2% / 100.0% | 0.2% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.0% / 100.0% | 0.1% |
 
+    - **The operating points.** Where each cascade's walk put its six operating points and what they give, as A9 item 18, A11 item 21 and A15 item 20 record the routers': a pure cascade's walked cutoff, or a router-started cascade's router threshold, then quality, $ per 1k and the captured fraction. A router-started cascade's paid gate sits at its fixed cutoff at every step (item 12): the Jev gate's 0.8098 and the Sonnet gate's 0.7700, from `routers/gate_cutoffs.json`. The free checks alone have no cutoff.
+
+      | | Realistic | Uniform |
+      |---|---|---|
+      | haiku/free: cutoff at 100%, 99%, 97% of A's quality | falls back to A, falls back to A, falls back to A | falls back to A, falls back to A, falls back to A |
+      | haiku/free: quality there | 86.7%, 86.7%, 86.7% | 89.5%, 89.5%, 89.5% |
+      | haiku/free: $ per 1k there | $8.04, $8.04, $8.04 | $12.01, $12.01, $12.01 |
+      | haiku/free: captured fraction there | 0.00, 0.00, 0.00 | 0.00, 0.00, 0.00 |
+      | haiku/Jev: cutoff at 100%, 99%, 97% of A's quality | 0.9540, 0.8149, 0.6334 | 0.9540, 0.7308, 0.5414 |
+      | haiku/Jev: quality there | 86.7%, 87.2%, 85.8% | 89.5%, 89.8%, 88.1% |
+      | haiku/Jev: $ per 1k there | $7.95, $5.02, $2.57 | $11.96, $6.34, $4.02 |
+      | haiku/Jev: captured fraction there | 0.01, 0.39, 0.71 | 0.01, 0.50, 0.69 |
+      | haiku/Sonnet: cutoff at 100%, 99%, 97% of A's quality | falls back to A, falls back to A, 0.5000 | falls back to A, falls back to A, 0.3000 |
+      | haiku/Sonnet: quality there | 86.7%, 86.7%, 85.9% | 89.5%, 89.5%, 88.3% |
+      | haiku/Sonnet: $ per 1k there | $8.04, $8.04, $7.34 | $12.01, $12.01, $9.82 |
+      | haiku/Sonnet: captured fraction there | 0.00, 0.00, 0.09 | 0.00, 0.00, 0.19 |
+      | E/free: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.9172, 0.8537 | falls back to A, 0.9174, 0.9143 |
+      | E/free: quality there | 86.7%, 86.4%, 85.7% | 89.5%, 89.5%, 88.8% |
+      | E/free: $ per 1k there | $8.04, $6.37, $2.16 | $12.01, $9.20, $6.77 |
+      | E/free: captured fraction there | 0.00, 0.22, 0.76 | 0.00, 0.25, 0.46 |
+      | E/Jev: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.8077, 0.8077 | falls back to A, 0.8537, 0.8077 |
+      | E/Jev: quality there | 86.7%, 87.2%, 87.2% | 89.5%, 89.9%, 89.5% |
+      | E/Jev: $ per 1k there | $8.04, $4.97, $4.97 | $12.01, $10.58, $8.62 |
+      | E/Jev: captured fraction there | 0.00, 0.40, 0.40 | 0.00, 0.13, 0.30 |
+      | E/Sonnet: threshold at 100%, 99%, 97% of A's quality | falls back to A, falls back to A, falls back to A | falls back to A, falls back to A, falls back to A |
+      | E/Sonnet: quality there | 86.7%, 86.7%, 86.7% | 89.5%, 89.5%, 89.5% |
+      | E/Sonnet: $ per 1k there | $8.04, $8.04, $8.04 | $12.01, $12.01, $12.01 |
+      | E/Sonnet: captured fraction there | 0.00, 0.00, 0.00 | 0.00, 0.00, 0.00 |
+      | F/free: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.9194, 0.8973 | falls back to A, falls back to A, 0.9022 |
+      | F/free: quality there | 86.7%, 87.1%, 85.5% | 89.5%, 89.5%, 87.8% |
+      | F/free: $ per 1k there | $8.04, $6.65, $4.87 | $12.01, $12.01, $7.63 |
+      | F/free: captured fraction there | 0.00, 0.18, 0.41 | 0.00, 0.00, 0.38 |
+      | F/Jev: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.9314, 0.6655 | falls back to A, 0.6655, 0.6655 |
+      | F/Jev: quality there | 86.7%, 86.7%, 87.2% | 89.5%, 89.5%, 89.5% |
+      | F/Jev: $ per 1k there | $8.04, $8.02, $4.97 | $12.01, $8.62, $8.62 |
+      | F/Jev: captured fraction there | 0.00, 0.00, 0.40 | 0.00, 0.30, 0.30 |
+      | F/Sonnet: threshold at 100%, 99%, 97% of A's quality | falls back to A, falls back to A, falls back to A | falls back to A, falls back to A, falls back to A |
+      | F/Sonnet: quality there | 86.7%, 86.7%, 86.7% | 89.5%, 89.5%, 89.5% |
+      | F/Sonnet: $ per 1k there | $8.04, $8.04, $8.04 | $12.01, $12.01, $12.01 |
+      | F/Sonnet: captured fraction there | 0.00, 0.00, 0.00 | 0.00, 0.00, 0.00 |
+      | G/free: threshold at 100%, 99%, 97% of A's quality | 0.9300, 0.8800, 0.7600 | 0.9300, 0.8500, 0.7600 |
+      | G/free: quality there | 87.4%, 87.8%, 86.3% | 89.8%, 89.6%, 88.1% |
+      | G/free: $ per 1k there | $7.28, $5.78, $3.62 | $11.40, $8.47, $5.53 |
+      | G/free: captured fraction there | 0.10, 0.29, 0.57 | 0.05, 0.31, 0.56 |
+      | G/Jev: threshold at 100%, 99%, 97% of A's quality | 0.7800, 0.2900, 0.2900 | 0.9300, 0.2900, 0.2900 |
+      | G/Jev: quality there | 87.8%, 87.2%, 87.2% | 89.5%, 89.5%, 89.5% |
+      | G/Jev: $ per 1k there | $5.63, $5.00, $5.00 | $11.57, $8.65, $8.65 |
+      | G/Jev: captured fraction there | 0.32, 0.40, 0.39 | 0.04, 0.29, 0.29 |
+      | G/Sonnet: threshold at 100%, 99%, 97% of A's quality | 0.9300, 0.8100, 0.7000 | 0.9300, 0.8100, 0.8100 |
+      | G/Sonnet: quality there | 87.4%, 87.4%, 86.1% | 89.8%, 89.9%, 89.9% |
+      | G/Sonnet: $ per 1k there | $7.95, $6.89, $6.84 | $11.95, $10.53, $10.53 |
+      | G/Sonnet: captured fraction there | 0.01, 0.15, 0.16 | 0.01, 0.13, 0.13 |
+      | G+/free: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.9226, 0.8398 | 0.9739, 0.9226, 0.8398 |
+      | G+/free: quality there | 86.7%, 87.2%, 86.2% | 89.5%, 89.5%, 88.3% |
+      | G+/free: $ per 1k there | $8.04, $5.53, $2.81 | $11.87, $7.45, $3.44 |
+      | G+/free: captured fraction there | 0.00, 0.33, 0.68 | 0.01, 0.40, 0.74 |
+      | G+/Jev: threshold at 100%, 99%, 97% of A's quality | falls back to A, 0.4229, 0.4229 | 0.9739, 0.4229, 0.4229 |
+      | G+/Jev: quality there | 86.7%, 87.2%, 87.2% | 89.5%, 89.5%, 89.5% |
+      | G+/Jev: $ per 1k there | $8.04, $5.33, $5.33 | $11.93, $8.98, $8.98 |
+      | G+/Jev: captured fraction there | 0.00, 0.35, 0.35 | 0.01, 0.27, 0.26 |
+      | G+/Sonnet: threshold at 100%, 99%, 97% of A's quality | 0.9309, 0.9309, 0.9309 | falls back to A, falls back to A, falls back to A |
+      | G+/Sonnet: quality there | 88.0%, 88.0%, 88.0% | 89.5%, 89.5%, 89.5% |
+      | G+/Sonnet: $ per 1k there | $8.02, $8.02, $8.02 | $12.01, $12.01, $12.01 |
+      | G+/Sonnet: captured fraction there | 0.00, 0.00, 0.00 | 0.00, 0.00, 0.00 |
+
     - **The best cascade** by item 24's rule is haiku/Jev, with mean savings of 36.8% over its six operating points. The next is G+/free at 34.5%. The rule left no tie open, and ranking the cascades by dollars saved per 1,000 requests rather than by share gives the same cascade.
     - **Section hashes.** Each cascade's section of `routers/operating_points.json`, written with sorted keys, has the 64-digit sha256:
       - haiku/free: `36b16f2a55a6e973f81c07a809ea1ecefc747c55d86c85617834f3d46e10f2df`
