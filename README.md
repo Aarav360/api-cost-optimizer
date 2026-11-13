@@ -137,7 +137,7 @@ key in a `.env` file at the project root (`ANTHROPIC_API_KEY=...`; it's gitignor
 ```bash
 uv sync
 git config core.hooksPath .githooks        # once per clone, kept relative so each worktree runs its own: the checks before every commit
-.githooks/pre-commit                       # every check (10-20 minutes, each one timed): ruff, mypy, check_sealed and the analysis checks below
+.githooks/pre-commit                       # every check (about half an hour, each one timed): ruff, mypy, check_sealed and the analysis checks below
 uv run python -m harness.check_sealed      # no code but harness/collect.py names the sealed test store, and only allowlisted files name the benchmark
 uv run python -m harness.smoke_test        # one Haiku call: checks the key and the response store
 uv run python -m harness.sandbox --build   # build the pinned sandbox image

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The repo's checks, run before every commit and by hand from the project root:  .githooks/pre-commit
-# A full run takes 10-20 minutes, most of it in the results/ rebuilds and the two sandbox checks, and each check prints
-# its time. Turn the hook on once per clone, with a relative path so that a commit in a linked worktree runs that
+# A full run takes about half an hour, most of it in the results/ rebuilds and the two sandbox checks; each check prints
+# its time and the hook its total. Turn the hook on once per clone, with a relative path so that a commit in a linked worktree runs that
 # worktree's own copy of the hook and its checks:  git config core.hooksPath .githooks
 # CI (.github/workflows/check.yml) runs the same checks except the hook-only ones, which need results/ (not committed)
 # or Docker; several others also have a section that runs only where results/ or the model snapshot is present. Three
