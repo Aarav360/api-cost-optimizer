@@ -9,13 +9,15 @@ documents" asks:
 
 - the amendment: it is in the plan, with a version-history row and the header's Amended row, eight items and no ninth;
 - item 1's lists of hashed files are the ones the freeze checks hold (known positive: a list that lost a file is found),
-  the fixes it names are in the code it names, and its numbers are the committed records' (dev's calls and verdicts from
+  the fixes it names are in the code it names, the checks it says still hash or run git themselves do, and its numbers
+  are the committed records' (dev's calls and verdicts from
   `analysis/gates_dev_record.json`, the 299 tokens from the smoke record);
 - item 2's recorded findings still hold in the hashed files they name: each symbol, string and import is there (known
   positive: the same searches fail on what isn't);
 - item 3, where the clone holds the history: the prefactor's merge changed the four files it names and nothing under
-  `figures/`, and removed only the two lines it names from `analysis/chart_routers.py` (known positive: the commit that
-  first drew the router-started figure did change `figures/`);
+  `figures/`, removed only the two lines it names from `analysis/chart_routers.py`, only its docstring's first line from
+  `analysis/router_names.py`, and in `analysis/operating_points.py` widened the allowlist and removed no function (known
+  positive: the commit that first drew the router-started figure did change `figures/`);
 - item 4: the two commits it names changed the files it says, and A17 now holds the three corrected numbers and not the
   old ones (the history where the clone holds it);
 - items 5 to 8: item 29 holds its operating points' table, the headline code draws every fall back, the Sonnet gate's
@@ -161,6 +163,14 @@ def hashed_files(item: str) -> None:
     ]
     check(copies == [] and "NoSuchName" not in defined(read("analysis/freeze.py")),
           f"no module defines its own file hash any more {copies}, and the search fails for a name nothing defines")  # fmt: skip
+    hashing = ["analysis/check_gates_freeze.py", "analysis/check_stage7.py", "analysis/check_jev_freeze.py"]
+    check(all("hashlib" in imported(read(path)) and f"`{path}`" in item for path in hashing)
+          and "sha256_of" in defined(read(hashing[0])) and "`sha256_of`" in item,
+          "the checks item 1 says still hash with hashlib directly do, `sha256_of` among them")  # fmt: skip
+    raw = ["analysis/check_jev_freeze.py", "analysis/check_jev_dev.py", "analysis/check_trained_fit.py"]
+    check(all(re.search(r'subprocess\.run\(\s*\[\s*"git"', read(path)) for path in raw)
+          and all(f"`{path}`" in item for path in raw) and "subprocess" not in imported(read("analysis/check_stage7.py")),
+          "the checks item 1 says still run git themselves do, and `analysis/check_stage7.py` runs none")  # fmt: skip
     record = json.loads(read("analysis/gates_dev_record.json"))
     calls = sum(c["jev_calls"] for c in record["counts"].values())
     verdicts = sum(c["sonnet_calls"] for c in record["counts"].values())
@@ -235,6 +245,15 @@ def prefactor(item: str) -> None:
     check(removed == ["from analysis.router_names import G_PLUS, LABELS, NAMED_ROUTERS, E, F, G",
                       "linestyle: str  # matplotlib line style of the steps' line"],
           "in analysis/chart_routers.py it removed only the import it widened and the line-style field's old type")  # fmt: skip
+    names = git("diff", f"{merge}^1", merge, "--", "analysis/router_names.py").stdout.splitlines()
+    gone = [line[1:] for line in names if line.startswith("-") and not line.startswith("---")]
+    check(len(gone) == 1 and gone[0].startswith('"""The routers\' names, in one place') and "only added the cascades' names" in item,
+          "in analysis/router_names.py it removed only its docstring's first line, which it widened: it only added")  # fmt: skip
+    points = git("diff", f"{merge}^1", merge, "--", "analysis/operating_points.py").stdout.splitlines()
+    dropped = [line[1:].strip() for line in points if line.startswith("-") and not line.startswith("---")]
+    check("allowed = set(NAMED_ROUTERS.values())" in dropped and not any(line.startswith("def ") for line in dropped)
+          and "widened the allowlist of `check_sections`" in item,
+          "in analysis/operating_points.py it widened `check_sections`' allowlist and removed no function")  # fmt: skip
 
 
 def outside_changes(item: str, plan: str) -> None:

@@ -12,8 +12,9 @@ and `git` one failure behaviour in all of them.
   throwaway repository under a temporary folder would otherwise read and write the worktree's real index. Aimed at the
   project root it inherits them, so in a hook it sees the index being committed.
 - `git_bytes(*args, repo=...)`: the same, with the output as bytes, for a file's content to hash (`git show
-  <commit>:<path>`): text output would turn a CRLF into LF. The Stage 7 review moved the checks' own raw `git show`
-  calls here (Amendment A18).
+  <commit>:<path>`): text output would turn a CRLF into LF. The Stage 7 review moved `check_gates_freeze`'s raw
+  `git show` here and gave `check_stage7` its git calls through `git` and this (Amendment A18, item 1); some older
+  checks (`check_jev_freeze`, `check_jev_dev`, `check_trained_fit`) still run git themselves.
 - `full_history(repo=...)`: whether the clone holds history, not a shallow copy such as CI's checkout, where the
   oldest commit seems to add every file and a "first commit that added" search would name it.
 """
