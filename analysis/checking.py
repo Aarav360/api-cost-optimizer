@@ -13,8 +13,8 @@ and `git` one failure behaviour in all of them.
   project root it inherits them, so in a hook it sees the index being committed.
 - `git_bytes(*args, repo=...)`: the same, with the output as bytes, for a file's content to hash (`git show
   <commit>:<path>`): text output would turn a CRLF into LF. The Stage 7 review moved `check_gates_freeze`'s raw
-  `git show` here and gave `check_stage7` its git calls through `git` and this (Amendment A18, item 1); some older
-  checks (`check_jev_freeze`, `check_jev_dev`, `check_trained_fit`) still run git themselves.
+  `git show` here and gave `check_stage7` its git calls through `git` and this (Amendment A18, item 1); the older
+  checks' calls followed on 2026-11-13, and `analysis/check_guardrails.py` fails any other module that starts git.
 - `full_history(repo=...)`: whether the clone holds history, not a shallow copy such as CI's checkout, where the
   oldest commit seems to add every file and a "first commit that added" search would name it.
 """

@@ -17,7 +17,6 @@ this script prints nothing about them: only whether the refit weights match, and
 
 import hashlib
 import re
-import subprocess
 import sys
 import tempfile
 from collections.abc import Mapping, Sequence
@@ -28,6 +27,7 @@ import numpy as np
 from analysis import fit_trained_router as fit
 from analysis import matrix as results_matrix
 from analysis.benchmark import read_rows
+from analysis.checking import git, git_bytes
 from analysis.folds import N_FOLDS, read_folds
 from analysis.plan import PLAN, amendment_item
 from harness.client import PROJECT_ROOT
@@ -47,10 +47,6 @@ def check(ok: bool, what: str) -> None:
     print(f"{'PASS' if ok else 'FAIL'}  {what}")
     if not ok:
         problems.append(what)
-
-
-def git(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["git", *args], cwd=PROJECT_ROOT, capture_output=True, text=True, check=False)
 
 
 def largest_gap(a: Sequence[Mapping[str, trained.Head]], b: Sequence[Mapping[str, trained.Head]]) -> float:
@@ -133,7 +129,7 @@ def main() -> int:
         )
         item19 = dict(HASHED.findall(amendment_item(PLAN.read_text(), "A11", 19)))
         frozen = [p for p in item19 if p.startswith(("routers/", "analysis/", "data/"))]
-        held = {p: hashlib.sha256(git_bytes(freeze[1], p)).hexdigest() for p in frozen}
+        held = {p: hashlib.sha256(committed_bytes(freeze[1], p)).hexdigest() for p in frozen}
         check(
             bool(frozen) and held == {p: item19[p] for p in frozen},
             f"the freeze commit held each of item 19's {len(frozen)} frozen files as item 19 records it",
@@ -180,8 +176,9 @@ def main() -> int:
     return 1 if problems else 0
 
 
-def git_bytes(commit: str, relative: str) -> bytes:
-    done = subprocess.run(["git", "show", f"{commit}:{relative}"], cwd=PROJECT_ROOT, capture_output=True, check=True)
+def committed_bytes(commit: str, relative: str) -> bytes:
+    done = git_bytes("show", f"{commit}:{relative}")
+    done.check_returncode()  # raises CalledProcessError, as the call's own check=True did
     return done.stdout
 
 

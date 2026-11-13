@@ -26,7 +26,6 @@ import importlib.metadata
 import json
 import platform
 import re
-import subprocess
 import sys
 import tempfile
 from collections.abc import Mapping, Sequence
@@ -39,7 +38,7 @@ from analysis import collect_jev, fit_jev_router
 from analysis import jev_train_report as report
 from analysis.benchmark import read_rows
 from analysis.check_jev_settings_commit import COMMIT_FILES, changed_since, settings_commit
-from analysis.checking import git, refused
+from analysis.checking import git, git_bytes, refused
 from analysis.freeze import closure, sha256
 from analysis.plan import PLAN, amendment_item
 from analysis.router_names import G_PLUS, NAMED_ROUTERS, G
@@ -67,8 +66,8 @@ def check(ok: bool, what: str) -> None:
         problems.append(what)
 
 
-def git_bytes(commit: str, relative: str) -> bytes | None:
-    done = subprocess.run(["git", "show", f"{commit}:{relative}"], cwd=PROJECT_ROOT, capture_output=True, check=False)
+def committed_bytes(commit: str, relative: str) -> bytes | None:
+    done = git_bytes("show", f"{commit}:{relative}")
     return done.stdout if done.returncode == 0 else None
 
 
@@ -253,7 +252,7 @@ def history(item: str) -> None:
         "known positive: the freeze commit is not an ancestor of the settings commit",
     )
     recorded = dict(HASHED.findall(item))
-    held = {p: git_bytes(freeze, p) for p in frozen_paths()}
+    held = {p: committed_bytes(freeze, p) for p in frozen_paths()}
     check(all(b is not None for b in held.values())
           and all(hashlib.sha256(b).hexdigest() == recorded[p] for p, b in held.items() if b is not None),
           "the freeze commit held each frozen file as item 19 records it")  # fmt: skip

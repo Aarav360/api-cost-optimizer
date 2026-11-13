@@ -27,7 +27,6 @@ import email.utils
 import json
 import math
 import re
-import subprocess
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
@@ -39,7 +38,7 @@ from analysis import collect_jev, jev_table
 from analysis import jev_train_report as report
 from analysis.benchmark import read_rows
 from analysis.check_jev_settings_commit import settings_commit
-from analysis.checking import refused
+from analysis.checking import git, refused
 from analysis.operating_points import (
     OPERATING_POINTS_FILE,
     OperatingPointsError,
@@ -290,11 +289,7 @@ def stored_checks(freeze: str) -> None:
     loaded = collect_jev.load_settings()
     dev_rows = read_rows(split="dev")
     requests = {r["item_id"]: collect_jev.from_row(r) for r in dev_rows}
-    when = datetime.fromisoformat(
-        subprocess.run(
-            ["git", "show", "-s", "--format=%cI", freeze], cwd=PROJECT_ROOT, capture_output=True, text=True, check=False
-        ).stdout.strip()
-    )
+    when = datetime.fromisoformat(git("show", "-s", "--format=%cI", freeze).stdout.strip())
     for router in collect_jev.ROUTERS:
         records = collect_jev.read_records(router, "dev")
         counts = report.call_counts(records)

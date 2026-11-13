@@ -136,8 +136,8 @@ key in a `.env` file at the project root (`ANTHROPIC_API_KEY=...`; it's gitignor
 
 ```bash
 uv sync
-git config core.hooksPath .githooks        # once per clone: run the fast checks before every commit
-.githooks/pre-commit                       # the fast checks: ruff, mypy, check_sealed and the analysis checks below
+git config core.hooksPath .githooks        # once per clone, kept relative so each worktree runs its own: the checks before every commit
+.githooks/pre-commit                       # every check (10-20 minutes, each one timed): ruff, mypy, check_sealed and the analysis checks below
 uv run python -m harness.check_sealed      # no code but harness/collect.py names the sealed test store, and only allowlisted files name the benchmark
 uv run python -m harness.smoke_test        # one Haiku call: checks the key and the response store
 uv run python -m harness.sandbox --build   # build the pinned sandbox image
@@ -273,7 +273,7 @@ GLOSSARY.md          the study's vocabulary from Stage 3 on: policy, trace, conf
                      router score, threshold, walk, operating point, ...
 WRITEUP.md           the final write-up (to come) and running notes for it
 CODING_STANDARDS.md  the judgement calls code review applies; ruff and mypy (pyproject.toml) cover the rest
-.githooks/pre-commit the fast checks, run before every commit; CI runs them too (.github/workflows/)
+.githooks/pre-commit the checks, run before every commit; CI runs those that need neither results/ nor Docker (.github/workflows/)
 configs/models.yaml  pinned model configs, output caps and price snapshot
 configs/task_mix.yaml  the uniform and realistic task mixes
 harness/             API client, response store, dataset loaders, evaluators, code sandbox, pilot

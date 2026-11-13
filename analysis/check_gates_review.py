@@ -167,10 +167,18 @@ def hashed_files(item: str) -> None:
     check(all("hashlib" in imported(read(path)) and f"`{path}`" in item for path in hashing)
           and "sha256_of" in defined(read(hashing[0])) and "`sha256_of`" in item,
           "the checks item 1 says still hash with hashlib directly do, `sha256_of` among them")  # fmt: skip
-    raw = ["analysis/check_jev_freeze.py", "analysis/check_jev_dev.py", "analysis/check_trained_fit.py"]
-    check(all(re.search(r'subprocess\.run\(\s*\[\s*"git"', read(path)) for path in raw)
-          and all(f"`{path}`" in item for path in raw) and "subprocess" not in imported(read("analysis/check_stage7.py")),
-          "the checks item 1 says still run git themselves do, and `analysis/check_stage7.py` runs none")  # fmt: skip
+    raw = [
+        "analysis/check_jev_freeze.py",
+        "analysis/check_jev_dev.py",
+        "analysis/check_trained_fit.py",
+        "harness/check_sealed.py",
+    ]
+    starts_git = r'subprocess\.run\(\s*\[\s*"git"'
+    check(bool(re.search(starts_git, read("analysis/checking.py"))) and not any(re.search(starts_git, read(path)) for path in raw)
+          and all(f"`{path}`" in item for path in raw) and "`analysis/check_guardrails.py`" in item
+          and "subprocess" not in imported(read("analysis/check_stage7.py")),
+          "the checks item 1 says moved onto the helper run no git themselves (the search finds the helper's own), "
+          "nor does `analysis/check_stage7.py`, and item 1 names the check that keeps it so")  # fmt: skip
     record = json.loads(read("analysis/gates_dev_record.json"))
     calls = sum(c["jev_calls"] for c in record["counts"].values())
     verdicts = sum(c["sonnet_calls"] for c in record["counts"].values())
@@ -180,7 +188,7 @@ def hashed_files(item: str) -> None:
     check(f"the {measured} tokens the smoke test measured" in item and f"the {measured + 1} tokens" not in item,
           f"item 1 quotes the {measured} tokens the smoke test measured, and not a number one off")  # fmt: skip
     hook = read(".githooks/pre-commit")
-    check("uv run python -m harness.check_sandbox" in hook
+    check("run_check harness.check_sandbox" in hook
           and "harness.check_sandbox" not in read(".github/workflows/check.yml"),
           "the hook runs harness/check_sandbox.py and CI doesn't (it needs Docker)")  # fmt: skip
 
