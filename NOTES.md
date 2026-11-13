@@ -1,6 +1,6 @@
-# Write Up
+# Notes
 
-<!-- The final write-up goes here. -->
+The dated log behind the write-up (WRITEUP.md): process decisions and talking points, kept as they came up.
 
 ## Notes
 
