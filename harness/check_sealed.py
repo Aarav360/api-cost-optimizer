@@ -17,12 +17,11 @@ constant or its file name. That search must find the build script, so it can't p
 """
 
 import inspect
-import subprocess
 import sys
 
 from analysis.benchmark import read_rows
+from analysis.checking import git
 from harness import build_benchmark
-from harness.client import PROJECT_ROOT
 from harness.collect import MAIN
 
 ALLOWED = {"harness/collect.py", "data/collection_manifest.json"}  # and every Markdown file
@@ -38,8 +37,7 @@ BENCHMARK_NAMES = [next(k for k, v in vars(build_benchmark).items() if v is BENC
 
 def naming_files() -> list[str]:
     """Every file outside ALLOWED and the Markdown docs that names the sealed store."""
-    search = subprocess.run(["git", "grep", "-l", "--untracked", "-F", MAIN.sealed.name], cwd=PROJECT_ROOT,
-                            capture_output=True, text=True, check=False)  # fmt: skip
+    search = git("grep", "-l", "--untracked", "-F", MAIN.sealed.name)
     found = search.stdout.split("\n")
     if "harness/collect.py" not in found:
         raise RuntimeError(f"the search didn't find harness/collect.py, so it can't be trusted: {search.stderr}")
@@ -49,8 +47,7 @@ def naming_files() -> list[str]:
 def benchmark_naming_files() -> list[str]:
     """Every file outside BENCHMARK_ALLOWED and the Markdown docs that names the benchmark file or its constant."""
     patterns = [arg for name in BENCHMARK_NAMES for arg in ("-e", name)]
-    search = subprocess.run(["git", "grep", "-l", "--untracked", "-F", *patterns], cwd=PROJECT_ROOT,
-                            capture_output=True, text=True, check=False)  # fmt: skip
+    search = git("grep", "-l", "--untracked", "-F", *patterns)
     found = search.stdout.split("\n")
     if "harness/build_benchmark.py" not in found:
         raise RuntimeError(

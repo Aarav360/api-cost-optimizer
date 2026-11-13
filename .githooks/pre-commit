@@ -1,150 +1,168 @@
 #!/usr/bin/env bash
-# The repo's fast checks, run before every commit and by hand from the project root:  .githooks/pre-commit
-# Turn the hook on once per clone:  git config core.hooksPath .githooks
-# CI (.github/workflows/check.yml) runs the same checks except the ones in the results/ block at the end
-# (check_jev_dev, check_jev_comparisons, check_simulator, check_stage4, check_trained_dev, check_trained_diagnostics,
-# check_gates_design), which need the dev results matrix in
-# results/ (not committed); several others also have a section that runs only where results/ or the model snapshot is
-# present. check_collect and check_evaluators need Docker and take minutes, so they stay manual (README, "Running it");
-# check_sandbox, which A17 item 27 puts in the hook, runs near the end, after the code check's own sandbox check.
+# The repo's checks, run before every commit and by hand from the project root:  .githooks/pre-commit
+# A full run takes about half an hour, most of it in the results/ rebuilds and the two sandbox checks; each check prints
+# its time and the hook its total. Turn the hook on once per clone, with a relative path so that a commit in a linked worktree runs that
+# worktree's own copy of the hook and its checks:  git config core.hooksPath .githooks
+# CI (.github/workflows/check.yml) runs the same checks except the hook-only ones, which need results/ (not committed)
+# or Docker; several others also have a section that runs only where results/ or the model snapshot is present. Three
+# stay manual (README, "Running it"). `HOOK_ONLY` and `MANUAL` in analysis/check_guardrails.py give each one's reason,
+# and that check fails a check script nothing runs. check_sandbox, which A17 item 27 puts in the hook, runs near the
+# end, after the code check's own sandbox check.
 set -euo pipefail
+
+# One check script, its output cut to its FAIL lines and closing count (or to the pattern given), then its time. A
+# failing check still prints its time, then stops the hook.
+run_check() {
+  local module=$1 pattern=${2:-'^FAIL|checks'} started=$SECONDS status=0
+  uv run python -m "$module" | grep -E "$pattern" || status=$?
+  printf '%5d s  %s\n' "$((SECONDS - started))" "$module"
+  return "$status"
+}
+
+# The sandbox checks near the end need Docker: if it's down, fail here, not after the slower checks have run.
+if ! docker info >/dev/null 2>&1; then
+  echo "FAIL  Docker isn't running, and the sandbox checks need it: start Docker Desktop, then run the hook again"
+  exit 1
+fi
 
 uv run ruff check
 uv run ruff format --check
 uv run mypy
-uv run python -m harness.check_sealed
-uv run python -m analysis.check_routers | grep -E "^FAIL|checks"
-uv run python -m analysis.check_comparisons | grep -E "^FAIL|checks"
-uv run python -m analysis.check_walk | grep -E "^FAIL|checks"
-uv run python -m analysis.check_folds | grep -E "^FAIL|checks"
-uv run python -m analysis.check_metrics | grep -E "^FAIL|checks"
+run_check harness.check_sealed
+run_check analysis.check_guardrails
+run_check analysis.check_routers
+run_check analysis.check_comparisons
+run_check analysis.check_walk
+run_check analysis.check_folds
+run_check analysis.check_metrics
 # With the model snapshot under .cache/ (analysis.fetch_model) it also runs its real-tokenizer window check, loading
 # the model; CI has no snapshot and skips that section.
-uv run python -m analysis.check_trained_router | grep -E "^FAIL|checks"
+run_check analysis.check_trained_router
 # Its snapshot, cache and train-matrix section runs only where those are present (about 30 s with them).
-uv run python -m analysis.check_trained_freeze | grep -E "^FAIL|checks"
+run_check analysis.check_trained_freeze
 # Item 20 against the fold weights; the git-history section needs the freeze commit and the refit needs results/.
-uv run python -m analysis.check_trained_fit | grep -E "^FAIL|checks"
+run_check analysis.check_trained_fit
 # Its refit against the train matrix runs only where results/ is present, like check_simulator below.
-uv run python -m analysis.check_rules_router | grep -E "^FAIL|checks"
-uv run python -m analysis.check_chart_routers | grep -E "^FAIL|checks"
+run_check analysis.check_rules_router
+run_check analysis.check_chart_routers
 # Stage 6's prefactor (A15 items 14, 15): G's and G+'s names, the allowlist and their reserved chart styles.
-uv run python -m analysis.check_jev_names | grep -E "^FAIL|checks"
+run_check analysis.check_jev_names
 # Stage 5's chart and table v2, the learning-curve figure and A11 item 21, against the committed files; the hook adds
 # the rebuild from the dev matrix (about 60 s).
-uv run python -m analysis.check_stage5 | grep -E "^FAIL|checks"
+run_check analysis.check_stage5
 # Stage 6's chart and table v3 and A15 item 20 (G's and G+'s record) against the committed files; where results/ holds the
 # dev matrix and the stored dev responses the hook also rebuilds G's and G+'s parts and table v3 and compares the first
 # dev call's Date (about 90 s). No Jev call.
-uv run python -m analysis.check_stage6 | grep -E "^FAIL|checks"
+run_check analysis.check_stage6
 # The interactive explorer (figures/pareto_explorer.html) against chart v4's JSONs: the committed page is their build,
 # and its numbers and words are theirs. Rerun analysis.explorer after analysis.pareto.
-uv run python -m analysis.check_explorer | grep -E "^FAIL|checks"
+run_check analysis.check_explorer
 # The Jev settings builder (A15 items 4-6, 10, 12) on a synthetic benchmark and store; where results/ is present it
 # also builds from the real train data and compares a committed routers/jev_settings.json with the build.
-uv run python -m analysis.check_jev_settings | grep -E "^FAIL|checks"
+run_check analysis.check_jev_settings
 # Stage 6's call building (A15 items 4 to 6 and 8, G's and G+'s bodies): synthetic settings, no results/, no Jev call.
-uv run python -m analysis.check_jev_call | grep -E "^FAIL|checks"
+run_check analysis.check_jev_call
 # Stage 6's client and G's scoring (A15 items 3, 4, 9 and 12), against the fake Jev server on a loopback port: no
 # results/, no network, no Jev call, retry waits injected.
-uv run python -m analysis.check_jev_client | grep -E "^FAIL|checks"
+run_check analysis.check_jev_client
 # G+'s scoring (A15 items 7 and 9): answers to features to router scores, on synthetic answers and weights.
-uv run python -m analysis.check_jev_plus | grep -E "^FAIL|checks"
+run_check analysis.check_jev_plus
 # G+ end to end and the collection script (A15 items 9, 10, 12, 13), against the fake Jev server and a temporary
 # results folder: no results/, no network, no Jev call, no key.
-uv run python -m analysis.check_jev_collect | grep -E "^FAIL|checks"
+run_check analysis.check_jev_collect
 # G+'s fit, the train signal check and D6 (A15 items 7, 10 and 19): synthetic benchmark, store and stored records.
-uv run python -m analysis.check_jev_fit | grep -E "^FAIL|checks"
+run_check analysis.check_jev_fit
 # The settings commit's promises (A15 item 13): budgets set, the file rebuilt from its seed and train's outcomes (where
 # results/ is present), the commit's files unchanged since it, the made-up requests none a train or dev request.
-uv run python -m analysis.check_jev_settings_commit | grep -E "^FAIL|checks"
+run_check analysis.check_jev_settings_commit
 # The freeze record (A15 items 13 and 19): item 19 against the committed files and git history, and where results/jev
 # holds train's stored responses, against those (hashes, model IDs, body hashes, counts, latency recomputed from the
 # stored records, the first call's Date) and a refit of G+'s weights to 1e-9. No Jev call. CI skips the history and the
 # stored-response sections.
-uv run python -m analysis.check_jev_freeze | grep -E "^FAIL|checks"
+run_check analysis.check_jev_freeze
 # Amendment A16's records (the Stage 6 review): the hashed-file lists, the recorded findings, item 4's commits and item 8's
 # numbers against their sources; dev's refusal count where results/jev holds dev's responses. No Jev call.
-uv run python -m analysis.check_jev_review | grep -E "^FAIL|checks"
+run_check analysis.check_jev_review
 # Stage 7's first slice (A17 items 2-4, 8-10, 13-15, 19): the gates' answer reader, the free checks, their storage, the
 # gate-score table, the cascade decision and a pure cascade's traces, walk and section, on synthetic data. No results/,
 # no Docker, no Jev or Anthropic call. CI runs it too.
-uv run python -m analysis.check_gates | grep -E "^FAIL|checks"
+run_check analysis.check_gates
 # Stage 7's gate metrics, calibration bins and latency estimate (A17 items 16 and 21) on hand-worked synthetic tables with
 # made-up paid scores. No results/, no Docker, no Jev or Anthropic call. CI runs it too.
-uv run python -m analysis.check_gate_metrics | grep -E "^FAIL|checks"
+run_check analysis.check_gate_metrics
 # The Jev gate (A17 items 5, 7, 13 and 14; A15 items 8 and 9; A16 items 7 and 8) end to end against the fake Jev server and a
 # temporary results folder: call body, byte budget and cut, gate score, refusals, retries, run stops, collection, the table's
 # Jev column and haiku/Jev's walk. No results/, no Docker, no Jev call, no key. CI runs it too.
-uv run python -m analysis.check_jev_gate | grep -E "^FAIL|checks"
+run_check analysis.check_jev_gate
 # The Sonnet gate end to end (A17 items 6, 7, 14 to 16, 18, 19; A6 item 6): its request, gate score, overhead and request IDs
 # (every train and dev ID too), the batch collector's safeguards and the latency caller against a fake Anthropic client,
 # the table's Sonnet column and haiku/Sonnet's walk. No results/, no Docker, no Anthropic call, no key. CI runs it too.
-uv run python -m analysis.check_sonnet_gate | grep -E "^FAIL|checks"
+run_check analysis.check_sonnet_gate
 # Stage 7's router-started cascades and fixed cutoffs (A17 items 11, 12, 15): Youden's J on a made-up train table, the twelve
 # cascades' traces, walks and sections on made-up dev tables. No results/, no Docker, no Jev or Anthropic call. CI runs it too.
-uv run python -m analysis.check_gates_routed | grep -E "^FAIL|checks"
+run_check analysis.check_gates_routed
 # Stage 7's $25 cap on gate calls across both paid collectors (A17 item 18): the recorded spend of every split and both gates plus
 # the projection, each collector fed its bad case. No results/, no Docker, no Jev or Anthropic call. CI runs it too.
-uv run python -m analysis.check_gate_cap | grep -E "^FAIL|checks"
+run_check analysis.check_gate_cap
 # Stage 7's settings commit (A17 item 20.2): the byte budget, image digest, Dockerfile hash and noise section filled in as the
 # smoke record has them, the noise samples' drawing rule on made-up records, the smoke's projection worked by hand, the file
 # list holding every gate's import closure, and the commit's files byte for byte unchanged in the working tree, the index and
 # every later commit (a throwaway repository first, under git's own variables). Where results/ is present it also holds the
 # made-up answers apart from the matrix's, and where Docker runs the image digest against the local image. No Jev or Anthropic call.
-uv run python -m analysis.check_gates_settings_commit | grep -E "^FAIL|checks"
+run_check analysis.check_gates_settings_commit
 # Stage 7's freeze commit (A17 items 12, 16, 17, 20.3 to 20.6 and 28): the train measures (D6 and the shift, counts, J, latency,
 # spend) on hand-worked synthetic records; item 28 against the committed files and the git order; and, where results/gates holds
 # train's records, their hashes, model IDs and body hashes, the rebuilt tables, cutoffs and noise lists, and item 28's text
 # against the records. No Jev or Anthropic call. CI runs the parts that need no results/ or history.
-uv run python -m analysis.check_gates_freeze | grep -E "^FAIL|checks"
+run_check analysis.check_gates_freeze
 # Stage 7's dev run and the fifteen sections (A17 items 8 to 11, 20.5, 20.6): the fifteen walks, their sections and the committed file
 # on synthetic tables, the walk rules with known positives; where results/gates holds dev's records, the table rebuilt from them, the
 # order against the freeze commit, the run's record, and the walks rebuilt from the records against the committed sections. No Jev or
 # Anthropic call. CI runs the synthetic part.
-uv run python -m analysis.check_gates_dev | grep -E "^FAIL|checks"
+run_check analysis.check_gates_dev
 # Stage 7's comparisons and table v4 (A17 items 16, 21, 22, 24; issue #71): the 51 pairs, the best-cascade rule, a cascade's row, the
 # gate metrics and the latency estimate on hand-worked synthetic data; the committed figures/table_v4.json against the committed
 # sections (rows, savings, the best cascade, all 51 comparisons' point estimates, McNemar's p); and, where results/ holds the
 # dev records, the gate counts recounted from the gate-score table, the pure cascades' latency and escalation recomputed, the
 # latency inputs from the stored calls and a rebuild of the whole file (about 70 s). No Jev or Anthropic call. CI skips the stored-record part.
-uv run python -m analysis.check_table_v4 | grep -E "^FAIL|checks"
+run_check analysis.check_table_v4
 # Chart v4 (A17 items 21 and 23; issue #72): the cascade lines on a hand-worked table, every cascade in the committed figure
 # JSONs (steps from A, each cross on a step, the operating points equal to table v4's rows and the sections), the figures
 # drawn from them, the calibration figure and its caption on the empty cell; where results/ holds the dev matrix and the
 # stored gate records, a rebuild of every figure's numbers (about 2 minutes). No Jev or Anthropic call. CI skips the rebuild.
-uv run python -m analysis.check_chart_v4 | grep -E "^FAIL|checks"
+run_check analysis.check_chart_v4
 # A17's record of the cascades (item 29) and the README's numbers about Stage 7, against table v4, the operating-points file,
 # the dev run's record and the git order, through the plan's amendment-item reader. No results/ needed.
-uv run python -m analysis.check_stage7 | grep -E "^FAIL|checks"
+run_check analysis.check_stage7
 # Amendment A18's records (the Stage 7 review): the hashed-file lists, the findings recorded in hashed files, the
 # prefactor's merge and the two commits it names (where the history is present), and its numbers against their sources.
 # No results/ needed; CI runs it too.
-uv run python -m analysis.check_gates_review | grep -E "^FAIL|checks"
+run_check analysis.check_gates_review
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
-uv run python -m analysis.check_gates_sandbox | grep -E "^FAIL|checks"
+run_check analysis.check_gates_sandbox
 # The grader's sandbox since its move to routers/sandbox.py (A17 items 19 and 27): the escape checks and every MBPP+
 # reference solution at the grader's limits (needs Docker and the pinned image, like the line above; a minute or two).
 # It prints no closing count, so its summary line is what shows; a failure exits 1 and stops the hook.
-uv run python -m harness.check_sandbox | grep -E "FAIL|MBPP\+ references:"
+run_check harness.check_sandbox 'FAIL|MBPP\+ references:'
 if [ -f results/dev_matrix.sqlite ]; then
   # G's and G+'s dev tables, quantiles and walks (A15 items 13, 14): the pieces anywhere, and with results/jev's dev
   # responses and the freeze commit the stored records, the tables rebuilt, the sections reproduced (about 60 s). No Jev call.
-  uv run python -m analysis.check_jev_dev | grep -E "^FAIL|checks"
+  run_check analysis.check_jev_dev
   # G's and G+'s comparisons and diagnostics (A15 item 14): the hand-worked synthetic sections anywhere, and here the
   # same-target cells against the committed operating points, McNemar, concordance and dev latency against the raw
   # stored lines, and nothing written to the operating-points file (about 90 s). No Jev call.
-  uv run python -m analysis.check_jev_comparisons | grep -E "^FAIL|checks"
-  uv run python -m analysis.check_simulator | grep -E "^FAIL|checks"
-  uv run python -m analysis.check_stage4 | grep -E "^FAIL|checks"
+  run_check analysis.check_jev_comparisons
+  run_check analysis.check_simulator
+  run_check analysis.check_stage4
   # F and F-train on dev: the tables against score_with (about 30 s: it embeds the 744 dev requests again).
-  uv run python -m analysis.check_trained_dev | grep -E "^FAIL|checks"
+  run_check analysis.check_trained_dev
   # The learning curve: synthetic sections anywhere, and on dev the 100% point against F's router scores (about 30 s).
-  uv run python -m analysis.check_learning_curve | grep -E "^FAIL|checks"
+  run_check analysis.check_learning_curve
   # The diagnostics (A11 items 12, 13): task rates, concordance, same-target comparisons (about 10 s).
-  uv run python -m analysis.check_trained_diagnostics | grep -E "^FAIL|checks"
+  run_check analysis.check_trained_diagnostics
   # Amendment A17's design-review facts (stops, assert lines, hidden-test inputs, rescue rates, the longest answer, the
   # sandbox's run times, the provenance claim) recomputed from the stored train and dev rows, train's hidden tests and
   # chart v0, against the plan's text. No gate, no model.
-  uv run python -m analysis.check_gates_design | grep -E "^FAIL|checks"
+  run_check analysis.check_gates_design
 fi
+echo "the hook passed in $((SECONDS / 60)) min $((SECONDS % 60)) s"

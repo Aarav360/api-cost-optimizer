@@ -1,5 +1,5 @@
 # The checks that need neither the results/ stores (not committed) nor Docker.
-# .githooks/pre-commit runs these and check_simulator locally.
+# .githooks/pre-commit runs these and the hook-only ones (HOOK_ONLY in analysis/check_guardrails.py) locally.
 name: check
 
 on:
@@ -17,6 +17,7 @@ jobs:
       - run: uv run ruff format --check
       - run: uv run mypy
       - run: uv run python -m harness.check_sealed
+      - run: uv run python -m analysis.check_guardrails
       - run: uv run python -m analysis.check_routers
       - run: uv run python -m analysis.check_comparisons
       - run: uv run python -m analysis.check_walk
