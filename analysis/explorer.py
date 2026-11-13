@@ -19,7 +19,8 @@ The routers keep chart v3's markers and line styles. E's colour is chart v3's pu
 are an orange and a green, so all four stay apart under simulated colour blindness on one panel, where the references
 are grey. A cascade takes its gate's colour and line from `CASCADE_STYLES`, as on the charts: a pure cascade its gate's
 marker too, a router-started one its router's markers, so the gate reads from the colour and the line and the start from
-the marker.
+the marker. A gate whose style has an outline (the Sonnet gate's pale lavender, Amendment A18 item 7) has it here too: a
+wider trace in the outline's colour under each of its lines and the outline as its markers' edge.
 """
 
 import json
@@ -65,8 +66,8 @@ def dash_of(style: LineStyle) -> str:
 def cascade_series() -> list[dict]:
     """The fifteen cascades as the page lists them, in item 8's order: label, start, gate, and the style each draws in.
 
-    A cascade has its gate's colour and line (`CASCADE_STYLES`). A pure cascade has its gate's markers; a router-started
-    one has its router's, which says where it started."""
+    A cascade has its gate's colour, line and outline, if any (`CASCADE_STYLES`). A pure cascade has its gate's markers; a
+    router-started one has its router's, which says where it started."""
     routers = {LETTER_OF[router.name]: router for router in ROUTERS}
     found = []
     for start, letter in CASCADE_STARTS.items():
@@ -77,6 +78,7 @@ def cascade_series() -> list[dict]:
                 "key": cascade_section(start, gate), "label": CASCADES[cascade_section(start, gate)],
                 "start": letter, "gate": GATE_LABELS[gate], "pure": start == HAIKU, "color": style.color,
                 "dash": dash_of(style.linestyle), "step": MARKERS[marked.marker], "point": MARKERS[marked.point_marker],
+                "outline": style.outline,
             })  # fmt: skip
     return found
 

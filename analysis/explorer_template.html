@@ -165,11 +165,13 @@ const ROUTERS = [
   { key: "jev", short: "G", token: "--s-g", step: "circle", point: "cross", dash: "dashdot" },
   { key: "jev_bolstered", short: "G+", token: "--s-gp", step: "x", point: "pentagon", dash: "dot" },
 ];
-// Every series the page can draw: the four routers, then the fifteen cascades the data lists, each with its colour, markers and line.
+// Every series the page can draw: the four routers, then the fifteen cascades the data lists, each with its colour, markers,
+// line and outline (only the Sonnet gate's pale lavender has one: a wider trace beneath its lines, and its markers' edge).
 const SERIES = [
-  ...ROUTERS.map((r) => ({ key: r.key, label: DATA.labels[r.key], kind: "router", color: () => css(r.token), step: r.step, point: r.point, dash: r.dash })),
-  ...DATA.cascades.map((c) => ({ key: c.key, label: c.label, kind: c.pure ? "pure" : "routed", start: c.start, color: () => (c.color === "#000000" ? css("--ink") : c.color), step: c.step, point: c.point, dash: c.dash })),
+  ...ROUTERS.map((r) => ({ key: r.key, label: DATA.labels[r.key], kind: "router", color: () => css(r.token), step: r.step, point: r.point, dash: r.dash, outline: null })),
+  ...DATA.cascades.map((c) => ({ key: c.key, label: c.label, kind: c.pure ? "pure" : "routed", start: c.start, color: () => (c.color === "#000000" ? css("--ink") : c.color), step: c.step, point: c.point, dash: c.dash, outline: c.outline })),
 ];
+const OUTLINE = 0.6; // px of outline either side of an outlined series' line, and its markers' edge
 const PRESETS = DATA.presets;
 const REFS = [
   { key: "configs", label: "Configs A, B, sonnet, opus_low" },
@@ -228,7 +230,7 @@ function densify(points) {
   return out;
 }
 
-function glyph(symbol, dash, color, size = 26) {
+function glyph(symbol, dash, color, size = 26, outline = null) {
   const dashes = { solid: "", dash: "5 3", dashdot: "6 2 1.5 2", dot: "1.5 2.5" };
   const dashed = (d) => (d in dashes ? dashes[d] : d.replace(/px/g, "").split(",").map((n) => n / 2).join(" "));
   const m = { square: '<rect x="9.5" y="2.5" width="7" height="7" />', "triangle-up": '<path d="M13 2 L17 9.5 L9 9.5 Z" />',
@@ -237,6 +239,10 @@ function glyph(symbol, dash, color, size = 26) {
     hexagon: '<path d="M13 2 L16.5 4 L16.5 8 L13 10 L9.5 8 L9.5 4 Z" />', "triangle-left": '<path d="M9 6 L16 2.5 L16 9.5 Z" />',
     "triangle-right": '<path d="M17 6 L10 2.5 L10 9.5 Z" />' }[symbol] || "";
   const line = dash === null ? "" : `<line x1="1" y1="6" x2="25" y2="6" stroke-width="2" stroke-dasharray="${dashed(dash)}" />`;
+  if (outline) {
+    const under = dash === null ? "" : `<line x1="1" y1="6" x2="25" y2="6" stroke="${outline}" stroke-width="${2 + 2 * OUTLINE}" stroke-dasharray="${dashed(dash)}" />`;
+    return `<svg width="${size}" height="12" viewBox="0 0 26 12" aria-hidden="true" style="color:${color}">${under}<g stroke="currentColor" fill="currentColor">${line}</g><g stroke="${outline}" stroke-width="${OUTLINE}" fill="currentColor">${m}</g></svg>`;
+  }
   return `<svg width="${size}" height="12" viewBox="0 0 26 12" aria-hidden="true" style="color:${color}"><g stroke="currentColor" fill="currentColor">${line}${m}</g></svg>`;
 }
 
@@ -301,7 +307,7 @@ function paintControls() {
     const there = r.kind === "router" ? !!v.routers[r.key] : !!v.cascades[r.key];
     b.disabled = !there; b.title = there ? "" : "Per-task figures hold the routers and the pure cascades only";
     b.setAttribute("aria-pressed", String(state.series[r.key] && there));
-    b.innerHTML = glyph(r.step, r.dash, r.color()) + `<span>${r.label}</span>`;
+    b.innerHTML = glyph(r.step, r.dash, r.color(), 26, r.outline) + `<span>${r.label}</span>`;
   }
   const refGlyph = { configs: glyph("dot", null, css("--s-ref"), 14), envelope: glyph("line", "solid", css("--s-ref")),
     oracle: glyph("line", "solid", css("--s-oracle")), targets: glyph("line", "dot", css("--s-target")) };
@@ -359,9 +365,11 @@ function traces(v) {
         hoverinfo: "text", cliponaxis: false, name: short });
     } else {
       const d = densify(part.steps);
+      if (r.outline) T.push({ x: d.x, y: d.y, mode: "lines", line: { color: r.outline, width: 2 + 2 * OUTLINE, dash: r.dash }, hoverinfo: "skip", name: short });
       T.push({ x: d.x, y: d.y, mode: "lines", line: { color, width: 2, dash: r.dash }, hoverinfo: "skip", name: short });
       T.push({ x: part.steps.map((s) => s[0]), y: part.steps.map((s) => s[1]), mode: "markers",
-        marker: { symbol: r.step, size: state.layers.steps ? 7 : 12, color, opacity: state.layers.steps ? 1 : 0, line: { width: r.step === "x" ? 0 : 1, color: css("--surface") } },
+        marker: { symbol: r.step, size: state.layers.steps ? 7 : 12, color, opacity: state.layers.steps ? 1 : 0,
+          line: r.outline ? { width: OUTLINE, color: r.outline } : { width: r.step === "x" ? 0 : 1, color: css("--surface") } },
         hovertext: part.steps.map((s) => `<b>${label}</b><br>${stepText(s)}<br>quality ${pct(s[1])}<br>${money(s[0])} per 1,000 requests`),
         hoverinfo: "text", name: short });
     }
@@ -370,7 +378,7 @@ function traces(v) {
     if (!ops.length) continue;
     T.push({
       x: ops.map((o) => o.c[0]), y: ops.map((o) => o.q[0]), mode: state.layers.labels ? "markers+text" : "markers",
-      marker: { symbol: r.point, size: 15, color, line: { width: 2, color: css("--surface") } },
+      marker: { symbol: r.point, size: 15, color, line: r.outline ? { width: 1.5 * OUTLINE, color: r.outline } : { width: 2, color: css("--surface") } },
       text: ops.map((o) => `${short} ${o.target}`), textposition: "top right", textfont: { family: css("--font-ui"), size: 11, color: ink2 },
       error_x: errorBars(ops, "x", state.layers.intervals, color), error_y: errorBars(ops, "y", state.layers.intervals, color),
       hovertext: ops.map((o) => {
@@ -471,7 +479,7 @@ function table(v) {
     const part = partOf(v, r);
     if (!state.series[r.key] || !part) continue;
     part.ops.forEach((o, i) => {
-      const name = i === 0 ? `<span class="swatch">${glyph(r.step, r.dash, r.color(), 22)}${r.label}</span>` : "";
+      const name = i === 0 ? `<span class="swatch">${glyph(r.step, r.dash, r.color(), 22, r.outline)}${r.label}</span>` : "";
       const thr = o.fell_back ? "falls back to A" : shortDial(o.threshold, o.cutoff);
       const m = o.matched ? `${pts(o.matched[0])} <span class="ci">(${pts(o.matched[1])} to ${pts(o.matched[2])})</span>${excludesZero(o.matched) ? '<span class="pill">excludes 0</span>' : ""}` : "—";
       rows += `<tr class="${i === 0 ? "group-start" : ""}"><td>${name}</td><td>${o.target}</td><td class="num">${thr}</td>` +

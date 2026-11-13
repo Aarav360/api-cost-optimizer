@@ -32,7 +32,10 @@ from analysis.pareto import (
     TARGETS_LABEL,
     as_curve,
     as_spread,
+    draw_cross,
     frame_panel,
+    line_effects,
+    marker_edge,
     sampled,
     step_line,
 )
@@ -66,9 +69,10 @@ def draw_line(ax: Axes, line: dict, style: RouterStyle) -> None:
         linewidth=2.2 if free else 1.4,
         alpha=0.5 if free else 1.0,
         zorder=2,
+        path_effects=line_effects(style, 2.2 if free else 1.4),
     )
     ax.plot([s["cost_per_1k"] for s in line["steps"]], [s["quality"] for s in line["steps"]], style.marker,
-            markersize=3.5, color=style.color, markeredgecolor=SURFACE, markeredgewidth=0.6, zorder=3)  # fmt: skip
+            markersize=3.5, color=style.color, zorder=3, **marker_edge(style, 0.6))  # fmt: skip
 
 
 def draw_crosses(ax: Axes, line: dict, style: RouterStyle) -> None:
@@ -81,10 +85,9 @@ def draw_crosses(ax: Axes, line: dict, style: RouterStyle) -> None:
         if (cost.value, quality.value) in seen:
             continue
         seen.add((cost.value, quality.value))
-        ax.vlines(cost.value, quality.low, quality.high, color=style.color, linewidth=0.8, alpha=0.6, zorder=4)
-        ax.hlines(quality.value, cost.low, cost.high, color=style.color, linewidth=0.8, alpha=0.6, zorder=4)
-        ax.plot([cost.value], [quality.value], style.point_marker, markersize=5.5, color=style.color,
-                markeredgecolor=SURFACE, markeredgewidth=0.9, zorder=5)  # fmt: skip
+        draw_cross(ax, spread, style, 0.8, alpha=0.6)
+        ax.plot([cost.value], [quality.value], style.point_marker, markersize=5.5, color=style.color, zorder=5,
+                **marker_edge(style, 0.9))  # fmt: skip
 
 
 def draw_panel(ax: Axes, name: str, mix: str, panel: dict) -> None:
@@ -127,8 +130,10 @@ def legend_entries() -> tuple[list[Line2D], list[str]]:
         labels.append(f"{LETTER_OF[router.name]} alone: its own steps (the router's own style)")
     for gate, text in ((FREE_GATE, "the free checks"), (JEV_GATE, "the Jev gate"), (SONNET_GATE, "the Sonnet gate")):
         style = CASCADE_STYLES[gate]
+        # An outlined style's legend line carries its outline, as its lines do; the others' are as they were.
+        outlined = {} if style.outline is None else {"path_effects": line_effects(style, 1.2), **marker_edge(style, 0)}
         handles.append(Line2D([], [], color=style.color, linestyle=style.linestyle, linewidth=1.2,  # type: ignore[arg-type]
-                              marker=style.marker, markersize=4))  # fmt: skip
+                              marker=style.marker, markersize=4, **outlined))  # fmt: skip
         labels.append(f"Router/{GATE_LABELS[gate]}: the router's pick, then {text}, on the router's steps")
     handles.append(Line2D([], [], color=INK, marker="+", markersize=7, linestyle="none"))
     labels.append(CROSS_LABEL)

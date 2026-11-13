@@ -48,16 +48,19 @@ class RouterStyle:
     # Operating-point labels by (mix, label), placed by eye on the committed figure and checked against it, so a
     # different walk needs them moved; a label not listed sits just below right of its cross.
     point_offsets: dict[tuple[str, str], Offset] = field(default_factory=dict)
+    # A thin dark outline (hex) round the style's lines, markers, crosses and labels, for a colour too pale to stand 3:1
+    # against the page on its own; None, for every style but the Sonnet gate's, draws none.
+    outline: str | None = None
 
 
 E_STYLE = RouterStyle(
     color="#8e5bd0", marker="s", point_marker="D", linestyle="-",
     point_offsets={
         ("realistic", "97%"): (-14, -62, "right"),
-        ("realistic", "99%"): (-4, 56, "right"),
-        ("realistic", "100%: falls back to A"): (24, 80, "right"),
-        ("uniform", "97%"): (8, -16, "left"),
-        ("uniform", "99%"): (-6, 44, "right"),
+        ("realistic", "99%"): (24, -2, "left"),
+        ("realistic", "100%: falls back to A"): (-38, 82, "right"),
+        ("uniform", "97%"): (-18, -4, "right"),
+        ("uniform", "99%"): (22, 20, "left"),
         ("uniform", "100%: falls back to A"): (24, 66, "right"),
     },
 )  # fmt: skip
@@ -67,25 +70,25 @@ E_STYLE = RouterStyle(
 F_STYLE = RouterStyle(
     color="#9b1c31", marker="^", point_marker="v", linestyle="--",
     point_offsets={
-        ("realistic", "97%"): (-6, -58, "right"),
+        ("realistic", "97%"): (40, -12, "left"),
         ("realistic", "99%"): (44, -24, "left"),
-        ("realistic", "100%: falls back to A"): (74, -80, "right"),
+        ("realistic", "100%: falls back to A"): (-38, 72, "right"),
         ("uniform", "97%"): (-84, 0, "right"),
-        ("uniform", "100%, 99%: falls back to A"): (8, -92, "right"),
+        ("uniform", "100%, 99%: falls back to A"): (-2, 56, "right"),
     },
 )  # fmt: skip
 
 # G's and G+'s: colours, markers and lines chosen before any Jev number existed. Their label offsets are placed by eye on
-# the committed figure after the walks, as E's and F's were (A15, item 15: layout is presentation, not selection). On the
-# realistic panel G's 99% and 100% labels sit in the clear space above the crosses, with short leaders that stay left of
-# G+'s fallback leader, which climbs steeply past "A: opus"; the other leaders run clear of one another.
+# the committed figure after the walks, as E's and F's were (A15, item 15: layout is presentation, not selection). Where
+# the crosses crowd near A, the labels sit in the gaps between the error bars, each with its own leader past 20 points;
+# `check_chart_v4` holds that no router's or cascade's label overlaps another label or an error bar.
 G_STYLE = RouterStyle(
     color="#1e0a14", marker="o", point_marker="P", linestyle="-.",
     point_offsets={
         ("realistic", "97%"): (-60, -40, "right"),
-        ("realistic", "99%"): (4, 50, "left"),
-        ("realistic", "100%"): (1, 43, "left"),
-        ("uniform", "97%"): (-14, -26, "right"),
+        ("realistic", "99%"): (28, 14, "left"),
+        ("realistic", "100%"): (10, 10, "left"),
+        ("uniform", "97%"): (-2, -20, "right"),
         ("uniform", "99%"): (-72, 21, "right"),
         ("uniform", "100%"): (40, 60, "left"),
     },
@@ -94,7 +97,7 @@ G_PLUS_STYLE = RouterStyle(
     color="#14109a", marker="X", point_marker="p", linestyle=":",
     point_offsets={
         ("realistic", "97%"): (-30, 8, "right"),
-        ("realistic", "99%"): (-60, 36, "right"),
+        ("realistic", "99%"): (30, 46, "left"),
         ("realistic", "100%: falls back to A"): (84, 95, "right"),
         ("uniform", "97%"): (-50, -30, "right"),
         ("uniform", "99%"): (-35, 40, "right"),
@@ -109,13 +112,17 @@ G_PLUS_STYLE = RouterStyle(
 # the four routers' and these three), and ten colours do not fit in the colour space 15 apart under every simulated
 # vision with room to spare: only black, a pale lavender and a bright green sit that far from the other seven and from
 # each other. The three are those, and each style also has a marker, a point marker and a line of its own, so no
-# series rests on colour alone. `check_jev_names` measures the distances. The lavender is the darkest that keeps them
-# (Amendment A18): #bfa0ee stands 2.16:1 against the page where chart v4's first, #cca4f8, stood 2.00:1, and no colour
-# 15 apart from the other nine stands much above 2.2:1.
+# series rests on colour alone. `check_jev_names` measures the distances. The lavender is the darkest found that keeps them
+# (Amendment A18, item 7): #bfa0ee stands 2.16:1 against the page where chart v4's first, #cca4f8, stood 2.00:1. That is
+# still under the 3:1 a chart's marks ask, so its style alone has an outline, the page's near-black ink: a thin dark band
+# round its lines, cross arms and leaders, its markers' edge, and a stroke round its labels' letters (`analysis/pareto.py`
+# draws them). Every other style has none and draws as it did.
 CASCADE_STYLES = {
     FREE_GATE: RouterStyle(color="#000000", marker="h", point_marker="*", linestyle=(0, (3, 1, 1, 1, 1, 1))),
     JEV_GATE: RouterStyle(color="#50f000", marker="<", point_marker="H", linestyle=(0, (5, 1))),
-    SONNET_GATE: RouterStyle(color="#bfa0ee", marker=">", point_marker="8", linestyle=(0, (3, 5, 1, 5))),
+    SONNET_GATE: RouterStyle(
+        color="#bfa0ee", marker=">", point_marker="8", linestyle=(0, (3, 5, 1, 5)), outline="#0b0b0b"
+    ),
 }
 
 
