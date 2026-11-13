@@ -20,7 +20,9 @@ is `check_stage4`'s and `check_stage5`'s, which need `results/`.
   temporary file); the allowlist accepts all fifteen sections and still refuses F-train and every diagnostic; and the
   three gates' styles (a colour, markers and a line each, shared by the pure cascade and the router-started line of
   that gate) share nothing with a router's and sit 15 apart in OKLab, in every view, from every other colour on the
-  headline figure and on each router's panel (known positive: a colour 15 apart from nothing there is found);
+  headline figure and on each router's panel (known positive: a colour 15 apart from nothing there is found); the
+  Sonnet gate's lavender, under 3:1 against the page, alone has an outline, which stands at least 3:1 (Amendment A18,
+  item 7);
 - the chart's router list holds E, F, G and G+ in that order (Stage 6 · 12 added the last two; they were reserved before),
   and their two styles in `analysis/chart_routers.py` have a colour, a marker, a point marker and a line that no other
   router's shares,
@@ -335,14 +337,25 @@ def main() -> int:
         )
         check(worst >= APART, f"{letter}'s panel: each of the three lines is at least {APART} ({worst:.1f}) from its router, A, "
               "the envelope and the other lines")  # fmt: skip
-    # The Sonnet gate's lavender is as dark as the rule above lets it be (Amendment A18): of every colour 15 apart from the
-    # headline's other nine, none stands more than about 2.2:1 against the page, and chart v4's first lavender stood 2.0:1.
+    # The Sonnet gate's lavender is the darkest a search found that keeps the rule above (Amendment A18, item 7 records the
+    # search); this holds it darker than chart v4's first lavender, which stood 2.0:1.
     sonnet = CASCADE_STYLES[SONNET_GATE].color
     check(contrast(sonnet, SURFACE) >= 2.15 > contrast("#cca4f8", SURFACE),
           f"the Sonnet gate's colour ({sonnet}) stands {contrast(sonnet, SURFACE):.2f}:1 against the page, darker than "
           f"chart v4's first lavender (#cca4f8, {contrast('#cca4f8', SURFACE):.2f}:1), the known positive")  # fmt: skip
     check(abs(contrast("#000000", "#ffffff") - 21) < 1e-9 and contrast(SURFACE, SURFACE) == 1,
           "the contrast reads 21:1 from black to white and 1:1 from a colour to itself (WCAG 2's ratio)")  # fmt: skip
+    # Under the 3:1 asked of a chart's marks, the lavender takes a thin dark outline as a second cue (A18 item 7), and it
+    # alone: every other style draws as it did.
+    outline = getattr(CASCADE_STYLES[SONNET_GATE], "outline", None)
+    check(contrast(sonnet, SURFACE) < 3 and outline is not None and len(outline) == 7 and outline.startswith("#")
+          and contrast(outline, SURFACE) >= 3,
+          f"the lavender stands under 3:1, so its style has an outline ({outline}) that stands "
+          f"{contrast(outline, SURFACE) if outline else 0:.2f}:1, at least 3:1")  # fmt: skip
+    plain = {f"the {g} gate's": CASCADE_STYLES[g] for g in (FREE_GATE, JEV_GATE)}
+    plain |= {f"{r}'s": styles[r] for r in styles}
+    check(all(getattr(style, "outline", "missing") is None for style in plain.values()),
+          f"no other style has one: {', '.join(plain)}")  # fmt: skip
     nudged = "#e65a2c"
     check(gap(nudged, SERIES_2) < APART, f"known positive: the envelope's orange nudged to {nudged} is "
           f"{gap(nudged, SERIES_2):.1f} from it, and the check says so")  # fmt: skip

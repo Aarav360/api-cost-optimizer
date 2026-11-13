@@ -14,19 +14,40 @@ them. Never a test item, no gate and no API call.
   on a step of its line, operating points equal to table v4's rows and to the operating-points file's sections;
 - the figures drawn from the committed numbers: every series once in the legend, in its gate's colour, the router-started
   figure's four lines per panel, the headline without the routers' step lines;
+- the headline drawn as `analysis.pareto` draws it, caption and note included: no router's or cascade's label overlaps
+  another label or an error bar (known positive: a label moved onto its own cross is found);
 - the calibration figure: its bins, its hollow train markers and the caption that says why a cell is empty;
+- the Sonnet gate's outline (Amendment A18, item 7): drawn from the committed numbers, every line, marker, cross and label
+  in the lavender carries it, in the legends too, and nothing in another colour carries any (known positive: a lavender
+  without its outline and a Jev gate with one are both found); in the committed PNGs most lavender pixels sit beside a
+  dark one and the Jev gate's pale green's mostly don't (known positive: a lavender line drawn without the outline); in
+  the committed explorer every Sonnet-gate cascade carries the outline and no other series does, and, where Node is
+  installed, the page's own script gives each lavender line an outline trace beneath it and each lavender marker an
+  outline edge, on every view, and gives no other series either;
 - on dev (hook only): a rebuild of every figure JSON equals the committed one.
 """
 
 import copy
 import json
+import shutil
+import subprocess
 import sys
 import tempfile
+from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from matplotlib.colors import to_hex
+import numpy as np
+from matplotlib.artist import Artist
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.collections import LineCollection
+from matplotlib.colors import to_hex, to_rgb
 from matplotlib.figure import Figure
+from matplotlib.image import imread
+from matplotlib.lines import Line2D
+from matplotlib.patheffects import Stroke
+from matplotlib.text import Annotation, Text
 
 from analysis import cascade_charts as cch
 from analysis.bootstrap import resample
@@ -38,26 +59,34 @@ from analysis.calibration_figure import (
 )
 from analysis.chart_routers import CASCADE_STYLES, ROUTERS
 from analysis.check_chart_routers import APART, NOTES, gap
+from analysis.check_explorer import embedded
 from analysis.check_table_v4 import TINY, tiny_table
+from analysis.explorer import EXPLORER
 from analysis.gate_table import PAID_GATES
 from analysis.operating_points import read_section, section_hash
 from analysis.pareto import (
+    CROSSES_LINE,
+    FIGURE,
     FIGURE_DATA,
     PANELS,
     SERIES_1,
     SERIES_2,
+    SURFACE,
+    TASK_FIGURE,
     TASK_FIGURE_DATA,
     TASKS,
+    basis_line,
     cascade_point_label,
     cascade_points_label,
     cascade_steps_label,
     draw_headline,
     draw_tasks,
     headline_caption,
+    realistic_note,
     task_caption,
 )
 from analysis.references import ROUNDING
-from analysis.routed_figure import ROUTED_FIGURE_DATA, draw_routed, routed_caption
+from analysis.routed_figure import ROUTED_FIGURE, ROUTED_FIGURE_DATA, draw_routed, routed_caption
 from analysis.router_names import (
     CASCADES,
     FREE_GATE,
@@ -70,7 +99,7 @@ from analysis.router_names import (
     SONNET_GATE,
     cascade_section,
 )
-from analysis.simulator import always, simulate
+from analysis.simulator import always, load_mixes, simulate
 from analysis.table_v4 import TABLE_V4
 from harness.client import PROJECT_ROOT
 from routers.ladder import FRONTIER, LADDER
@@ -309,12 +338,14 @@ def fall_back_crosses(panels: dict) -> dict[str, list[tuple[str, str, tuple[floa
     return wanted
 
 
-def drawn_checks(headline: dict, per_task: dict, routed: dict, calibration: dict) -> None:
+def drawn_checks(headline: dict, per_task: dict, routed: dict, calibration: dict) -> dict[str, Figure]:
+    """The checks on the figures drawn from the committed numbers; returns the figures, by name."""
     print("\n-- drawn from the committed numbers --")
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
         caption = headline_caption("run 0, n = 744.", "Crosses.", ROUTERS)
         fig = draw_headline(headline["panels"], NOTES, caption, folder / "a.png", ROUTERS)
+        drawn_figures = {"the headline figure": fig}
         legend = legend_of(fig)
         parts = headline["panels"]["realistic"]["cascades"]
         free, jev, sonnet = list(parts)
@@ -342,12 +373,14 @@ def drawn_checks(headline: dict, per_task: dict, routed: dict, calibration: dict
         tasks = draw_tasks(
             per_task["panels"], task_caption("run 0", "counts", "Crosses.", ROUTERS), folder / "b.png", ROUTERS
         )
+        drawn_figures["the per-task figure"] = tasks
         legend = legend_of(tasks)
         check(all(legend.count(cascade_steps_label(part)) == 1 for part in per_task["panels"]["ifeval"]["cascades"].values())
               and not any("operating points" in label for label in legend),
               "the per-task legend has each pure cascade's steps once, and no operating points")  # fmt: skip
 
         fig = draw_routed(routed["panels"], routed_caption("run 0, n = 744.", "Crosses."), folder / "c.png")
+        drawn_figures["the router-started figure"] = fig
         check(len(fig.axes) == 8, "the router-started figure has a panel per router and mix: eight")
         for ax, (name, mix) in zip(fig.axes, [(n, m) for n in NAMED_ROUTERS.values() for m in PANELS], strict=True):
             router_color = next(r.style.color for r in ROUTERS if r.name == name)
@@ -370,12 +403,245 @@ def drawn_checks(headline: dict, per_task: dict, routed: dict, calibration: dict
         check(gap("#2a78d6", "#2b79d7") < APART, "known positive: two near-identical colours are found too close")
 
         fig = draw_calibration(calibration, folder / "d.png")
+        drawn_figures["the calibration figure"] = fig
         check(len(fig.axes) == 8, "the calibration figure has a panel per gate and config: eight")
         texts = " ".join(t.get_text() for t in fig.texts)
         check(all(reason in " ".join(" ".join(t.get_text().split()) for t in fig.texts) for _, _, reason in empty_cells(calibration)),
               "the calibration caption gives the reason for every empty cell")  # fmt: skip
         check("hollow" in texts or any("hollow" in label.lower() for label in legend_of(fig)),
               "and the legend says train is hollow")  # fmt: skip
+    return drawn_figures
+
+
+# ---- the Sonnet gate's outline (Amendment A18, item 7) ------------------------------------------------------------
+
+LAVENDER = CASCADE_STYLES[SONNET_GATE].color
+# Each figure's lavender artists, by kind, that must be there; the calibration figure draws no cascade's style.
+OUTLINED_KINDS = {
+    "the headline figure": {"line", "marker", "cross", "label"},
+    "the per-task figure": {"line", "marker"},
+    "the router-started figure": {"line", "marker", "cross"},
+    "the calibration figure": set(),
+}
+COMMITTED_PNGS = {"the headline figure": FIGURE, "the per-task figure": TASK_FIGURE,
+                  "the router-started figure": ROUTED_FIGURE}  # fmt: skip
+# A pixel is dark under a relative luminance of 0.2: below the lavender's (0.42) and any blend of it with the page. A dark
+# one within `REACH` pixels rings a lavender pixel; at least `RINGED` of the lavender's pixels are ringed, and at most
+# `UNRINGED` of the Jev gate's pale green's, which has no outline.
+DARK, REACH, RINGED, UNRINGED = 0.2, 2, 0.6, 0.3
+
+
+def own_colour(artist: Artist) -> str:
+    """The colour an artist is drawn in: a line's or a label's, a hollow marker's edge, or a cross's arms or a leader."""
+    if isinstance(artist, Line2D) and str(artist.get_markerfacecolor()) == "none":
+        return to_hex(artist.get_markeredgecolor())
+    if isinstance(artist, Line2D | Text):
+        return to_hex(artist.get_color())
+    edges = np.atleast_2d(artist.get_edgecolor())  # type: ignore[attr-defined]
+    return to_hex(edges[0]) if len(edges) else "none"
+
+
+def kind_of(artist: Artist) -> str:
+    if isinstance(artist, Text):
+        return "label"
+    if isinstance(artist, Line2D):
+        return "marker" if artist.get_linestyle() in ("None", "", " ") else "line"
+    return "cross"
+
+
+def rings(artist: Artist) -> set[str]:
+    """The colours an artist draws round itself other than its own and the page's halo: a stroke under its line, its
+    arms or its letters (and its label's leader), and its markers' edge."""
+    strokes = [getattr(e, "_gc", {}) for e in artist.get_path_effects() or [] if isinstance(e, Stroke)]
+    found = {to_hex(gc["foreground"]) for gc in strokes if gc.get("foreground") is not None}
+    if isinstance(artist, Line2D) and artist.get_marker() not in ("None", "", " ", None):
+        found.add(to_hex(artist.get_markeredgecolor()))
+    if isinstance(artist, Annotation) and artist.arrow_patch is not None:
+        found |= rings(artist.arrow_patch)
+    return found - {own_colour(artist), SURFACE}
+
+
+def outline_findings(fig: Figure) -> tuple[set[str], list[str]]:
+    """The kinds of lavender artist a figure draws, its legends included, and every artist that breaks the rule: a
+    lavender one without exactly the Sonnet gate's outline, or one in another colour with any outline."""
+    outline = CASCADE_STYLES[SONNET_GATE].outline
+    artists: list[Artist] = [a for ax in fig.axes for a in (*ax.get_lines(), *ax.collections, *ax.texts)]
+    artists += [h for legend in fig.legends for h in legend.legend_handles if isinstance(h, Line2D)]
+    kinds, found = set(), []
+    for artist in artists:
+        colour, ring = own_colour(artist), rings(artist)
+        if colour == LAVENDER:
+            kinds.add(kind_of(artist))
+            if ring != {outline}:
+                found.append(f"a lavender {kind_of(artist)} with {sorted(ring) or 'no outline'}")
+        elif ring:
+            found.append(f"a {kind_of(artist)} in {colour} with an outline, {sorted(ring)}")
+    return kinds, [f"{n} x {what}" for what, n in Counter(found).items()]
+
+
+def ringed(path: Path, colour: str) -> tuple[int, float]:
+    """How many of a PNG's pixels are `colour`, and the share of them that a dark pixel sits within `REACH` of."""
+    image = imread(path)[..., :3]
+    linear = np.where(image <= 0.04045, image / 12.92, ((image + 0.055) / 1.055) ** 2.4)
+    dark = linear @ np.array([0.2126, 0.7152, 0.0722]) < DARK
+    near = np.zeros_like(dark)
+    for dy in range(-REACH, REACH + 1):
+        for dx in range(-REACH, REACH + 1):
+            near |= np.roll(np.roll(dark, dy, axis=0), dx, axis=1)
+    mine = np.all(np.abs(image - np.array(to_rgb(colour))) < 8 / 255, axis=-1)
+    return int(mine.sum()), float((mine & near).sum() / max(mine.sum(), 1))
+
+
+def outline_checks(figures: dict[str, Figure], per_task: dict) -> None:
+    print("\n-- the Sonnet gate's lavender carries a thin dark outline (A18 item 7) --")
+    outline = CASCADE_STYLES[SONNET_GATE].outline
+    for name, fig in figures.items():
+        kinds, found = outline_findings(fig)
+        wanted = OUTLINED_KINDS[name]
+        what = (f"every lavender {', '.join(sorted(wanted))} carries the outline ({outline}), the legend's too, and "
+                "nothing in another colour carries one" if wanted else "it draws no lavender and no outline")  # fmt: skip
+        check(kinds == wanted and not found, f"{name}: {what}" + "".join(f"\n      found: {f}" for f in found))
+    sonnet, jev = CASCADE_STYLES[SONNET_GATE], CASCADE_STYLES[JEV_GATE]
+    try:
+        CASCADE_STYLES[SONNET_GATE] = replace(sonnet, outline=None)
+        CASCADE_STYLES[JEV_GATE] = replace(jev, outline=outline)
+        with tempfile.TemporaryDirectory() as tmp:
+            _, found = outline_findings(draw_tasks(per_task["panels"], "caption", Path(tmp) / "e.png", ROUTERS))
+    finally:
+        CASCADE_STYLES[SONNET_GATE], CASCADE_STYLES[JEV_GATE] = sonnet, jev
+    check(any(f.endswith("x a lavender line with no outline") for f in found)
+          and any(f"in {jev.color} with an outline" in f for f in found),
+          "known positive: drawn with the outline moved to the Jev gate, the bare lavender and the outlined green are found")  # fmt: skip
+
+    for name, path in COMMITTED_PNGS.items():
+        count, share = ringed(path, LAVENDER)
+        green_count, green_share = ringed(path, jev.color)
+        check(count > 0 and share >= RINGED and green_count > 0 and green_share <= UNRINGED,
+              f"{path.relative_to(PROJECT_ROOT)}: {share:.0%} of the lavender's {count:,} pixels sit within {REACH} of a "
+              f"dark one, at least {RINGED:.0%}, where the Jev gate's green's {green_share:.0%} do, at most {UNRINGED:.0%}")  # fmt: skip
+    with tempfile.TemporaryDirectory() as tmp:
+        bare = Path(tmp) / "bare.png"
+        fig = Figure(figsize=(3, 2), dpi=170, facecolor=SURFACE)
+        fig.subplots().plot([0, 1], [0, 1], color=LAVENDER, linewidth=1.2)
+        fig.savefig(bare, facecolor=SURFACE)
+        count, share = ringed(bare, LAVENDER)
+    check(count > 0 and share < UNRINGED,
+          f"known positive: a lavender line drawn without the outline has {share:.0%} of its pixels ringed")  # fmt: skip
+
+
+# The explorer's own script, run in Node with a stand-in for the page: every series on, each view's traces printed.
+TRACES_JS = r"""
+const fs = require("fs"), vm = require("vm");
+const html = fs.readFileSync(process.argv[1], "utf8");
+const script = html.match(/<script>\n([\s\S]*?)<\/script>/)[1];
+const any = new Proxy(function () {}, {
+  get: (_, key) => (key === Symbol.toPrimitive ? () => "" : any), apply: () => any, set: () => true,
+});
+const page = {
+  document: any, location: { hash: "" }, window: { addEventListener() {} }, localStorage: { getItem: () => null, setItem() {} },
+  matchMedia: () => ({ addEventListener() {} }), MutationObserver: class { observe() {} },
+  getComputedStyle: () => ({ getPropertyValue: (name) => name }), Plotly: { react() {} },
+};
+vm.createContext(page);
+vm.runInContext(script, page);
+process.stdout.write(vm.runInContext(
+  "for (const r of SERIES) state.series[r.key] = true;" +
+  "JSON.stringify(Object.fromEntries(Object.keys(DATA.views).map((k) => [k, traces(DATA.views[k])])))", page));
+"""
+
+
+def explorer_outline_findings(views: dict[str, list[dict]], outlined: set[str], outline: str) -> list[str]:
+    """Per view, each trace that breaks the rule: a lavender line with no wider outline trace just beneath it, a
+    lavender marker without the outline edge, or another series with the outline."""
+    found = []
+    for view, traces in views.items():
+        for i, trace in enumerate(traces):
+            name, line, marker = trace.get("name", ""), trace.get("line") or {}, trace.get("marker") or {}
+            series = name.removesuffix(" points")
+            edge = (marker.get("line") or {}).get("color")
+            if series not in outlined:
+                if outline in (line.get("color"), edge):
+                    found.append(f"{view}: {name} has the outline")
+                continue
+            if trace.get("mode") == "lines" and line.get("color") == LAVENDER:
+                under = traces[i - 1] if i else {}
+                if not (under.get("name") == name and (under.get("line") or {}).get("color") == outline
+                        and under.get("x") == trace["x"] and under["line"]["width"] > line["width"]):  # fmt: skip
+                    found.append(f"{view}: {name}'s line has no outline beneath it")
+            if "markers" in trace.get("mode", "") and marker.get("color") == LAVENDER and edge != outline:
+                found.append(f"{view}: {name}'s markers have no outline edge")
+    return found
+
+
+def explorer_outline_checks() -> None:
+    print("\n-- the explorer draws the same outline --")
+    outline = CASCADE_STYLES[SONNET_GATE].outline
+    data = embedded(EXPLORER.read_text(encoding="utf-8")) or {"cascades": []}
+    sonnet = [c for c in data["cascades"] if c["gate"] == GATE_LABELS[SONNET_GATE]]
+    check(len(sonnet) == 5 and all(c.get("outline") == outline for c in sonnet)
+          and all(c.get("outline", "missing") is None for c in data["cascades"] if c not in sonnet),
+          f"the committed page gives the five Sonnet-gate cascades the outline ({outline}) and the other ten none")  # fmt: skip
+    node = shutil.which("node")
+    if node is None:
+        print("SKIP  the page's traces: Node is not installed")
+        return
+    run = subprocess.run([node, "-e", TRACES_JS, str(EXPLORER)], capture_output=True, text=True, timeout=60)
+    views = json.loads(run.stdout) if run.returncode == 0 else {}
+    outlined = {c["label"] for c in sonnet}
+    found = explorer_outline_findings(views, outlined, outline or "")
+    drawn = {t["name"] for traces in views.values() for t in traces if (t.get("line") or {}).get("color") == outline}
+    check(run.returncode == 0 and drawn == outlined and not found,
+          f"its script draws an outline under each Sonnet-gate line ({len(drawn)} of {len(outlined)}) and round each of "
+          "their markers, on every view, and on no other series" + "".join(f"\n      {f}" for f in found[:12])
+          + (f"\n      {run.stderr.strip()[:300]}" if run.returncode else ""))  # fmt: skip
+    bare = {v: [t for t in traces if (t.get("line") or {}).get("color") != outline] for v, traces in views.items()}
+    check(any("has no outline beneath it" in f for f in explorer_outline_findings(bare, outlined, outline or "")),
+          "known positive: the same traces with the outline traces taken out are found")  # fmt: skip
+
+
+def label_clashes(fig: Figure) -> list[str]:
+    """Each router's or cascade's label (a text in its policy's colour) that overlaps another label or an error bar,
+    the one of its own cross included, by the text's box; a leader may cross a bar."""
+    renderer = FigureCanvasAgg(fig).get_renderer()
+    colours = {r.style.color for r in ROUTERS} | {s.color for s in CASCADE_STYLES.values()}
+    found = []
+    for ax, mix in zip(fig.axes, PANELS, strict=False):
+        # Every label but the panel's note, the one text that runs to more than one line.
+        texts = [t for t in ax.texts if isinstance(t, Annotation) and t.get_text() and "\n" not in t.get_text()]
+        boxes = [(t, Text.get_window_extent(t, renderer)) for t in texts]
+        bars = [ax.transData.transform(segment) for c in ax.collections if isinstance(c, LineCollection)
+                for segment in c.get_segments()]  # fmt: skip
+        for t, box in boxes:
+            if to_hex(t.get_color()) not in colours:
+                continue
+            name = f"{mix}: {t.get_text()!r} in {to_hex(t.get_color())}"
+            found += [f"{name} on {o.get_text()!r}" for o, other in boxes if o is not t and box.overlaps(other)]
+            if any(min(x0, x1) <= box.x1 and max(x0, x1) >= box.x0 and min(y0, y1) <= box.y1 and max(y0, y1) >= box.y0
+                   for (x0, y0), (x1, y1) in bars):  # fmt: skip
+                found.append(f"{name} on an error bar")
+    return found
+
+
+def label_checks(headline: dict, per_task: dict) -> None:
+    print("\n-- the headline's labels clear each other and the error bars, as analysis.pareto draws it --")
+    note = {"realistic": realistic_note(load_mixes()["realistic"], per_task["panels"]["mbppplus"]["items"])}
+    caption = headline_caption(basis_line(headline["n"], headline["price_snapshot"]), CROSSES_LINE, ROUTERS)
+    with tempfile.TemporaryDirectory() as tmp:
+        clashes = label_clashes(draw_headline(headline["panels"], note, caption, Path(tmp) / "a.png", ROUTERS))
+        check(not clashes, "no router's or cascade's label overlaps another label or an error bar"
+              + "".join(f"\n      {c}" for c in clashes))  # fmt: skip
+        g = next(r for r in ROUTERS if r.short == "G")
+        kept = g.style.point_offsets.get(("realistic", "97%"))
+        try:
+            g.style.point_offsets[("realistic", "97%")] = (0, 0, "left")
+            moved = label_clashes(draw_headline(headline["panels"], note, caption, Path(tmp) / "b.png", ROUTERS))
+        finally:
+            if kept is None:
+                del g.style.point_offsets[("realistic", "97%")]
+            else:
+                g.style.point_offsets[("realistic", "97%")] = kept
+        check(any(c.startswith("realistic: '97%' in") and c.endswith("on an error bar") for c in moved),
+              "known positive: G's realistic 97% label moved onto its own cross is found on an error bar")  # fmt: skip
 
 
 def calibration_checks(data: dict, dev_record: dict) -> None:
@@ -454,7 +720,10 @@ def main() -> int:
     headline, per_task, routed = (load(p) for p in (FIGURE_DATA, TASK_FIGURE_DATA, ROUTED_FIGURE_DATA))
     table, calibration = load(TABLE_V4), load(CALIBRATION_DATA)
     committed_checks(headline, per_task, routed, table)
-    drawn_checks(headline, per_task, routed, calibration)
+    figures = drawn_checks(headline, per_task, routed, calibration)
+    outline_checks(figures, per_task)
+    explorer_outline_checks()
+    label_checks(headline, per_task)
     calibration_checks(calibration, load(PROJECT_ROOT / "analysis" / "gates_dev_record.json"))
     if (PROJECT_ROOT / "results" / "dev_matrix.sqlite").exists() and (PROJECT_ROOT / "results" / "gates").exists():
         rebuild_checks(headline, per_task, routed, calibration, table)

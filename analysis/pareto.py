@@ -69,15 +69,16 @@ from collections.abc import Sequence
 from dataclasses import asdict
 from itertools import pairwise
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-from matplotlib.patheffects import withStroke
+from matplotlib.patheffects import AbstractPathEffect, Normal, Stroke, withStroke
 from matplotlib.ticker import FixedLocator, FuncFormatter, MaxNLocator, NullLocator, PercentFormatter
 
 from analysis.bootstrap import RESAMPLES, SEED, Bootstrap, Estimate, Savings, TotalEstimate, resample
-from analysis.chart_routers import CASCADE_STYLES, ROUTERS, RouterEntry
+from analysis.chart_routers import CASCADE_STYLES, ROUTERS, RouterEntry, RouterStyle
 from analysis.matrix import LADDER, Matrix, load
 from analysis.operating_points import OPERATING_POINTS_FILE, build_section, read_section, section_hash
 from analysis.references import START, Curve, Oracle, envelope, oracle, quality_targets, task_oracles
@@ -103,12 +104,19 @@ OFFSETS = {"haiku": (8, -9, "left"), "sonnet": (8, 0, "left"), "opus_low": (-8, 
 TASK_OFFSETS = {task: OFFSETS | {"sonnet": (8, -9, "left")} for task in TASKS}
 TASK_OFFSETS["mbppplus"] |= {"sonnet": (-8, -9, "right")}
 # Chart v4's cascades: operating-point labels by (gate, mix, label) and the free checks' one point by (gate, mix), placed
-# by eye on the committed figure, as the routers' are (A15 item 15: layout is presentation, not selection). The Sonnet
-# gate's fall back to A sits highest of the labels at A, clear of the target shares in the right margin.
+# by eye on the committed figure, as the routers' are (A15 item 15: layout is presentation, not selection), clear of the
+# other labels and the error bars as `check_chart_v4` holds. The Sonnet gate's fall back to A sits highest of the labels at
+# A, clear of the target shares in the right margin.
 CASCADE_OFFSETS: dict[tuple[str, str, str], tuple[int, int, str]] = {
-    (JEV_GATE, "realistic", "99%"): (-6, -60, "right"),
+    (JEV_GATE, "realistic", "100%"): (42, -2, "left"),
+    (JEV_GATE, "realistic", "99%"): (38, 36, "left"),
+    (JEV_GATE, "realistic", "97%"): (-18, 4, "right"),
+    (JEV_GATE, "uniform", "99%"): (-12, -8, "right"),
+    (JEV_GATE, "uniform", "97%"): (2, -10, "left"),
     (SONNET_GATE, "realistic", "100%, 99%: falls back to A"): (40, 125, "right"),
+    (SONNET_GATE, "realistic", "97%"): (10, -6, "left"),
     (SONNET_GATE, "uniform", "100%, 99%: falls back to A"): (40, 110, "right"),
+    (SONNET_GATE, "uniform", "97%"): (18, 0, "left"),
 }
 CASCADE_POINT_OFFSETS: dict[tuple[str, str], tuple[int, int, str]] = {}
 
@@ -122,6 +130,51 @@ CONFIGS_LABEL = "Fixed configs, with 95% intervals"
 TARGETS_LABEL = "Quality targets, % of A's quality"
 CAPTION_WIDTH, NOTE_WIDTH = 150, 80  # characters per line at 8.5 and 8 points, across a 10-inch figure and a panel
 LINE = 1 / 6  # inches per line of 8.5-point text, for the space under the panels
+
+
+# A style with an outline (the Sonnet gate's lavender, Amendment A18 item 7) has it drawn as a second cue, in points: a band
+# either side of its lines, cross arms and leaders (a third of the line's width, at most `OUTLINE_BAND`, so a thin line
+# stays mostly its own colour), its markers' edge, and a stroke round its labels' letters, half of it outside them. A
+# style with none draws as it always has.
+OUTLINE_BAND, OUTLINE_EDGE, OUTLINE_TEXT = 0.4, 0.8, 0.4
+
+
+def line_effects(style: RouterStyle, width: float) -> list[AbstractPathEffect]:
+    """The path effects of a line `width` points wide in `style`: its outline beneath it, or none."""
+    if style.outline is None:
+        return []
+    return [Stroke(linewidth=width + 2 * min(OUTLINE_BAND, width / 3), foreground=style.outline), Normal()]
+
+
+def marker_edge(style: RouterStyle, width: float) -> dict[str, Any]:
+    """A filled marker's edge in `style`: its outline, or the halo in the page's colour, `width` points wide."""
+    if style.outline is None:
+        return {"markeredgecolor": SURFACE, "markeredgewidth": width}
+    return {"markeredgecolor": style.outline, "markeredgewidth": OUTLINE_EDGE}
+
+
+def label_effects(style: RouterStyle) -> list[AbstractPathEffect]:
+    """A label's halo in the page's colour, which keeps it legible where an arm or a line runs under it, and in a style
+    with an outline a thin stroke round its letters."""
+    if style.outline is None:
+        return [withStroke(linewidth=3, foreground=SURFACE)]
+    return [Stroke(linewidth=3, foreground=SURFACE), Stroke(linewidth=OUTLINE_TEXT, foreground=style.outline), Normal()]
+
+
+def leader_of(style: RouterStyle) -> dict[str, Any]:
+    """A thin leader to a label that sits clear of the crowd, in `style`."""
+    return {"arrowstyle": "-", "color": style.color, "linewidth": 0.6, "shrinkA": 2, "shrinkB": 4,
+            "path_effects": line_effects(style, 0.6)}  # fmt: skip
+
+
+def draw_cross(ax: Axes, spread: TotalEstimate, style: RouterStyle, width: float, alpha: float | None = None) -> None:
+    """A cross's two arms, each spanning its 95% interval, in `style`."""
+    quality, cost = spread.quality, spread.cost_per_1k
+    effects = line_effects(style, width)
+    ax.vlines(cost.value, quality.low, quality.high, color=style.color, linewidth=width, alpha=alpha, zorder=4,
+              path_effects=effects)  # fmt: skip
+    ax.hlines(quality.value, cost.low, cost.high, color=style.color, linewidth=width, alpha=alpha, zorder=4,
+              path_effects=effects)  # fmt: skip
 
 
 class ChartError(ValueError):
@@ -328,9 +381,9 @@ def draw_steps(ax: Axes, part: dict, router: RouterEntry) -> None:
     style = router.style
     costs, qualities = step_line(part["steps"])
     ax.plot(costs, qualities, color=style.color, linestyle=style.linestyle, linewidth=1.2, zorder=2,
-            label=steps_label(router))  # fmt: skip
+            label=steps_label(router), path_effects=line_effects(style, 1.2))  # fmt: skip
     ax.plot([s["cost_per_1k"] for s in part["steps"]], [s["quality"] for s in part["steps"]], style.marker,
-            markersize=4, color=style.color, markeredgecolor=SURFACE, markeredgewidth=0.8, zorder=3)  # fmt: skip
+            markersize=4, color=style.color, zorder=3, **marker_edge(style, 0.8))  # fmt: skip
 
 
 def draw_operating_points(ax: Axes, part: dict, router: RouterEntry, mix: str) -> None:
@@ -340,22 +393,16 @@ def draw_operating_points(ax: Axes, part: dict, router: RouterEntry, mix: str) -
     style = router.style
     shown_points = point_labels(part["operating_points"])
     for point, _ in shown_points:
-        spread = as_spread(point)
-        quality, cost = spread.quality, spread.cost_per_1k
-        ax.vlines(cost.value, quality.low, quality.high, color=style.color, linewidth=1.2, zorder=4)
-        ax.hlines(quality.value, cost.low, cost.high, color=style.color, linewidth=1.2, zorder=4)
+        draw_cross(ax, as_spread(point), style, 1.2)
     ax.plot([as_spread(p).cost_per_1k.value for p, _ in shown_points],
             [as_spread(p).quality.value for p, _ in shown_points], style.point_marker, markersize=6.5,
-            color=style.color, markeredgecolor=SURFACE, markeredgewidth=1.2, zorder=5,
-            label=points_label(router))  # fmt: skip
+            color=style.color, zorder=5, label=points_label(router), **marker_edge(style, 1.2))  # fmt: skip
     for point, label in shown_points:
         dx, dy, ha = style.point_offsets.get((mix, label), (8, -10, "left"))
-        # A thin leader to a label that sits clear of the crowd.
-        leader = {"arrowstyle": "-", "color": style.color, "linewidth": 0.6, "shrinkA": 2, "shrinkB": 4}
         ax.annotate(label, (point["cost_per_1k"]["value"], point["quality"]["value"]), xytext=(dx, dy),
                     textcoords="offset points", ha=ha, va="center", fontsize=8.5, color=style.color, zorder=6,
-                    arrowprops=leader if max(abs(dx), abs(dy)) > 20 else None,
-                    path_effects=[withStroke(linewidth=3, foreground=SURFACE)])  # fmt: skip
+                    arrowprops=leader_of(style) if max(abs(dx), abs(dy)) > 20 else None,
+                    path_effects=label_effects(style))  # fmt: skip
 
 
 def cascade_steps_label(part: dict) -> str:
@@ -376,9 +423,9 @@ def draw_cascade_steps(ax: Axes, part: dict) -> None:
     style = CASCADE_STYLES[part["gate"]]
     costs, qualities = step_line(part["steps"])
     ax.plot(costs, qualities, color=style.color, linestyle=style.linestyle, linewidth=1.2, zorder=2,
-            label=cascade_steps_label(part))  # fmt: skip
+            label=cascade_steps_label(part), path_effects=line_effects(style, 1.2))  # fmt: skip
     ax.plot([s["cost_per_1k"] for s in part["steps"]], [s["quality"] for s in part["steps"]], style.marker,
-            markersize=4, color=style.color, markeredgecolor=SURFACE, markeredgewidth=0.8, zorder=3)  # fmt: skip
+            markersize=4, color=style.color, zorder=3, **marker_edge(style, 0.8))  # fmt: skip
 
 
 def draw_cascade_operating_points(ax: Axes, part: dict, mix: str, offsets: dict) -> None:
@@ -387,21 +434,16 @@ def draw_cascade_operating_points(ax: Axes, part: dict, mix: str, offsets: dict)
     style = CASCADE_STYLES[part["gate"]]
     shown_points = point_labels(part["operating_points"])
     for point, _ in shown_points:
-        spread = as_spread(point)
-        quality, cost = spread.quality, spread.cost_per_1k
-        ax.vlines(cost.value, quality.low, quality.high, color=style.color, linewidth=1.2, zorder=4)
-        ax.hlines(quality.value, cost.low, cost.high, color=style.color, linewidth=1.2, zorder=4)
+        draw_cross(ax, as_spread(point), style, 1.2)
     ax.plot([as_spread(p).cost_per_1k.value for p, _ in shown_points],
             [as_spread(p).quality.value for p, _ in shown_points], style.point_marker, markersize=6.5,
-            color=style.color, markeredgecolor=SURFACE, markeredgewidth=1.2, zorder=5,
-            label=cascade_points_label(part))  # fmt: skip
+            color=style.color, zorder=5, label=cascade_points_label(part), **marker_edge(style, 1.2))  # fmt: skip
     for point, label in shown_points:
         dx, dy, ha = offsets.get((part["gate"], mix, label), (8, -10, "left"))
-        leader = {"arrowstyle": "-", "color": style.color, "linewidth": 0.6, "shrinkA": 2, "shrinkB": 4}
         ax.annotate(label, (point["cost_per_1k"]["value"], point["quality"]["value"]), xytext=(dx, dy),
                     textcoords="offset points", ha=ha, va="center", fontsize=8.5, color=style.color, zorder=6,
-                    arrowprops=leader if max(abs(dx), abs(dy)) > 20 else None,
-                    path_effects=[withStroke(linewidth=3, foreground=SURFACE)])  # fmt: skip
+                    arrowprops=leader_of(style) if max(abs(dx), abs(dy)) > 20 else None,
+                    path_effects=label_effects(style))  # fmt: skip
 
 
 def draw_cascade_point(ax: Axes, part: dict, offset: tuple[int, int, str]) -> None:
@@ -410,14 +452,13 @@ def draw_cascade_point(ax: Axes, part: dict, offset: tuple[int, int, str]) -> No
     style = CASCADE_STYLES[part["gate"]]
     spread = as_spread(part["point"])
     quality, cost = spread.quality, spread.cost_per_1k
-    ax.vlines(cost.value, quality.low, quality.high, color=style.color, linewidth=1.2, zorder=4)
-    ax.hlines(quality.value, cost.low, cost.high, color=style.color, linewidth=1.2, zorder=4)
+    draw_cross(ax, spread, style, 1.2)
     ax.plot([cost.value], [quality.value], style.marker, markersize=11, markerfacecolor="none",
-            markeredgecolor=style.color, markeredgewidth=1.6, zorder=5, label=cascade_point_label(part))  # fmt: skip
+            markeredgecolor=style.color, markeredgewidth=1.6, zorder=5, label=cascade_point_label(part),
+            path_effects=line_effects(style, 1.6))  # fmt: skip
     dx, dy, ha = offset
     ax.annotate(part["label"], (cost.value, quality.value), xytext=(dx, dy), textcoords="offset points", ha=ha,
-                va="center", fontsize=8.5, color=style.color, zorder=6,
-                path_effects=[withStroke(linewidth=3, foreground=SURFACE)])  # fmt: skip
+                va="center", fontsize=8.5, color=style.color, zorder=6, path_effects=label_effects(style))  # fmt: skip
 
 
 def draw_references(ax: Axes, panel: dict, offsets: dict) -> None:
@@ -651,6 +692,15 @@ def cascades_line(free: str, jev: str, sonnet: str) -> str:
             f"(a walk that certifies nothing cheaper than A falls back to A, and its cross is at A)")  # fmt: skip
 
 
+# The figures' captions open with the run and its prices, and say what a cross is; a check that draws the committed
+# numbers as this script draws them builds the same two lines.
+CROSSES_LINE = f"Crosses are 95% intervals from {RESAMPLES:,} resamples of source groups within each task."
+
+
+def basis_line(n: int, snapshot: str) -> str:
+    return f"run 0, n = {n}, list prices {snapshot}"
+
+
 def headline_caption(basis: str, crosses: str, routers: tuple[RouterEntry, ...]) -> str:
     """The headline figure's caption (A17 item 23): the basis and crosses, the pointer to the tables, what is drawn for
     the routers (crosses only; their step lines are in the router-started figure) and the pure cascades, the line on
@@ -694,7 +744,7 @@ def main() -> int:
     savings = {mix: draws.savings(dev, outcomes["opus"], mixes[mix]) for mix in PANELS}
     panels = {mix: mix_panel(dev, draws, outcomes, mixes[mix], savings[mix]) for mix in PANELS}
     per_task = task_panels(dev, draws, outcomes)
-    basis = f"run 0, n = {len(dev.items)}, list prices {snapshot}"
+    basis = basis_line(len(dev.items), snapshot)
     # Chart v4's cascades: their lines on dev, from the gate-score table and the four routers' dev tables, and their
     # operating points from table v4 (which `analysis.table_v4` built from the same walks and the committed sections).
     from analysis import cascade_charts, routed_figure, table_v4  # here: they need the stored gate records
@@ -835,7 +885,7 @@ def main() -> int:
                          "routers": router_meta, "cascades": cascade_meta, "panels": routed})):  # fmt: skip
         path.write_text(json.dumps(data, indent=2) + "\n")
 
-    crosses = f"Crosses are 95% intervals from {RESAMPLES:,} resamples of source groups within each task."
+    crosses = CROSSES_LINE
     counts = ", ".join(f"{TASKS[task]} {panel['items']}" for task, panel in per_task.items())
     draw_headline(panels, {"realistic": realistic_note(mixes["realistic"], per_task["mbppplus"]["items"])},
                   headline_caption(basis, crosses, ROUTERS), FIGURE)  # fmt: skip
