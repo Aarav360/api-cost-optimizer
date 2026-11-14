@@ -249,7 +249,13 @@ _Avoid_: optimal router, perfect router
 
 **Quality target**:
 A required quality, stated as a share of frontier quality under a task mix (100%, 99%, 97%).
-_Avoid_: quality threshold (thresholds belong to routers, cutoffs to gates)
+_Avoid_: quality threshold (thresholds belong to routers, cutoffs to gates), verdict (a gate's accept or reject)
+
+**Target met**:
+A policy meets a quality target on a split when its quality there, less the target's share of the
+frontier's quality on the same items, is at least zero. An operating point that falls back to
+always-frontier is said to fall back, not to meet its target.
+_Avoid_: verdict, passed
 
 **Safety margin**:
 How far a policy's dev quality must clear a quality target when its threshold is chosen: one
@@ -280,3 +286,30 @@ router's steps with the gate's cutoff fixed (Amendment A17 items 10 and 11).
 A policy at the thresholds selected for one task mix and quality target: the cheapest step its
 walk certifies, or always-frontier where the walk certifies nothing cheaper.
 _Avoid_: setting, configuration
+
+## The final evaluation
+
+**Final evaluation**:
+The one scoring of the frozen policies on the sealed test answers, from the unlock to the live
+replay. Nothing in it is chosen after the first test answer is read.
+_Avoid_: test run (the collection run already ran test)
+
+**Unlock**:
+The checks that open the sealed test answers: every freeze, hash and pin is verified first, and a
+check that fails opens nothing.
+_Avoid_: unseal, unsealing flag
+
+**Rehearsal**:
+The whole final evaluation against made-up sealed answers, together with its offline half on
+dev's stored records, which must reproduce dev's results exactly.
+_Avoid_: dry run
+
+**Drift check**:
+Re-running a frozen part of a policy on inputs it has already scored, before any test call, and
+comparing what it gives now with what it gave then.
+_Avoid_: noise check
+
+**Live replay**:
+A policy run end to end and timed on 100 test requests, with fresh answers whose quality is shown
+but not judged.
+_Avoid_: live test, online evaluation

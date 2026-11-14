@@ -45,6 +45,7 @@
 | v4-A16 | 2026-10-27 | Amendment A16: Stage 6 review: the files the two freezes hash; findings in them recorded, not fixed; dev latency's machine, network and times; the split of `routers/jev.py`; client behaviour and the refusal rule; the byte budgets and their margin |
 | v4-A17 | 2026-11-10 | Amendment A17: Stage 7 decisions: three free checks, the Jev gate and a low-effort Sonnet gate; fifteen cascades, pure and router-started, escalating straight to `opus`; pure cascades walk their cutoff, router-started ones walk their router with the cutoff fixed on train by Youden's J; the Sonnet gate on train too; a settings commit and a freeze commit; chart v4; Stage 8's drift checks and live replay; the commercial router dropped |
 | v4-A18 | 2026-11-11 | Amendment A18: Stage 7 review: the files the two freezes hash; findings in them recorded, not fixed; chart v3 unchanged by the prefactor, from history; the git-environment fix and three corrections to A17's text; item 29's operating points; the fall backs drawn at A again; the Sonnet gate's lavender darkened; the gate name's two-way switch kept |
+| v4-A19 | 2026-11-13 | Amendment A19: Stage 8 decisions: the research write-up is the deliverable; one go, then the final evaluation in a fixed order, with calls before grading; an unlock that runs the hook and returns the only handle to test; nothing shown before the tables; the headline declared as a rule and "target met" at zero margin; bugs found after the go; a replication summary; a Stage 8 spending ledger; the record; the write-up's skeleton before the go; two PRs |
 
 ## Amendment A1 — implementation decisions (2026-10-14)
 
@@ -1645,6 +1646,123 @@ Eight records from Stage 7's branch review, made after the cascades' record (A17
 7. **The Sonnet gate's lavender.** Chart v4's `#cca4f8` stood 2.00:1 against the page. It is now `#bfa0ee`, 2.16:1, the darkest lavender found that stays 15 apart in OKLab, in every simulated view, from the headline's nine other colours (A17 item 23); a search of the colour space found none that far from them much darker, since the headline's ten colours fill the space. `analysis/check_jev_names.py` holds both. The PNGs and the explorer are redrawn; no number changes. Added on 2026-11-12, after #73's merge: 2.16:1 is still under the 3:1 asked of a chart's marks, so the lavender's lines, markers, crosses and labels now carry a thin near-black outline, `#0b0b0b`, as a second cue that isn't colour, on the headline, per-task and router-started figures, their legends and the explorer; no other style has one. Only the pictures changed: every figure JSON, table v4 and the operating points are as they were. `analysis/check_jev_names.py` holds that the outline stands at least 3:1 and that no other style has one, and `analysis/check_chart_v4.py` finds it on every lavender mark drawn and in the committed PNGs and page.
 8. **The gate name stays a two-way switch** (review finding 10). `GateRow.paid`, the table builder, `cascade_gate_calls` and `GateMedians` each choose between two typed fields, `jev` and `sonnet`, by the paid gate's name. A map keyed by gate would trade fields mypy checks, and that the checks build by keyword, for lookups it can't check, for the sake of a third paid gate only a new amendment could add. Each switch refuses any other name, the last two through item 1's one guard. And `GateRow` is the row the cutoff code reads (item 2), so reshaping it would change what that frozen code runs on.
 
+## Amendment A19 — Stage 8 decisions: the final evaluation (2026-11-13)
+
+**Provenance.** Stage 8's decisions come from a design interview held after Stage 7's merge (#73, #75) and the checks' guardrail fixes (#76), before any Stage 8 code and before anything reads test. The interview read the committed dev tables (tables v3 and v4), the operating-points file, the dev run's record and the spend Stages 0 to 7 recorded. `analysis/check_final_design.py` (item 13) recomputes every number quoted here.
+
+**What stands.** They change no frozen file, threshold, cutoff or operating point, so A17 items 28 and 29 and every earlier freeze stand, and so does what A9 item 7, A11 item 17, A15 item 17 and A17 item 26 say Stage 8 verifies and runs. These items add to them.
+
+**Scope.** They settle §16's open question 3 (item 1), §17's headline and what §11's **not met** is measured against (item 6). They amend the order in A17 item 26 and §14 (item 2) and how A17 item 18's Stage 8 caps are counted (item 9), and they extend A6 item 3's rule on what may be seen of test to the whole final evaluation (item 5). Applied in §16, `GLOSSARY.md` and `CODING_STANDARDS.md`.
+
+1. **The deliverable is the research write-up** (§16's open question 3, A1 item 10's working assumption). Stage 8 is the final evaluation, `WRITEUP.md` and the README, and the project is complete with them (§14). S4, the live proxy, stays a stretch goal: it would need a Jev key at runtime and the code check's Docker sandbox on every request, so it isn't cheap to add later. The live replay already runs the best policy end to end, which is a proxy's core loop, and a test version of the explorer (item 8) is the cheaper thing to show.
+2. **One go, then the final evaluation in a fixed order.** The user gives one go, and no person decides anything after it, so test is run once: approving each step separately would put decision points after part of test is visible.
+    - **Before the go:** everything the final evaluation runs is committed and merged to `main` after the build PR's review (item 13).
+    - **The order:**
+        1. the unlock (item 3), which runs the full hook first;
+        2. the liveness calls: one made-up prompt to `haiku` at high effort (A2) and one to `opus` at medium, exactly as the live replay sends them, each returned model ID checked against the pin (A1 item 1), under the replay's cap. A retired model is found before anything is opened, so no substitute is ever chosen with outcomes known;
+        3. the drift checks (A11 item 17, A15 item 17, A17 item 26.2);
+        4. the router and gate calls on test: E's and F's router scores, G's and G+'s Jev calls, the free checks, the Jev gate and the Sonnet gate (A17 item 26.4). The gates judge answers by the free checks, not the grader, so none needs a grade, and if Jev fails mid-run nothing about test's outcomes is known yet;
+        5. grading, one answer at a time with nothing else running, as the collection run graded and as the grader was checked (A7, A18 item 1);
+        6. the tables, statistics and figures (item 8);
+        7. the live replay (A17 item 26.5).
+
+      This puts grading after the calls, where A17 item 26 and §14 ("test answers scored; router and gate calls on test run once") put it first.
+    - **A crash or a refusal stops the run,** and resuming needs a new go. A resume calls only requests with no stored response: a stored response is never drawn again, since Jev and Sonnet answer differently on each call.
+3. **The unlock** verifies what A9 item 7, A11 item 17, A15 item 17 and A17 item 26.1 list, and also:
+    - **runs the full `.githooks/pre-commit` itself,** as its first step, on the clean tree at `HEAD`, and refuses unless it passes. A GitHub merge runs no local hook, and a stamp left by an earlier run would be a claim to trust. It costs one hook run, once, and a flaky failure stops before anything is opened;
+    - **refuses unless the tree is clean and `HEAD` is `origin/main`'s tip** after a fetch;
+    - **records the commit it ran from, the time and the hook's result** (item 10), so "frozen, then opened" can be checked in git, as the earlier freezes can.
+4. **One way to read test.**
+    - **A handle.** The unlock returns a handle, the only way to get test's requests and answers, and everything that runs on test takes it: the router and gate collectors (which write `*_test.jsonl`, A17 item 14), the table builders, the grading and the live replay. A plain `"test"` split stays refused wherever it is refused today, which carries A9 item 7's "a separate function, not a flag" through to every caller.
+    - **No default path.** The unlock takes the store's path as an argument. The rehearsal passes its made-up store, and only the go's entry point passes the real one, through `harness/collect.py`'s own path (A9 item 7), so a rehearsal can't open the real store by accident.
+    - **The checks.** `harness/check_sealed.py` stays as it is, since the unlock never spells the store's name. A new check fails any module but the unlock that reads that path.
+    - **AGENTS.md changes twice.** When the Stage 8 build starts: the unlock may exist, and nothing runs it on the real store before the user's go. In the results PR, after the go: test is read only through the unlock's handle, by the final evaluation's modules.
+    - **Nothing reverts after Stage 8.** Test stays read-only data, never used to select anything.
+5. **Nothing shows test's outcomes before the tables.** Until the step that writes the tables, the final evaluation prints and logs only call outcomes, spend and timings, as A6 item 3 allowed for test in the collection run. It stores grades and gate verdicts, since the tables need them; the rule is about what is shown.
+    - **Refusal and truncation counts are reported with the tables,** not before (A17 item 26.4 asks only that they be reported): a Sonnet refusal becomes a rejection and a cap stop a failure, so their counts carry outcomes.
+    - **An error names the item and the exception,** never a grade. If diagnosing a crash needs a test answer's text, that is the user's call at the time.
+    - So a crash, and the decision to resume, happen with no outcome in view (item 2).
+6. **The headline, and what "target met" means on test.**
+    - **The headline** (§17's sentence) is declared now, as a rule: the best cascade by A17 item 24's rule, against A, on the realistic mix at the 99% target. That is haiku/Jev today (A17 item 29). If a refusal path re-selects the cascades, the headline follows the rule, and no new choice is made. A7 item 2 already speaks of the realistic-mix headline, and 99% is the target that doesn't materially reduce quality (§11). On dev, haiku/Jev at that point saves 37.6% of A's cost and meets its target in 89.65% of dev's resamples.
+        - The uniform mix and the 97% target are reported beside it, never in its place.
+        - If it misses on test, the headline says **not met**, with its quality and cost, and moves to no other target or policy. A policy that does better on test is reported as a finding (items 8 and 11).
+    - **Target met** (`GLOSSARY.md`) is the paired quantity the walk used on dev, the policy's quality less the target's share of A's quality on the same test items, at a margin of zero instead of one standard error. Its paired interval and the share of resamples meeting the target are printed beside it, as dev's tables print them. An operating point that falls back to A is labelled **falls back to A**, never met: it meets every target trivially, and would pad the count.
+    - **Several misses are expected.** 72 operating points route: 54 of the cascades' 90 and 18 of the routers' 24 (E 4, F 3, G 6, G+ 5). Over the 65 that tables v3 and v4 cover (the cascades', G's and G+'s), dev's own resamples give about 3 expected misses. Allowing for test's own sampling noise gives about 6, since a point that cleared by exactly the margin misses 15.9% of dev's resamples but about 24% of fresh samples.
+        - Choosing on dev pushes the count higher still, and E's and F's 7 points aren't counted.
+        - The misses will come in clusters, since points share items and some are the same step (G/Jev's 99% and 97%, for one).
+        - The write-up says so before its results (item 11): some misses are the margin working as designed.
+7. **A bug found after the go.**
+    - **In a frozen file** (a router, a gate, a cutoff, anything a freeze hashes): never fixed on test. The frozen system is what's evaluated, so the bug is reported as found.
+    - **In a measuring tool** (the graders, the sandbox, the simulator, the bootstrap, or shared code no freeze hashes, such as `analysis/gate_table.py` and `analysis/matrix.py`, A18 item 2): fixed under a new amendment and applied to dev and test alike. The operating points stay as frozen, with no re-walk, and both sets of numbers are reported. Grading under load is the likeliest such failure (A18 item 1), which is why item 2 grades one answer at a time.
+    - **In the final evaluation's own code** (its tables or statistics): fixed in a new commit, only what it feeds is rerun, and the first and the corrected numbers are reported side by side, with both commits.
+    - **In every case,** a new call is made only for a request with no stored response, and no threshold, cutoff or policy changes because of what test shows.
+8. **What is computed on test.**
+    - **Every frozen policy at its dev-selected operating points** (§10, §11), under both mixes and per task, with IFEval's and MBPP+'s results marked indicative (A7 item 2).
+    - **All 51 same-target comparisons** (A17 item 22), descriptive, with no multiplicity correction. The write-up leads with the declared questions, haiku/Jev against G and G+ first.
+    - **A replication summary,** declared now: for each dev comparison whose interval excluded 0, whether test's has the same sign and also excludes 0.
+    - **The hindsight oracle and the random-mixture envelope** from the test matrix, built as on dev (A8 item 4). Test has no repeat runs, so dev's flip rates carry over, and so do A6 item 2's words: the oracle curve is an optimistic upper bound.
+    - **Test's figures beside dev's:** the headline, per-task and router-started figures on test, with the frozen operating points marked, in files of their own; chart v4's dev files stay as they are. The README leads with test's figures and links dev's as the record of how the policies were chosen. The explorer (`figures/pareto_explorer.html`) gains a switch between the splits, opens on test, and names the split in its title and in every readout, since the two splits' numbers will be close and easy to mix up.
+    - **The live replay's answers** are graded with the same graders and shown beside the offline estimate with their n (25 per task), which is what A17 item 26.5's "shown but not judged" implies.
+9. **Spend: a ledger of Stage 8's own.** A17 item 18's caps hold, $25 for Stage 8's calls and $10 for the live replay, but they are counted afresh.
+    - **Why a new ledger:** `recorded_spend` in `analysis/gate_spend.py` sums every gate record under `results/gates/`, across splits, so reused as it is it would give Stage 8 what is left of Stage 7's $25. It also never reads `results/jev/`, where G's and G+'s test calls go. The Stage 8 ledger counts only Stage 8's records, in both folders. Neither `analysis/gate_spend.py` nor `analysis/collect_jev.py` is in a freeze, so the cap is added without touching a hash.
+    - **The $25** covers every Stage 8 call but the live replay's: the drift checks' re-sends, G's and G+'s Jev calls on test (A15 item 10 puts them near $0.35, uncapped until now) and both gates. **The $10** covers the liveness calls and the live replay.
+    - **The whole run's spend is projected before its first call,** so a cap refuses up front, not halfway through test.
+    - **The estimate.** The Sonnet gate on dev cost $6.98, so on test it comes nearer $7 than A17 item 18's "about $5". About $55 is spent so far: A6's "about $38" for the pilot and the collection run, $0.73 for the Jev routers' stored calls and $16.10 for Stage 7's stored gate records. The caps leave about $90 of the $150 ceiling at worst.
+10. **The final evaluation's record,** committed after the run, as `analysis/gates_dev_record.json` was for dev, with a check that holds the tables to it. It holds:
+    - the unlock's commit, time and hook result, each of its checks' results, and the environment: the macOS build, the chip and the library versions (A11 item 17 reports any difference);
+    - the liveness calls' returned model IDs;
+    - the drift checks' numbers: D6, D8, the shifts, the decisions that flip at each operating threshold and cutoff, and F's largest difference;
+    - each step's start and end, the request counts, the refusals and truncations, and the spend against each cap;
+    - the order evidence dev's record has: the first test Jev call's server `Date`, and the Sonnet test batch's ID and creation time;
+    - F's fold shares on test, and the 100 live-replay items drawn at the unlock;
+    - the live replay's conditions: the machine, the network and the times, with the first call and any reconnects reported apart (A17 item 26.5);
+    - the sha256 of every test record file.
+11. **The write-up.**
+    - **`WRITEUP.md` holds only the study.** The dated notes moved to `NOTES.md`, renamed so their history follows them, with Part 2's ideas for after Stage 8. The repository is public, so the move keeps nothing private.
+    - **Its skeleton is committed before the go:**
+        - the section order;
+        - the headline sentence as a template under item 6's rule;
+        - the declared questions, in order, and the replication summary's form;
+        - the expected misses (item 6);
+        - the limitations: selection on dev, IFEval and MBPP+ only indicative, one run of test, and the oracle an optimistic upper bound;
+        - a short Future work section in the study's own voice, led by Part 2's first idea, a benchmark whose models are further apart.
+
+      After the run, nothing declared is removed or reordered, and the run may add sections: a reported drift, a bug under item 7, a refusal path taken.
+    - **The summary holds the headline and the answers to the declared questions.** A post-hoc finding, meaning anything outside the headline, the 51 comparisons and the replication summary (a per-task pattern, a new metric, a ranking by test savings), appears only under a heading that says it was found after test was seen.
+    - **Every number** comes from a committed figure JSON, dev's or test's, or from a run record, and a check holds each one, the user's own sentences included. `CODING_STANDARDS.md`'s "Numbers in documents" gains `WRITEUP.md`; `NOTES.md`, a dated log, stays outside it.
+    - **Who writes it.** After the run an agent fills in the numbers, and the user writes the discussion. An agent then reviews the user's draft for two things: a number no check holds, and a post-hoc claim outside its heading or in the summary.
+12. **The hook stays as it is:** the full hook on every commit (A17 item 27), with no move of slow checks to merge time and no parallel runs.
+    - Stage 8 will likely edit shared code no freeze hashes (A18 item 2), and a changed dev number there is caught only by the hook's rebuilds.
+    - Moving checks to merge time would amend A17 item 27 just before the freezes matter most.
+    - Parallel checks would load the sandbox checks, which are sensitive to timing (A18 item 1).
+
+    At the go, what protects test is the unlock's own hook run and its refusals (item 3).
+13. **Checks and build order.**
+    - **CI** (no `results/`, Docker or model snapshot: a stand-in sandbox, and `analysis/fake_backend.py`'s fake servers):
+        - the rehearsal: the whole final evaluation on a made-up sealed store;
+        - each unlock check refusing on a tampered copy of its file, one at a time;
+        - each drift check's refusals on synthetic records: a wrong model ID, D8 > 3 × D6, and the shift rule, whose known positive is a uniform move that barely changes D8 and must still refuse;
+        - the handle's refusals, and the check that only the unlock reads the sealed path;
+        - the liveness call;
+        - the ledger and its up-front projection;
+        - item 5's rule: a marker planted in the made-up grades fails the rehearsal if it appears in any output before the tables step;
+        - item 6's headline rule picking its cell;
+        - the record's fields.
+    - **Hook only:**
+        - the rehearsal again, with the real sandbox and the real model on made-up requests;
+        - the dev reproduction: the offline half of the final evaluation, run on dev's stored tables and records, must reproduce table v4's and the operating-points file's dev numbers. The operating points are held by hash, and the counts, dollars and seeded intervals to the last stored digit. A mismatch is a finding to explain, not a tolerance to loosen. It can't reach F's test path, where a hash picks the fold model, so that path is covered by the made-up run and F's drift check.
+    - **The real store is neither read nor hashed before the go:** its sha256 is checked only inside the unlock.
+    - **`analysis/check_final_design.py`** holds this amendment's numbers (items 6 and 9) against the committed tables and the dev run's record in CI, and against the stored records in the hook.
+    - **Build order:**
+        1. the handle's interface, with AGENTS.md's first edit (item 4), since everything on test takes it;
+        2. in parallel: the unlock and the read-path check; the ledger and the liveness calls; the test tables on the handle; the final table, the comparisons and the replication summary; the figures and the explorer's switch; the live-replay runner; and the write-up's skeleton;
+        3. the rehearsal and the dev reproduction;
+        4. the review, the merge, and the go.
+    - **Two PRs.**
+        - **A build PR,** reviewed and merged before the go, while a finding still costs nothing to act on. Stage 7's review came after dev had run, so its findings in hashed files could only be recorded (A18).
+        - **A results PR after the go,** with the record, test's tables and figures, the write-up, the README and AGENTS.md's second edit.
+14. **After Stage 8.** #74's cleanup of the findings A18 recorded in hashed files comes after the results PR, under its own amendment and PR, since it edits hashed files.
+
 ---
 
 # 1. Goal
@@ -2293,7 +2411,7 @@ Run experiments at **every** stage on dev and update the Pareto chart each time.
 
 1. ~~Which models fill the cheap / medium / frontier tiers?~~ **Decided (A1):** Anthropic lineup, four configs.
 2. ~~What's the total API budget?~~ **Decided (A1):** working ceiling of $150.
-3. Is the deliverable a research write-up, a usable proxy, or both? (Decides whether S4 is core.)
+3. ~~Is the deliverable a research write-up, a usable proxy, or both? (Decides whether S4 is core.)~~ **Decided (A19 item 1):** the research write-up; S4 stays a stretch goal.
 
 ---
 

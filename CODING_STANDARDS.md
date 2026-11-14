@@ -32,10 +32,10 @@ length, imports, types) belong to ruff and mypy, configured in `pyproject.toml` 
 
 ## Numbers in documents
 
-A number quoted in PLAN_v4.md, the README or a figure caption comes from a committed output
+A number quoted in PLAN_v4.md, the README, WRITEUP.md or a figure caption comes from a committed output
 (`figures/*.json`) or a check script's printout, and a check compares the document's copy with
 it. A hand-copied number drifts: A8 item 1's table carried a rounding slip until `check_simulator`
-compared it.
+compared it. NOTES.md, a dated log of talking points, is outside this rule.
 
 ## Sealed data
 

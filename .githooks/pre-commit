@@ -138,6 +138,10 @@ run_check analysis.check_stage7
 # prefactor's merge and the two commits it names (where the history is present), and its numbers against their sources.
 # No results/ needed; CI runs it too.
 run_check analysis.check_gates_review
+# Amendment A19's numbers (the Stage 8 design interview): the headline's dev numbers, the routing points and the
+# expected misses from the committed tables, the caps and the Sonnet gate's dev cost, and, where results/ holds the
+# stored Jev and gate records, the spend so far. No test item, no call.
+run_check analysis.check_final_design
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
 run_check analysis.check_gates_sandbox
 # The grader's sandbox since its move to routers/sandbox.py (A17 items 19 and 27): the escape checks and every MBPP+
