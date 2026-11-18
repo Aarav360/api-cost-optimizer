@@ -18,6 +18,8 @@ jobs:
       - run: uv run mypy
       - run: uv run python -m harness.check_sealed
       - run: uv run python -m analysis.check_guardrails
+      - run: uv run python -m analysis.check_unlock
+      - run: uv run python -m analysis.check_read_path
       - run: uv run python -m analysis.check_routers
       - run: uv run python -m analysis.check_comparisons
       - run: uv run python -m analysis.check_walk

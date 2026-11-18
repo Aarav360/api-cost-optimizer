@@ -30,6 +30,11 @@ uv run ruff format --check
 uv run mypy
 run_check harness.check_sealed
 run_check analysis.check_guardrails
+# Stage 8's first slice (A19 items 3 and 4; issue #78): the unlock's sealed-store checks and the handle's three reads on a
+# made-up world and store, each refusal at its own check, and the read-path check that only the unlock reads the store's
+# path. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs both too.
+run_check analysis.check_unlock
+run_check analysis.check_read_path
 run_check analysis.check_routers
 run_check analysis.check_comparisons
 run_check analysis.check_walk
