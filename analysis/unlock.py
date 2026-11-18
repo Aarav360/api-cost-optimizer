@@ -8,6 +8,8 @@ and every module that runs on test takes one. Its three reads, one per consumer:
 - `answers()`: run 0's item ID, config, run, answer text and stop reason, for the gates (A17 item 2's `Answer`);
 - `graded_items()`: each stored result with its item's expected answer and the whole response, for grading only.
 
+It also keeps the live replay's draw, `replay_items()`: item IDs only, drawn at the unlock before any outcome exists.
+
 A handle the unlock didn't issue is refused by every read (`HandleError`): `require_issued` is what a module that
 only passes a handle on (a collector, a table builder) calls first.
 
@@ -17,10 +19,14 @@ as its known positive, so the handle can't be bypassed unnoticed. The benchmark 
 and the results-matrix loader go on refusing a plain `"test"`; this module reads test's rows from the world's
 benchmark file itself, as a separate function and not a flag (A9 item 7).
 
-Adding to the unlock (#80, #81): a check is a function `(World) -> CheckResult` that raises `UnlockRefusal(name,
-why)`. `CHECKS` runs in order, so the hook runner and the git facts (#80) go first, then the verify list (#81)
-before the sealed store's own hash, which is the one check that reads the store's bytes. The unlock never opens
-the store as a database, so a refusal leaves it unopened.
+Its checks run in this order, and the order is part of what it promises (A19 item 3): **the full hook first**, run by the
+world's hook runner on the tree at `HEAD`, then **the git facts** (the tree clean, `HEAD` is `origin/main`'s tip after a
+fetch; read after the hook, so a hook that dirtied the tree is caught), then the live replay's draw, then the sealed
+store's checks. A refusal at the hook means nothing after it ran, the store's hash included.
+
+Adding to the unlock (#81): a check is a function `(World) -> CheckResult` that raises `UnlockRefusal(name, why)`.
+`CHECKS` runs in order, so the verify list (#81) goes before the sealed store's own hash, which is the one check that
+reads the store's bytes. The unlock never opens the store as a database, so a refusal leaves it unopened.
 
 Its check is `analysis/check_unlock.py`.
 """
@@ -32,10 +38,12 @@ import weakref
 from collections.abc import Callable, Mapping
 from contextlib import closing
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from analysis import verify_list
 from analysis.gate_answers import ANSWER_COLUMNS, Answer
+from analysis.unlock_facts import GitFactsError, draw_replay
 from analysis.world import World
 from harness.client import PROJECT_ROOT
 from harness.collect import MAIN
@@ -92,6 +100,45 @@ class GradedItem:
 
 
 # The checks
+
+
+def hook(world: World) -> CheckResult:
+    """The full pre-commit hook, run by the world's hook runner, passes. First, so a flaky failure stops before anything
+    is opened. The real runner runs the tree's own `.githooks/pre-commit`; a rehearsal's is a stand-in."""
+    if world.hook_runner is None:
+        raise UnlockRefusal("hook", "the world names no hook runner")
+    result = world.hook_runner(world.root)
+    if not result.passed:
+        shown = " | ".join(result.tail)
+        raise UnlockRefusal("hook", f"the full hook failed (exit code {result.exit_code}): {shown}")
+    return CheckResult("hook", {"passed": True, "exit_code": result.exit_code, "seconds": round(result.seconds, 1),
+                                "last_line": result.last_line})  # fmt: skip
+
+
+def git_facts(world: World) -> CheckResult:
+    """The tree is clean and `HEAD` is `origin/main`'s tip after a fetch: what runs on test is what was reviewed and
+    merged. Read after the hook, which may not have changed the tree. The result records the commit."""
+    if world.git_facts is None:
+        raise UnlockRefusal("git_facts", "the world names no git facts")
+    try:
+        facts = world.git_facts(world.root)
+    except GitFactsError as error:
+        raise UnlockRefusal("git_facts", str(error)) from None
+    if not facts.clean:
+        raise UnlockRefusal("git_clean", "the working tree is not clean")
+    if facts.head != facts.origin_main:
+        raise UnlockRefusal("git_head_is_origin_main", "HEAD is not origin/main's tip after a fetch")
+    return CheckResult("git_facts", {"clean": True, "head": facts.head, "origin_main": facts.origin_main})
+
+
+def replay_draw(world: World) -> CheckResult:
+    """The live replay's items (A17 item 26.5): `world.replay_per_task` per task, seeded with 2026, from the benchmark's
+    test rows. The same on every unlock of the same benchmark, so a resume draws the same items. Reads no answer."""
+    try:
+        items = draw_replay(test_rows(world.benchmark), world.replay_per_task)
+    except ValueError as error:
+        raise UnlockRefusal("replay_draw", str(error)) from None
+    return CheckResult("replay_draw", {"per_task": world.replay_per_task, "item_ids": items})
 
 
 def sealed_store_path(world: World) -> CheckResult:
@@ -153,10 +200,18 @@ def verified_list(world: World) -> CheckResult:
     return CheckResult("verify_list", {"checked": report.checked, "reported": report.reported})
 
 
+# In order; each sits between comment lines, so tickets that add a line each merge without a conflict.
 CHECKS: tuple[Callable[[World], CheckResult], ...] = (
+    # #80: the hook first, then the git facts (A19 item 3), then the replay's draw
+    hook,
+    git_facts,
+    replay_draw,
+    # #78: the sealed store's checks
     sealed_store_path,
     manifest_record,
+    # #81: every freeze, hash and pin on the verify list, before the store's own hash is read
     verified_list,
+    # #78: the store's hash, the one check that reads its bytes
     sealed_store_sha256,
 )
 
@@ -173,6 +228,13 @@ def require_issued(handle: object) -> "Handle":
     return handle
 
 
+def test_rows(benchmark: Path) -> list[dict]:
+    """The benchmark file's test rows in file order: the final evaluation's items."""
+    with benchmark.open(encoding="utf-8") as file:
+        rows = [json.loads(line) for line in file if line.strip()]
+    return [row for row in rows if row["split"] == "test"]
+
+
 class Handle:
     """What the unlock returns. It carries the world and the unlock's results (the record's checks), and offers the
     three reads. Build one only through `unlock`: any other is refused by every read."""
@@ -185,9 +247,13 @@ class Handle:
 
     def _test_rows(self) -> list[dict]:
         """The benchmark's test rows in file order: the final evaluation's items."""
-        with self.world.benchmark.open(encoding="utf-8") as file:
-            rows = [json.loads(line) for line in file if line.strip()]
-        return [row for row in rows if row["split"] == "test"]
+        return test_rows(self.world.benchmark)
+
+    def replay_items(self) -> tuple[str, ...]:
+        """The live replay's items, drawn at the unlock (A17 item 26.5): item IDs, per task, in the draw's order."""
+        require_issued(self)
+        draw = next(result for result in self.results if result.name == "replay_draw")
+        return tuple(draw.detail["item_ids"])
 
     def _stored(self, query: str) -> list[tuple]:
         assert self.world.sealed_store is not None  # the unlock refused a world without one

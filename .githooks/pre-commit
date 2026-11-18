@@ -35,6 +35,11 @@ run_check analysis.check_guardrails
 # path. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs both too.
 run_check analysis.check_unlock
 run_check analysis.check_read_path
+# Stage 8's unlock hook (A19 items 3 and 10; A17 item 26.5; issue #80): the hook run first, the git facts, the record's commit, time,
+# hook result and environment, and the live replay's draw, on made-up worlds with stand-in hooks, and the real hook runner and git
+# facts on throwaway folders and repositories. No results/, no Docker, no Jev or Anthropic call, nothing near the real store, and
+# not the real hook. CI runs it too.
+run_check analysis.check_unlock_hook
 # Stage 8's tracer bullet (A19 items 2, 5, 8 and 13; issue #79): the runner, grading and the offline half's A to D on a made-up
 # world with a stand-in sandbox, against hand-worked numbers; the markers shown in nothing before the tables step; a crash
 # and a resume. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.
@@ -156,6 +161,10 @@ run_check analysis.check_gates_review
 # expected misses from the committed tables, the caps and the Sonnet gate's dev cost, and, where results/ holds the
 # stored Jev and gate records, the spend so far. No test item, no call.
 run_check analysis.check_final_design
+# The write-up's skeleton (A19 item 11): WRITEUP.md's declared parts against the commit that first added its skeleton marker
+# (the working file stands in until that commit exists; a clone without history skips it), every number in it against the
+# committed tables, and each hold failing on made-up texts and a throwaway repository. No results/ needed; no test item, no call.
+run_check analysis.check_writeup
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
 run_check analysis.check_gates_sandbox
 # The grader's sandbox since its move to routers/sandbox.py (A17 items 19 and 27): the escape checks and every MBPP+

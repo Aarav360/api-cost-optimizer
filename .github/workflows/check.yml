@@ -20,6 +20,7 @@ jobs:
       - run: uv run python -m analysis.check_guardrails
       - run: uv run python -m analysis.check_unlock
       - run: uv run python -m analysis.check_read_path
+      - run: uv run python -m analysis.check_unlock_hook
       - run: uv run python -m analysis.check_final_run
       - run: uv run python -m analysis.check_verify_list
       - run: uv run python -m analysis.check_routers
@@ -57,6 +58,7 @@ jobs:
       - run: uv run python -m analysis.check_stage7
       - run: uv run python -m analysis.check_gates_review
       - run: uv run python -m analysis.check_final_design
+      - run: uv run python -m analysis.check_writeup
       - run: uv run python -m analysis.check_jev_settings_commit
       - run: uv run python -m analysis.check_jev_freeze
       - run: uv run python -m analysis.check_jev_review

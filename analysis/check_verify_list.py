@@ -274,8 +274,12 @@ def lay_out(made: MadeUp, entries: tuple[Entry, ...]) -> tuple[Entry, ...]:
     return tuple(stood_in)
 
 
+def result_of(handle):
+    return next(r for r in handle.results if r.name == "verify_list")
+
+
 def reported_by(got) -> dict:
-    return {} if isinstance(got, UnlockRefusal) else got.results[2].detail["reported"]
+    return {} if isinstance(got, UnlockRefusal) else result_of(got).detail["reported"]
 
 
 def unlocking() -> None:
@@ -295,7 +299,7 @@ def unlocking() -> None:
         check(len(ours) == 1 and list(ours[0].detail["checked"]) == names and ours[0].detail["reported"] == {},
               "the record's verify_list result holds each of the 51 entries' observed value, and reports nothing")  # fmt: skip
         empty = attempt(made.world)
-        check(not isinstance(empty, UnlockRefusal) and empty.results[2].detail == {"checked": {}, "reported": {}},
+        check(not isinstance(empty, UnlockRefusal) and result_of(empty).detail == {"checked": {}, "reported": {}},
               "a world with an empty list unlocks and records an empty one (the other checks' made-up worlds)")  # fmt: skip
         order = [function.__name__ for function in CHECKS]
         check(order.index("verified_list") < order.index("sealed_store_sha256"),

@@ -9,7 +9,9 @@ a project-shaped root (`data/` and `results/` as the real one has them) holding
   configs for each test item, and one run-1 result that the answers read must leave out; each response holds a thinking
   block with a marker of its own;
 - its collection manifest, written by the collection module's own `seal`, so the hash the unlock checks comes from the
-  writer and not from this module.
+  writer and not from this module;
+- a stand-in hook runner and stand-in git facts, which pass (`StandInHook`, `StandInGit`: a check builds the failing ones),
+  and the replay's draw sized to the items the world has.
 
 Nothing here touches the real store, the real benchmark or `results/`: the store sits under the caller's folder, and
 `seal` makes it read-only, so `made_up_world()` makes it writable again when its folder goes.
@@ -21,12 +23,14 @@ import io
 import json
 import os
 import tempfile
+from collections import Counter
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
 from analysis.unlock import MANIFEST
+from analysis.unlock_facts import REPLAY_PER_TASK, GitFacts, HookResult
 from analysis.world import World
 from harness.collect import SEALED_COLUMNS, Job, Paths, make_custom_id, open_sealed, paths_under, seal
 
@@ -36,6 +40,36 @@ THINKING_MARKER = "THINKING-MARKER"  # in every stored response's thinking block
 
 BANKING = {"type": "object", "properties": {"label": {"type": "string"}}, "required": ["label"]}
 LETTER = {"type": "object", "properties": {"letter": {"type": "string"}}, "required": ["letter"]}
+
+
+COMMIT = "0123456789abcdef0123456789abcdef01234567"  # the stand-in git facts' `HEAD`, and `origin/main`'s tip
+
+
+class StandInHook:
+    """A rehearsal's hook runner: the real hook runs the rehearsal and would recurse. It passes or fails as told and keeps
+    the roots it was called with, so a check can see that it ran, how often and where."""
+
+    def __init__(self, passed: bool = True):
+        self.passed = passed
+        self.calls: list[Path] = []
+
+    def __call__(self, root: Path) -> HookResult:
+        self.calls.append(root)
+        if self.passed:
+            return HookResult(True, 0, 0.0, "the stand-in hook passed", ("the stand-in hook passed",))
+        return HookResult(False, 1, 0.0, "FAIL  the stand-in hook failed", ("FAIL  the stand-in hook failed",))
+
+
+class StandInGit:
+    """A rehearsal's git facts: a clean tree at `origin/main`'s tip unless told otherwise. It counts its calls."""
+
+    def __init__(self, clean: bool = True, head: str = COMMIT, origin_main: str = COMMIT):
+        self.facts = GitFacts(clean, head, origin_main)
+        self.calls: list[Path] = []
+
+    def __call__(self, root: Path) -> GitFacts:
+        self.calls.append(root)
+        return self.facts
 
 
 def row(item_id: str, split: str, prompt: str, expected: str, schema: dict | None = None) -> dict:
@@ -138,8 +172,11 @@ def build(folder: Path, content: Content = DEFAULT) -> MadeUp:
         sealed = seal(paths, jobs, None)
     if sealed != 0:
         raise RuntimeError("the made-up store did not seal")
+    # A made-up world draws what it has: every test item of its smallest task, up to the real 25 (the real world draws 25).
+    counts = Counter(made["source"] for made in content.benchmark if made["split"] == "test")
     world = World(root=folder, sealed_store=paths.sealed, benchmark=benchmark, results=folder / "results" / "test",
-                  output=folder / "output")  # fmt: skip
+                  output=folder / "output", hook_runner=StandInHook(), git_facts=StandInGit(),
+                  replay_per_task=min([REPLAY_PER_TASK, *counts.values()]))  # fmt: skip
     return MadeUp(world, paths)
 
 
