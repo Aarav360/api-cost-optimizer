@@ -44,6 +44,30 @@ def routing_mix(outcomes: list[Outcome], mix: dict[str, float]) -> dict[str, flo
     return shares
 
 
+def point_numbers(
+    draws: Bootstrap, savings: Savings, outcomes: list[Outcome], fixed: dict[str, list[Outcome]], mix: dict[str, float],
+    share: float,
+) -> dict:  # fmt: skip
+    """What table v1 gives a policy at one operating point under a mix: quality and cost with intervals, the paired
+    difference from A, savings against A, the captured fraction, the routing mix and the matched-cost comparison. A
+    function of the point's outcomes alone, so a walk's operating point and a frozen one (`analysis/operating_eval.py`)
+    are tabled by the same code."""
+    frontier = fixed[FRONTIER]
+    frontier_total = totals(frontier, mix)
+    total = totals(outcomes, mix)
+    return {
+        **asdict(draws.totals(outcomes, mix)),
+        "difference_from_A": asdict(draws.difference(outcomes, frontier, mix)),
+        "savings_vs_A": {
+            "per_1k": frontier_total.cost_per_1k - total.cost_per_1k,
+            "share": 1 - total.cost_per_1k / frontier_total.cost_per_1k,
+        },  # fmt: skip
+        "captured": asdict(savings.captured(outcomes, share)),
+        "routing": routing_mix(outcomes, mix),
+        "matched_cost": asdict(draws.matched_cost(outcomes, fixed, mix)),
+    }
+
+
 def router_part_of_mix_panel(
     draws: Bootstrap,
     savings: Savings,
@@ -53,14 +77,11 @@ def router_part_of_mix_panel(
     mix: dict[str, float],
 ) -> dict:
     """One router's part of a mix's panel: its steps for the line, and its operating points for the crosses."""
-    frontier = fixed[FRONTIER]
-    frontier_total = totals(frontier, mix)
     line = [{"threshold": threshold, **asdict(totals(outcomes, mix))} for threshold, outcomes in steps.items()]
     points = {}
     for share in TARGETS:
         result = walks[share]
         outcomes = steps[result.operating.threshold]
-        total = totals(outcomes, mix)
         points[target_key(share)] = {
             "threshold": result.operating.threshold,
             "fell_back": result.fell_back,
@@ -68,15 +89,7 @@ def router_part_of_mix_panel(
             "steps_tried": len(result.steps) - 1,
             "target": result.target,
             "margin": result.operating.margin,
-            **asdict(draws.totals(outcomes, mix)),
-            "difference_from_A": asdict(draws.difference(outcomes, frontier, mix)),
-            "savings_vs_A": {
-                "per_1k": frontier_total.cost_per_1k - total.cost_per_1k,
-                "share": 1 - total.cost_per_1k / frontier_total.cost_per_1k,
-            },  # fmt: skip
-            "captured": asdict(savings.captured(outcomes, share)),
-            "routing": routing_mix(outcomes, mix),
-            "matched_cost": asdict(draws.matched_cost(outcomes, fixed, mix)),
+            **point_numbers(draws, savings, outcomes, fixed, mix, share),
         }
     return {"steps": line, "operating_points": points}
 
@@ -89,6 +102,16 @@ def mcnemar_row(policy: list[Outcome], frontier: list[Outcome], task: str) -> di
         [o for o in policy if o.task == task], [o for o in frontier if o.task == task], "policy", ALWAYS_FRONTIER
     )
     return {"b": found.b, "c": found.c, "p": found.p}
+
+
+def task_point(
+    threshold: float | None, fell_back: bool, spread: TotalEstimate, outcomes: list[Outcome], frontier: list[Outcome],
+    task: str,
+) -> dict:  # fmt: skip
+    """A policy's operating point in one task: its quality and cost with intervals and McNemar's test against A. A row
+    that falls back to A is A, so it has nothing to test against."""
+    tested = None if fell_back else mcnemar_row(outcomes, frontier, task)
+    return {"threshold": threshold, "fell_back": fell_back, **asdict(spread), "mcnemar": tested}
 
 
 def router_part_of_task_panel(
@@ -110,10 +133,9 @@ def router_part_of_task_panel(
             threshold = result.operating.threshold
             if threshold not in spread:  # only the operating points' steps get intervals
                 spread[threshold] = draws.task_totals(steps[threshold])[task]
-            # A row that falls back to A is A, so it has nothing to test against.
-            tested = None if result.fell_back else mcnemar_row(steps[threshold], frontier, task)
-            points[mix][target_key(share)] = {"threshold": threshold, "fell_back": result.fell_back,
-                                              **asdict(spread[threshold]), "mcnemar": tested}  # fmt: skip
+            points[mix][target_key(share)] = task_point(
+                threshold, result.fell_back, spread[threshold], steps[threshold], frontier, task
+            )
     return {"steps": line, "operating_points": points}
 
 

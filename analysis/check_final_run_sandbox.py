@@ -50,7 +50,7 @@ def main() -> int:
     with made_up_world(content()) as made, made_up_world(content()) as stand_in_made:
         # The same runner, a world that names no sandbox: the grader's own import of the real one stands.
         real = ci.Rehearsal(made)
-        real.world = dataclasses.replace(real.world, backends=Backends())
+        real.world = dataclasses.replace(real.world, backends=Backends(trained=real.embedder))
         stand_in = ci.Rehearsal(stand_in_made)
         calls = mock.Mock(wraps=sandbox.run_python)
         with mock.patch("harness.evaluators.run_python", calls):  # counts the real sandbox's runs, and calls through

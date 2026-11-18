@@ -12,6 +12,10 @@ explain, not a number to loosen.
 
 - the references part (A to D) under both mixes and per task equals chart v0's keys of `figures/pareto.json` and
   `figures/pareto_tasks.json`, panel by panel, key by key;
+- E's and F's parts (`analysis/final_routers.py`, issue #83) evaluate each router at the six frozen points of its section of
+  `routers/operating_points.json`, with no walk, and reproduce table v1's committed numbers for it (`figures/pareto.json` and
+  `figures/pareto_tasks.json`: quality and cost with intervals, difference from A, savings, captured fraction, routing mix,
+  matched cost, McNemar's test) to the last stored digit; a walk's margin and steps tried are the walk's and aren't reproduced;
 - the guard can fail: the same comparison on a copy with one stored digit changed, one key dropped and one key added is
   a mismatch each time (so the comparison finds a difference where there is one);
 - every part of the tables names its committed counterpart or has none, and the parts that have none are checked against
@@ -81,6 +85,23 @@ def main() -> int:
             continue
         found = differences(tables["parts"][part.key], part.committed())
         check(not found, f"part {part.key!r} reproduces dev's committed numbers to the last stored digit {found[:3]}")
+
+    print("\n-- E and F at their frozen operating points (issue #83) --")
+    by_key = {part.key: part for part in offline_half.PARTS}
+    check(all(by_key[k].committed is not None for k in ("rules", "trained")),
+          "E's and F's parts each name their committed dev numbers, so the loop above checked them")  # fmt: skip
+    for key, routes in (("rules", 4), ("trained", 3)):
+        rows = tables["parts"][key]["mixes"]
+        points = [row for by_target in rows.values() for row in by_target.values()]
+        check(len(points) == 6 and sum(not row["fell_back"] for row in points) == routes
+              and all(row["fell_back"] == (row["threshold"] is None) for row in points)
+              and all(row["difference_from_A"]["value"] == 0 for row in points if row["fell_back"]),
+              f"{key}: six points, {routes} of which route (A19 item 6), each fall back being A itself")  # fmt: skip
+        tasks = tables["parts"][key]["tasks"]
+        per_task = [row for task in tasks.values() for by_target in task.values() for row in by_target.values()]
+        check(set(tasks) == {"ifeval", "banking77", "mmlu_pro", "mbppplus"} and len(per_task) == 24
+              and all(row["mcnemar"] is None for row in per_task if row["fell_back"]),
+              f"{key}: the per-task rows cover the four tasks, and a point that fell back has no McNemar row")  # fmt: skip
 
     print("\n-- the parts without committed numbers, against stored counts --")
     stops = tables["parts"]["stops"]

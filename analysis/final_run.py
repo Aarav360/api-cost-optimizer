@@ -30,13 +30,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TextIO
 
+from analysis.drift import DriftRefusal
 from analysis.final_record import RECORD_FILE, Record
 from analysis.unlock import Handle, HandleError, UnlockRefusal, unlock
 from analysis.world import World
 
 LOG_FILE = "final_run.log"
 TABLES = "tables"  # the step that writes the tables: from it on, outcomes may be shown (item 5)
-MESSAGE_SHOWN = (UnlockRefusal, HandleError)  # errors whose message names a check or a handle, never an answer
+# Errors whose message names a check, a handle or a dev number, never an answer.
+MESSAGE_SHOWN = (UnlockRefusal, HandleError, DriftRefusal)
 
 
 @dataclass(frozen=True)
@@ -53,7 +55,7 @@ STEPS = (
     # #82
     Step("liveness", None),
     # #83
-    Step("drift_trained_router", None),
+    Step("drift_trained_router", "analysis.trained_drift:drift_step"),
     # #84
     Step("drift_jev_router", None),
     # #85
@@ -61,7 +63,7 @@ STEPS = (
     # #86
     Step("drift_sonnet_gate", None),
     # #83
-    Step("calls_rules_trained", None),
+    Step("calls_rules_trained", "analysis.final_routers:calls_step"),
     # #84
     Step("calls_jev_router", None),
     # #85
@@ -160,7 +162,7 @@ def describe(error: BaseException) -> dict[str, str | None]:
     shown: dict[str, str | None] = {"item": item, "error": type(cause).__qualname__}
     if isinstance(cause, MESSAGE_SHOWN):
         shown["message"] = str(cause)
-    if isinstance(cause, UnlockRefusal):
+    if isinstance(cause, UnlockRefusal | DriftRefusal):
         shown["check"] = cause.check
     return shown
 

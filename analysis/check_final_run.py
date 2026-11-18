@@ -45,7 +45,7 @@ from unittest import mock
 
 import numpy as np
 
-from analysis import final_grading, offline_half
+from analysis import final_grading, offline_half, rehearsal_trained
 from analysis import rehearsal_world as rehearsal
 from analysis.backends import Backends
 from analysis.final_record import RECORD_FILE, Record
@@ -165,7 +165,9 @@ class Rehearsal:
 
     def __init__(self, made: MadeUp):
         self.sandbox_calls = 0
-        self.world = dataclasses.replace(made.world, backends=Backends(sandbox=self.sandbox))
+        # F's stand-ins: a fake embedder that has not moved since dev's table was scored (`analysis/rehearsal_trained.py`)
+        self.embedder = rehearsal_trained.stand_in(0.0)
+        self.world = dataclasses.replace(made.world, backends=Backends(sandbox=self.sandbox, trained=self.embedder))
         self.tick = clock()
 
     def sandbox(self, source: str, timeout_s: float = 10.0, memory: str = "512m"):
@@ -255,8 +257,8 @@ def first_go() -> None:
           "the drift checks, the calls, grading, the tables, the live replay, the record")  # fmt: skip
     built = {step.name for step in STEPS if step.entry is not None}
     check(
-        built == {"unlock", "grading", "tables", "record"},
-        f"the steps built so far are the four of this ticket {built}",
+        built == {"unlock", "grading", "tables", "record", "drift_trained_router", "calls_rules_trained"},
+        f"the steps built so far are the four of #79 and F's drift check and E's and F's calls (#83) {built}",
     )
     with rehearsed() as r:
         spy = Spy()
@@ -408,7 +410,10 @@ def tables(r: Rehearsal) -> None:
     check(file["split"] == "test" and file["n"] == 8 and file["run"] == 0 and file["price_snapshot"] == "2026-10-12"
           and file["bootstrap"] == {"resamples": 2000, "seed": 2026, "interval": "percentile 95%"},
           "the tables name the split, its 8 items, the snapshot and the seeded bootstrap")  # fmt: skip
-    check(list(file["parts"]) == ["references", "stops"], "the tables hold the parts in the order PARTS gives")
+    check(
+        list(file["parts"]) == ["references", "stops", "rules", "trained"],
+        "the tables hold the parts in the order PARTS gives",
+    )
     mixes = file["parts"]["references"]["mixes"]
     for mix in ("realistic", "uniform"):
         panel = mixes[mix]
@@ -623,7 +628,7 @@ def extending() -> None:
         inputs = offline_half.test_inputs(state)
         extra = Part("extra", lambda i: {"items": len(i.matrix.items), "seen": sorted(i.extras)}, None)
         built = offline_half.build_tables(inputs, offline_half.PARTS + (extra,))
-        check(list(built["parts"]) == ["references", "stops", "extra"] and built["parts"]["extra"] == {"items": 8, "seen": []},
+        check(list(built["parts"]) == ["references", "stops", "rules", "trained", "extra"] and built["parts"]["extra"] == {"items": 8, "seen": ["rules_table", "trained_facts", "trained_table"]},
               "a part added by one line is built after the others and reads its inputs")  # fmt: skip
         extras_in = dataclasses.replace(inputs, extras={"loaded": 1})
         check(extras_in.extras == {"loaded": 1} and offline_half.stops_part(extras_in)["haiku"]["correct"] == 4,
