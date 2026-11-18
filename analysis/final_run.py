@@ -36,7 +36,18 @@ from analysis.world import World
 
 LOG_FILE = "final_run.log"
 TABLES = "tables"  # the step that writes the tables: from it on, outcomes may be shown (item 5)
-MESSAGE_SHOWN = (UnlockRefusal, HandleError)  # errors whose message names a check or a handle, never an answer
+
+
+class StepRefusal(Exception):
+    """A refusal by a step before it calls or reads anything further: a model that isn't the pin, a drift limit, a cap.
+    Its message names a model, a limit or a cap, never an answer, so the run shows it (`MESSAGE_SHOWN`)."""
+
+
+MESSAGE_SHOWN = (
+    UnlockRefusal,
+    HandleError,
+    StepRefusal,
+)  # errors whose message names a check or a handle, never an answer
 
 
 @dataclass(frozen=True)
@@ -51,7 +62,7 @@ STEPS = (
     # #78 built the unlock's checks; #80 and #81 add to them, in analysis/unlock.py
     Step("unlock", "analysis.final_run:unlock_step"),
     # #82
-    Step("liveness", None),
+    Step("liveness", "analysis.final_liveness:liveness_step"),
     # #83
     Step("drift_trained_router", None),
     # #84
@@ -144,7 +155,9 @@ def unlock_step(run: Run) -> StepResult:
 
 def record_step(run: Run) -> StepResult:
     """The last step: the record's closing fields (#92 completes them). The go's end is written by the runner."""
-    return StepResult(detail={"file": RECORD_FILE})
+    from analysis.final_ledger import spend_report  # here, since the ledger imports this module's `StepRefusal`
+
+    return StepResult(detail={"file": RECORD_FILE, "spend": spend_report(run.world)})
 
 
 def resolve(entry: str) -> Callable[[Run], StepResult | None]:

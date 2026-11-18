@@ -13,12 +13,14 @@ through `recorded_spend` in `analysis/gate_spend.py`. CI has no results/, so tha
 import json
 import sys
 from collections.abc import Mapping
+from pathlib import Path
 from statistics import NormalDist
 
 from analysis import collect_jev
 from analysis.gate_spend import recorded_spend
 from analysis.operating_points import OPERATING_POINTS_FILE
 from analysis.plan import PLAN, amendment_item
+from analysis.record_files import STAGE_8_LABELS
 from analysis.router_names import CASCADES, G_PLUS, HAIKU, JEV_GATE, NAMED_ROUTERS, G, cascade_section
 from harness.client import PROJECT_ROOT
 
@@ -103,6 +105,19 @@ def headline_and_misses(plan: str) -> None:
           "the fresh-sample miss keeps a coin flip a coin flip and 0 and 1 as they are, and takes 15.9% to 24.0%")  # fmt: skip
 
 
+def jev_routers_dollars(results_dir: Path) -> float:
+    """The Jev routers' stored calls from Stage 7's splits, at the collector's price. Stage 8's test and drift files
+    (`analysis/record_files.py`) are left out by label, so they don't move a number the plan quotes."""
+    loaded = collect_jev.load_settings()
+    return sum(
+        collect_jev.overhead_dollars(record, loaded)
+        for router in collect_jev.ROUTERS
+        for split in collect_jev.SPLITS
+        if split not in STAGE_8_LABELS and collect_jev.records_path(router, split, results_dir).is_file()
+        for record in collect_jev.read_records(router, split, results_dir)
+    )
+
+
 def spend(plan: str) -> None:
     item = amendment_item(plan, "A19", 9)
     print("\n-- item 9: the caps, the Sonnet gate's dev cost and the spend so far --")
@@ -121,14 +136,7 @@ def spend(plan: str) -> None:
     if not any(collect_jev.records_path(router, "train").is_file() for router in collect_jev.ROUTERS):
         print("SKIP  the spend since A6, from the stored Jev and gate records: results/ isn't here (CI)")
         return
-    loaded = collect_jev.load_settings()
-    jev = sum(
-        collect_jev.overhead_dollars(record, loaded)
-        for router in collect_jev.ROUTERS
-        for split in collect_jev.SPLITS
-        if collect_jev.records_path(router, split).is_file()
-        for record in collect_jev.read_records(router, split)
-    )
+    jev = jev_routers_dollars(collect_jev.RESULTS_DIR)
     gates = recorded_spend().total
     so_far = round(BEFORE_STAGE_6 + jev + gates)
     check(f"${jev:.2f} for the Jev routers' stored calls" in item and f"${gates:.2f} for Stage 7's stored gate records" in item,

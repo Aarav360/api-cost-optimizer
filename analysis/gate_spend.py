@@ -10,7 +10,9 @@ Recorded spend is read back from the stored records, never from a counter that c
 - the Sonnet gate's batch verdicts, `sonnet_gate_{split}.jsonl`: billed tokens at list price less the batch discount,
   since that is what a batch is billed (the cost model ignores the discount, the invoice does not);
 - the Sonnet gate's standard-API calls, `sonnet_gate_latency*.jsonl`: billed tokens at list price.
-Every split counts, smoke included. A cut-short last line (no newline) is a write that did not finish and is dropped,
+Every Stage 7 split counts, smoke included. Stage 8's own files (`*_test.jsonl`, `*_drift.jsonl`) don't: they have a
+ledger of their own, `analysis/final_ledger.py` (A19 item 9), and `analysis/record_files.py` tells the two apart by name, so
+that Stage 7's total and cap stay what Stage 7 spent once Stage 8's records exist. A cut-short last line (no newline) is a write that did not finish and is dropped,
 as the stores' own reader does; any other line that is not a record with whole, non-negative billed token counts refuses
 the count (GateSpendError), since a spend that can't be known can't be under a cap.
 
@@ -25,6 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from analysis.collect_jev import RESULTS_DIR
+from analysis.record_files import stage_7_files
 from harness.client import load_models
 from routers import jev, sonnet_gate
 
@@ -108,7 +111,7 @@ def recorded_spend(
     folder = results_dir / "gates"
     jev_total = batch_total = standard_total = 0.0
     files = 0
-    for path in sorted(folder.glob("*.jsonl")) if folder.is_dir() else []:
+    for path in stage_7_files(folder):
         if path.name.startswith("jev_gate_"):
             files += 1
             jev_total += jev_dollars(billed_tokens(_records(path), path.name)[0], jev_price_per_million)

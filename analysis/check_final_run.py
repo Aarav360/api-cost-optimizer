@@ -37,7 +37,7 @@ import sqlite3
 import sys
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -48,6 +48,7 @@ import numpy as np
 from analysis import final_grading, offline_half
 from analysis import rehearsal_world as rehearsal
 from analysis.backends import Backends
+from analysis.fake_anthropic import FakeAnthropic, message_dict
 from analysis.final_record import RECORD_FILE, Record
 from analysis.final_run import LOG_FILE, STEPS, ItemFailure, Outcome, Run, Step, StepResult, describe, now_utc, run
 from analysis.made_up_world import MadeUp, made_up_world
@@ -160,12 +161,18 @@ def clock() -> Callable[[], datetime]:
     return tick
 
 
+def pinned_reply(params: Mapping[str, Any]) -> dict:
+    """A fake model that answers as the model it was asked, with a short reply and billed tokens of 20 and 5."""
+    return message_dict("ready", usage=(20, 5), model=params["model"])
+
+
 class Rehearsal:
     """A made-up world in a folder, a counting stand-in sandbox, and what a run printed."""
 
     def __init__(self, made: MadeUp):
         self.sandbox_calls = 0
-        self.world = dataclasses.replace(made.world, backends=Backends(sandbox=self.sandbox))
+        self.anthropic = FakeAnthropic(respond=pinned_reply)  # the liveness calls' fake: it answers as the model asked
+        self.world = dataclasses.replace(made.world, backends=Backends(sandbox=self.sandbox, anthropic=self.anthropic))
         self.tick = clock()
 
     def sandbox(self, source: str, timeout_s: float = 10.0, memory: str = "512m"):
@@ -255,8 +262,8 @@ def first_go() -> None:
           "the drift checks, the calls, grading, the tables, the live replay, the record")  # fmt: skip
     built = {step.name for step in STEPS if step.entry is not None}
     check(
-        built == {"unlock", "grading", "tables", "record"},
-        f"the steps built so far are the four of this ticket {built}",
+        built == {"unlock", "liveness", "grading", "tables", "record"},
+        f"the steps built so far are the five of the tickets so far {built}",
     )
     with rehearsed() as r:
         spy = Spy()
