@@ -285,9 +285,9 @@ def first_go() -> None:
               and go["steps"][11]["requests"] == {"sent": 0, "stored": 0},
               "a built step records its request counts: grading sent none")  # fmt: skip
         unlock_entry = go["unlock"]
-        check([c["name"] for c in unlock_entry["checks"]] == ["sealed_store_path", "manifest_record", "sealed_store_sha256"]
+        check([c["name"] for c in unlock_entry["checks"]][-3:] == ["sealed_store_path", "manifest_record", "sealed_store_sha256"]
               and unlock_entry["time"] <= go["steps"][0]["ended"],
-              "the unlock's entry names its three checks and its time")  # fmt: skip
+              "the unlock's entry names its sealed-store checks last, and its time")  # fmt: skip
         check(r.log.count("go 1 starts") == 1 and "grading: 32 answers graded" in r.log and r.log.startswith("2026-12-01"),
               "the log holds the run's lines, each stamped")  # fmt: skip
         check(out.strip() == r.log.strip() and err == "", "everything the run printed is in its log, and nothing went to the error stream")  # fmt: skip

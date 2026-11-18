@@ -4,17 +4,20 @@ The go and the rehearsal share one entry point, and they differ only in the worl
 builds the real one (its sealed-store path taken from the collection module's own paths), a rehearsal builds a made-up
 one (`analysis/made_up_world.py`). The unlock (`analysis/unlock.py`) takes a world and returns a handle or refuses.
 
-The fields below the output folder are placeholders: later tickets fill them in (#80 the hook runner and the git
-facts, #81 the verify list, the backends with the steps that call them). A field added later takes a default, so a
-world built before it still builds.
+The fields below the output folder are for later tickets to fill in: #80 gave the hook runner, the git facts and the
+replay's size their types; #81 adds the verify list and the backends come with the steps that call them. A field added
+later takes a default, so a world built before it still builds.
 
 This module only names things. It opens nothing, and the sealed store's path is a field the unlock alone reads
 (`analysis/check_read_path.py` fails any other module that does).
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from analysis.unlock_facts import REPLAY_PER_TASK, GitFacts, HookResult
 
 
 @dataclass(frozen=True)
@@ -25,6 +28,7 @@ class World:
     results: Path  # the folder test's records go to
     output: Path  # the folder for the record, the tables and the figures
     backends: Any = None  # placeholder: a Jev endpoint, an Anthropic client, the sandbox, the embedding backend
-    hook_runner: Any = None  # placeholder (#80): runs the full pre-commit hook, or a rehearsal's stand-in
-    git_facts: Any = None  # placeholder (#80): whether the tree is clean, `HEAD` and `origin/main`'s tip
+    hook_runner: Callable[[Path], HookResult] | None = None  # takes the root: the full hook, or a rehearsal's stand-in
+    git_facts: Callable[[Path], GitFacts] | None = None  # takes the root: clean tree, `HEAD`, `origin/main`
     verify: tuple[Any, ...] = ()  # placeholder (#81): what the unlock verifies, each with its expected hash or pin
+    replay_per_task: int = REPLAY_PER_TASK  # the live replay's items per task (A17 item 26.5)

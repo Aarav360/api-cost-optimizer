@@ -35,6 +35,11 @@ run_check analysis.check_guardrails
 # path. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs both too.
 run_check analysis.check_unlock
 run_check analysis.check_read_path
+# Stage 8's unlock hook (A19 items 3 and 10; A17 item 26.5; issue #80): the hook run first, the git facts, the record's commit, time,
+# hook result and environment, and the live replay's draw, on made-up worlds with stand-in hooks, and the real hook runner and git
+# facts on throwaway folders and repositories. No results/, no Docker, no Jev or Anthropic call, nothing near the real store, and
+# not the real hook. CI runs it too.
+run_check analysis.check_unlock_hook
 # Stage 8's tracer bullet (A19 items 2, 5, 8 and 13; issue #79): the runner, grading and the offline half's A to D on a made-up
 # world with a stand-in sandbox, against hand-worked numbers; the markers shown in nothing before the tables step; a crash
 # and a resume. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.

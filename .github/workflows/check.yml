@@ -20,6 +20,7 @@ jobs:
       - run: uv run python -m analysis.check_guardrails
       - run: uv run python -m analysis.check_unlock
       - run: uv run python -m analysis.check_read_path
+      - run: uv run python -m analysis.check_unlock_hook
       - run: uv run python -m analysis.check_final_run
       - run: uv run python -m analysis.check_final_ledger
       - run: uv run python -m analysis.check_routers
