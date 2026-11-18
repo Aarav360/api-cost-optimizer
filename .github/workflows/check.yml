@@ -21,6 +21,7 @@ jobs:
       - run: uv run python -m analysis.check_unlock
       - run: uv run python -m analysis.check_read_path
       - run: uv run python -m analysis.check_final_run
+      - run: uv run python -m analysis.check_verify_list
       - run: uv run python -m analysis.check_routers
       - run: uv run python -m analysis.check_comparisons
       - run: uv run python -m analysis.check_walk

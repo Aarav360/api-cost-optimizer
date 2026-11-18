@@ -20,6 +20,7 @@ from collections.abc import Sequence
 
 from analysis.benchmark import read_rows
 from analysis.final_run import run
+from analysis.verify_list import real_list
 from analysis.world import World
 from harness.client import PROJECT_ROOT
 from harness.collect import MAIN, RESULTS
@@ -28,9 +29,11 @@ OUTPUT = RESULTS / "final"
 
 
 def real_world() -> World:
-    """The real world: the collection module's sealed-store path, the benchmark reader's default file, the project's folders."""
+    """The real world: the collection module's sealed-store path, the benchmark reader's default file, the project's
+    folders, and the verify list built from the plan's freeze records (A19 item 3; the unlock refuses on any entry)."""
     benchmark = inspect.signature(read_rows).parameters["path"].default
-    return World(root=PROJECT_ROOT, sealed_store=MAIN.sealed, benchmark=benchmark, results=RESULTS, output=OUTPUT)
+    return World(root=PROJECT_ROOT, sealed_store=MAIN.sealed, benchmark=benchmark, results=RESULTS, output=OUTPUT,
+                 verify=real_list())  # fmt: skip
 
 
 def main(argv: Sequence[str] = ()) -> int:

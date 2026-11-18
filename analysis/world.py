@@ -5,8 +5,8 @@ builds the real one (its sealed-store path taken from the collection module's ow
 one (`analysis/made_up_world.py`). The unlock (`analysis/unlock.py`) takes a world and returns a handle or refuses.
 
 The fields below the output folder are placeholders: later tickets fill them in (#80 the hook runner and the git
-facts, #81 the verify list, the backends with the steps that call them). A field added later takes a default, so a
-world built before it still builds.
+facts, the backends with the steps that call them). A field added later takes a default, so a world built before
+it still builds. The verify list (#81) is the unlock's list of recorded hashes and pins, and a made-up world's is empty.
 
 This module only names things. It opens nothing, and the sealed store's path is a field the unlock alone reads
 (`analysis/check_read_path.py` fails any other module that does).
@@ -15,6 +15,8 @@ This module only names things. It opens nothing, and the sealed store's path is 
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from analysis.verify_list import Entry
 
 
 @dataclass(frozen=True)
@@ -27,4 +29,4 @@ class World:
     backends: Any = None  # placeholder: a Jev endpoint, an Anthropic client, the sandbox, the embedding backend
     hook_runner: Any = None  # placeholder (#80): runs the full pre-commit hook, or a rehearsal's stand-in
     git_facts: Any = None  # placeholder (#80): whether the tree is clean, `HEAD` and `origin/main`'s tip
-    verify: tuple[Any, ...] = ()  # placeholder (#81): what the unlock verifies, each with its expected hash or pin
+    verify: tuple[Entry, ...] = ()  # what the unlock verifies, each with its recorded value (`analysis/verify_list.py`)

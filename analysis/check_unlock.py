@@ -92,7 +92,8 @@ def reads(made: MadeUp) -> None:
     )
     names = [result.name for result in handle.results]
     check(
-        names == ["sealed_store_path", "manifest_record", "sealed_store_sha256"], f"its results name the checks {names}"
+        names == ["sealed_store_path", "manifest_record", "verify_list", "sealed_store_sha256"],
+        f"its results name the checks {names}",
     )
     sha = handle.results[-1].detail["sha256"]
     check(sha == json.loads((made.world.root / "data" / "collection_manifest.json").read_text())["test_sealed"]["sha256"],

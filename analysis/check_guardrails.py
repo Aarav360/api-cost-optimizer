@@ -31,6 +31,7 @@ HELPER = "analysis/checking.py"
 HOOK_ONLY = {
     "analysis.check_final_run_dev": "reproduces dev's committed A to D numbers from the dev matrix in results/",
     "analysis.check_final_run_sandbox": "grades the rehearsal's made-up MBPP+ answers in the real sandbox, which needs Docker",
+    "analysis.check_verify_real": "reads the model snapshot under .cache/ and the sandbox image, which needs Docker",
     "analysis.check_gates_design": "recomputes A17's facts from train's and dev's stored rows in results/",
     "analysis.check_gates_sandbox": "runs the code check in the real sandbox, which needs Docker",
     "analysis.check_simulator": "checks the analysis package on dev, from the dev matrix in results/",
