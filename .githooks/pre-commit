@@ -35,6 +35,10 @@ run_check analysis.check_guardrails
 # path. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs both too.
 run_check analysis.check_unlock
 run_check analysis.check_read_path
+# Stage 8's tracer bullet (A19 items 2, 5, 8 and 13; issue #79): the runner, grading and the offline half's A to D on a made-up
+# world with a stand-in sandbox, against hand-worked numbers; the markers shown in nothing before the tables step; a crash
+# and a resume. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_run
 run_check analysis.check_routers
 run_check analysis.check_comparisons
 run_check analysis.check_walk
@@ -157,6 +161,9 @@ run_check analysis.check_gates_sandbox
 # reference solution at the grader's limits (needs Docker and the pinned image, like the line above; a minute or two).
 # It prints no closing count, so its summary line is what shows; a failure exits 1 and stops the hook.
 run_check harness.check_sandbox 'FAIL|MBPP\+ references:'
+# The same rehearsal with no stand-in: the grader runs the made-up MBPP+ answers in the real sandbox, and the tables must equal
+# the CI rehearsal's (needs Docker; a few seconds).
+run_check analysis.check_final_run_sandbox
 if [ -f results/dev_matrix.sqlite ]; then
   # G's and G+'s dev tables, quantiles and walks (A15 items 13, 14): the pieces anywhere, and with results/jev's dev
   # responses and the freeze commit the stored records, the tables rebuilt, the sections reproduced (about 60 s). No Jev call.
@@ -177,5 +184,8 @@ if [ -f results/dev_matrix.sqlite ]; then
   # sandbox's run times, the provenance claim) recomputed from the stored train and dev rows, train's hidden tests and
   # chart v0, against the plan's text. No gate, no model.
   run_check analysis.check_gates_design
+  # The dev reproduction (A19 item 13): the offline half on dev's stored matrix must give A to D's committed dev numbers, to the
+  # last stored digit (about 10 s). No gate, no model.
+  run_check analysis.check_final_run_dev
 fi
 echo "the hook passed in $((SECONDS / 60)) min $((SECONDS % 60)) s"

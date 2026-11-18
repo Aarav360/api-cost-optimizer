@@ -88,13 +88,35 @@ def stored_row(position: int, config: str, run: int, stop_reason: str, answer: s
             "2026-01-01T00:00:00+00:00")  # fmt: skip
 
 
+def stored_row_values(item_id: str, config: str, run: int, settings: dict, request_hash: str, response: dict) -> tuple:
+    """A sealed row for a made-up result under the real config's `settings` (model and effort) and the hash of the
+    request it answers, which the rehearsal's grading rebuilds. The answer is the response's text blocks."""
+    usage = response["usage"]
+    answer = "".join(block["text"] for block in response["content"] if block["type"] == "text")
+    return (make_custom_id(item_id, config, run), item_id, config, settings["model"], settings["effort"], run,
+            "msgbatch_made_up", request_hash, response["model"], response["stop_reason"], usage["input_tokens"],
+            usage["output_tokens"], None, answer, json.dumps(response), "2026-01-01T00:00:00+00:00")  # fmt: skip
+
+
 @dataclass(frozen=True)
 class MadeUp:
     world: World
     paths: Paths  # the collection module's view of the made-up folder, for a check that tampers with the store
 
 
-def build(folder: Path) -> MadeUp:
+@dataclass(frozen=True)
+class Content:
+    """What a made-up world holds: its benchmark rows, and its sealed rows (`SEALED_COLUMNS`' values) each with the
+    item ID of the test item it answers. The rehearsal (`analysis/rehearsal_world.py`) brings its own."""
+
+    benchmark: list[dict]
+    sealed: list[tuple[tuple, str]]
+
+
+DEFAULT = Content(BENCHMARK_ROWS, [(stored_row(*made), TEST_IDS[made[0]]) for made in STORED])
+
+
+def build(folder: Path, content: Content = DEFAULT) -> MadeUp:
     """The made-up world under `folder`, laid out as the project's own root is."""
     # The collection module's throwaway layout under results/, as its own checks use it, with the manifest where a
     # world's root keeps it: the real store's path is never read here.
@@ -102,15 +124,14 @@ def build(folder: Path) -> MadeUp:
     benchmark = folder / "data" / "made_up_items.jsonl"
     for path in (benchmark, paths.sealed, paths.manifest):
         path.parent.mkdir(parents=True, exist_ok=True)
-    benchmark.write_text("".join(json.dumps(made) + "\n" for made in BENCHMARK_ROWS), encoding="utf-8")
+    benchmark.write_text("".join(json.dumps(made) + "\n" for made in content.benchmark), encoding="utf-8")
 
     conn = open_sealed(paths)
     jobs = []
-    for position, config, run, stop_reason, answer in STORED:
-        values = stored_row(position, config, run, stop_reason, answer)
+    for values, item_id in content.sealed:
         conn.execute(f"INSERT INTO answers VALUES ({', '.join('?' * len(SEALED_COLUMNS))})", values)
-        test_item = next(made for made in BENCHMARK_ROWS if made["item_id"] == TEST_IDS[position])
-        jobs.append(Job(values[0], "test", test_item, config, run, {}))
+        test_item = next(made for made in content.benchmark if made["item_id"] == item_id)
+        jobs.append(Job(values[0], "test", test_item, values[2], values[5], {}))
     conn.commit()
     conn.close()
     with contextlib.redirect_stdout(io.StringIO()):  # seal reports its hash; a check's output stays its own
@@ -123,10 +144,10 @@ def build(folder: Path) -> MadeUp:
 
 
 @contextmanager
-def made_up_world() -> Iterator[MadeUp]:
+def made_up_world(content: Content = DEFAULT) -> Iterator[MadeUp]:
     """A made-up world in a temporary folder, removed afterwards (the sealed store made writable first)."""
     with tempfile.TemporaryDirectory() as folder:
-        made = build(Path(folder))
+        made = build(Path(folder), content)
         try:
             yield made
         finally:

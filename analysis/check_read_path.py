@@ -25,6 +25,7 @@ path's field out of nothing. Not covered: a module that builds a `Paths` over th
 
 import ast
 import dataclasses
+import re
 import sys
 from collections.abc import Mapping
 
@@ -34,10 +35,11 @@ from analysis.world import World
 from harness import collect
 from harness.client import PROJECT_ROOT
 
+GO = "analysis/final_go.py"  # the go's entry point (#79), which nothing runs before the go
 ALLOWED = {
     "analysis/unlock.py": "the unlock opens and hashes the store",
     "harness/collect.py": "the collection module writes the store",
-    "analysis/final_go.py": "the go's entry point (#79) passes the real path into the world",
+    GO: "the go's entry point passes the real path into the world",
 }
 # From the modules' own fields, so a rename shows here as a lookup failure and not as a search that finds nothing.
 COLLECTION_FIELD = next(f.name for f in dataclasses.fields(collect.Paths) if "sealed" in f.name)
@@ -92,6 +94,14 @@ def readers(texts: Mapping[str, str]) -> set[str]:
     return {path for path, text in texts.items() if readers_in(text)}
 
 
+def runners_of_go(texts: Mapping[str, str]) -> set[str]:
+    """The files that import or run the go's entry point, by its dotted name: `import`, `from ... import` and `-m`."""
+    dotted = GO.removesuffix(".py").replace("/", ".")
+    package, _, module = dotted.rpartition(".")
+    pattern = re.compile(rf"{re.escape(dotted)}\b|from {re.escape(package)} import[^\n]*\b{module}\b|import {module}\b")
+    return {path for path, text in texts.items() if pattern.search(text)}
+
+
 def main() -> int:
     print("-- the search finds a read of the path in each way there is --")
     planted = {
@@ -121,8 +131,26 @@ def main() -> int:
     check("harness/collect.py" in found, "the search finds the collection module, the writer, too")
     others = sorted(found - set(ALLOWED))
     check(not others, f"no other module reads the sealed store's path {others}")
-    missing = sorted(name for name in ALLOWED if not (PROJECT_ROOT / name).is_file() and name != "analysis/final_go.py")
-    check(not missing, f"every allowed module exists, the go's entry point (not built yet) aside {missing}")
+    check(GO in found, "the search finds the go's entry point, which reads the collection module's path")
+    missing = sorted(name for name in ALLOWED if not (PROJECT_ROOT / name).is_file())
+    check(not missing, f"every allowed module exists {missing}")
+
+    print("\n-- nothing runs the go's entry point before the go --")
+    stem = GO.removesuffix(".py").rpartition("/")[2]  # spelled out in pieces, so this file doesn't match its own search
+    planted_runs = {
+        "check_a.py": f"from analysis import {stem}\n",
+        "check_b.py": f"import analysis.{stem} as go\n",
+        "hook": f"run_check analysis.{stem}\n",
+    }
+    for name, text in planted_runs.items():
+        check(runners_of_go({name: text}) == {name}, f"a planted check that imports or runs it is found: {name}")
+    check(runners_of_go({"fine.py": "from analysis.final_run import run\n"}) == set(),
+          "a module that runs the runner on its own world isn't flagged")  # fmt: skip
+    texts = {p: (PROJECT_ROOT / p).read_text(encoding="utf-8") for p in paths if p != GO}
+    for other in (".githooks/pre-commit", ".github/workflows/check.yml"):
+        texts[other] = (PROJECT_ROOT / other).read_text(encoding="utf-8")
+    runners = sorted(runners_of_go(texts))
+    check(not runners, f"no module, check, hook line or CI step imports or runs the go's entry point {runners}")
 
     print("\nall checks passed" if not problems else f"\n{len(problems)} checks failed")
     return 1 if problems else 0
