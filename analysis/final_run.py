@@ -33,6 +33,7 @@ from typing import Any, TextIO
 from analysis.drift import DriftRefusal
 from analysis.final_record import RECORD_FILE, Record
 from analysis.unlock import Handle, HandleError, UnlockRefusal, unlock
+from analysis.unlock_facts import environment
 from analysis.world import World
 
 LOG_FILE = "final_run.log"
@@ -134,11 +135,19 @@ def now_utc() -> datetime:
 
 
 def unlock_step(run: Run) -> StepResult:
-    """Item 3: the unlock's checks, then the handle. Its entry in the record is this go's, kept beside every other go's."""
+    """Item 3: the unlock's checks, then the handle. Its entry in the record is this go's, kept beside every other go's: the
+    commit, the time, the hook's result, the environment and each check's result (the replay's draw among them)."""
     handle = unlock(run.world)
     run.handle = handle
+    passed = {check.name: check.detail for check in handle.results}
     run.record.set_unlock(
-        {"time": run.stamp(), "checks": [{"name": c.name, "detail": dict(c.detail)} for c in handle.results]}
+        {
+            "time": run.stamp(),
+            "commit": passed["git_facts"]["head"],  # the commit the go ran from (A19 item 3)
+            "hook": dict(passed["hook"]),
+            "environment": dict(environment()),
+            "checks": [{"name": c.name, "detail": dict(c.detail)} for c in handle.results],
+        }
     )
     run.say(f"unlock passed {len(handle.results)} checks")
     return StepResult()
