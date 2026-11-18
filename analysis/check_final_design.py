@@ -12,24 +12,18 @@ through `recorded_spend` in `analysis/gate_spend.py`. CI has no results/, so tha
 
 import json
 import sys
-from collections.abc import Mapping
 from pathlib import Path
-from statistics import NormalDist
 
 from analysis import collect_jev
+from analysis.final_design import TABLE_V4, expected_misses, fresh_miss, headline, points
 from analysis.gate_spend import recorded_spend
-from analysis.operating_points import OPERATING_POINTS_FILE
 from analysis.plan import PLAN, amendment_item
 from analysis.record_files import STAGE_8_LABELS
-from analysis.router_names import CASCADES, G_PLUS, HAIKU, JEV_GATE, NAMED_ROUTERS, G, cascade_section
+from analysis.router_names import CASCADES, G_PLUS, HAIKU, JEV_GATE, G, cascade_section
 from harness.client import PROJECT_ROOT
 
-TABLE_V3 = PROJECT_ROOT / "figures" / "table_v3.json"
-TABLE_V4 = PROJECT_ROOT / "figures" / "table_v4.json"
 DEV_RECORD = PROJECT_ROOT / "analysis" / "gates_dev_record.json"
-MIXES = ("realistic", "uniform")
 BEFORE_STAGE_6 = 38  # A6's record: "That brings spending to about $38 of the $150 ceiling."
-NORMAL = NormalDist()
 
 problems: list[str] = []
 
@@ -38,20 +32,6 @@ def check(ok: bool, what: str) -> None:
     print(f"{'PASS' if ok else 'FAIL'}  {what}")
     if not ok:
         problems.append(what)
-
-
-def points(by_mix: Mapping[str, Mapping[str, dict]]) -> list[dict]:
-    """A policy's six operating points: two mixes, three quality targets."""
-    return [point for mix in MIXES for point in by_mix[mix].values()]
-
-
-def fresh_miss(dev_miss: float) -> float:
-    """A point's chance of missing its target on a fresh sample, from the share of dev's resamples that miss it. Dev's
-    estimate and the fresh one each carry the same sampling error, so their gap's is √2 times one (a normal
-    approximation; it ignores the bias that choosing on dev adds)."""
-    if dev_miss <= 0.0 or dev_miss >= 1.0:
-        return dev_miss
-    return NORMAL.cdf(NORMAL.inv_cdf(dev_miss) / 2**0.5)
 
 
 def section(plan: str, heading: str, after: str) -> str:
@@ -63,41 +43,31 @@ def section(plan: str, heading: str, after: str) -> str:
 def headline_and_misses(plan: str) -> None:
     item = amendment_item(plan, "A19", 6)
     print("-- item 6: the headline's dev numbers, the routing points and the expected misses --")
-    v3 = json.loads(TABLE_V3.read_text(encoding="utf-8"))["operating_points"]
     v4 = json.loads(TABLE_V4.read_text(encoding="utf-8"))
-    best = v4["best_cascade"]["best"]
+    head = headline()
+    best = head.best
     check(best == cascade_section(HAIKU, JEV_GATE) and f"That is {CASCADES[best]} today" in item,
           f"A17 item 24's rule picks {best} in table v4, as item 6 says")  # fmt: skip
-    headline = v4["cascades"][best]["operating_points"]["realistic"]["99%"]
-    saves, met = headline["savings_vs_A"]["share"], headline["captured"]["met"]
-    check(not headline["fell_back"]
-          and f"saves {saves:.1%} of A's cost and meets its target in {met:.2%} of dev's resamples" in item,
-          f"the headline's point on dev saves {saves:.1%} and meets its target in {met:.2%} of resamples, as quoted")  # fmt: skip
+    check(not head.fell_back
+          and f"saves {head.saves:.1%} of A's cost and meets its target in {head.met:.2%} of dev's resamples" in item,
+          f"the headline's point on dev saves {head.saves:.1%} and meets its target in {head.met:.2%} of resamples, as quoted")  # fmt: skip
 
-    sections = json.loads(OPERATING_POINTS_FILE.read_text(encoding="utf-8"))
-    routing = {name: sum(not p["fell_back"] for p in points(s)) for name, s in sections.items()}
-    cascades = [name for name in sections if name in CASCADES]
-    routed = sum(routing[name] for name in cascades)
-    every = 6 * len(cascades)
-    routers = {letter: routing[name] for letter, name in NAMED_ROUTERS.items()}
-    by_router = ", ".join(f"{letter} {n}" for letter, n in routers.items())
-    total = routed + sum(routers.values())
-    check(f"{total} operating points route: {routed} of the cascades' {every} and {sum(routers.values())} of the "
-          f"routers' {6 * len(routers)} ({by_router})" in item,
-          f"{total} operating points route ({routed} cascades', {by_router}), as quoted")  # fmt: skip
+    misses = expected_misses()
+    by_router = ", ".join(f"{letter} {n}" for letter, n in misses.routers.items())
+    check(f"{misses.total} operating points route: {misses.routed} of the cascades' {misses.cascades_every} and "
+          f"{sum(misses.routers.values())} of the routers' {misses.routers_every} ({by_router})" in item,
+          f"{misses.total} operating points route ({misses.routed} cascades', {by_router}), as quoted")  # fmt: skip
 
-    covered = [p for letter in (G, G_PLUS) for p in points(v3[letter]) if not p["fell_back"]]
-    covered += [p for c in v4["cascades"].values() for p in points(c["operating_points"]) if not p["fell_back"]]
-    check(len(covered) == routed + routers[G] + routers[G_PLUS],
-          f"tables v3 and v4 hold the {len(covered)} routing points of the cascades, G and G+, as the file does")  # fmt: skip
-    dev_misses = sum(1 - p["captured"]["met"] for p in covered)
-    fresh_misses = sum(fresh_miss(1 - p["captured"]["met"]) for p in covered)
-    check(f"Over the {len(covered)} that tables v3 and v4 cover" in item
+    cascades_covered = sum(not p["fell_back"] for c in v4["cascades"].values() for p in points(c["operating_points"]))
+    check(misses.covered == cascades_covered + misses.routers[G] + misses.routers[G_PLUS],
+          f"tables v3 and v4 hold the {misses.covered} routing points of the cascades, G and G+, as the file does")  # fmt: skip
+    dev_misses, fresh_misses = misses.dev_misses, misses.fresh_misses
+    check(f"Over the {misses.covered} that tables v3 and v4 cover" in item
           and f"about {round(dev_misses)} expected misses" in item and f"gives about {round(fresh_misses)}," in item
           and f"about {round(dev_misses) + 1} expected misses" not in item,
           f"the expected misses are about {round(dev_misses)} by dev's resamples ({dev_misses:.2f}) and about "
           f"{round(fresh_misses)} on a fresh sample ({fresh_misses:.2f}), as quoted")  # fmt: skip
-    at_margin, fresh = NORMAL.cdf(-1.0), fresh_miss(NORMAL.cdf(-1.0))
+    at_margin, fresh = misses.at_margin, misses.fresh_at_margin
     check(f"misses {at_margin:.1%} of dev's resamples but about {round(100 * fresh)}% of fresh samples" in item,
           f"a point exactly at the margin misses {at_margin:.1%} of dev's resamples and {fresh:.1%} of fresh samples")  # fmt: skip
     check(abs(fresh_miss(0.5) - 0.5) < 1e-12 and fresh_miss(0.0) == 0.0 and fresh_miss(1.0) == 1.0
