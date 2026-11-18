@@ -2,13 +2,13 @@
 A6 item 6).
 
 It lives in analysis/, outside the routers' import closure, beside `analysis/fake_jev.py`. It stands in for an
-`anthropic.Anthropic` client: `client.messages.create(**params)` and `client.messages.batches.create`, `.retrieve` and
+`anthropic.Anthropic` client: `client.messages.create(**params)`, `client.messages.stream(**params)` (for `harness.client.call`) and `client.messages.batches.create`, `.retrieve` and
 `.results`, answering with the SDK's own types (`Message`, `MessageBatchIndividualResponse`), so the code under test
 reads what it would read from the API. Checks built on `harness/check_collect.FakeBatches` could not import it: that
 file needs Docker and the results folder as a whole.
 
 What it does:
-- Every request that reached it is kept, whole, in `calls` (Messages) and `created` (Batches), so a check asserts what
+- Every request that reached it is kept, whole, in `calls` (Messages, `create` and `stream` alike) and `created` (Batches), so a check asserts what
   was sent, not what the code meant to send. A batch request the real API would refuse (a request ID outside
   `^[A-Za-z0-9_-]{1,64}$`, two with the same ID, or one without `params`) raises here too.
 - What the gate "thinks" comes from `respond`, which reads the request's content and returns a Message as a dict. The
@@ -118,8 +118,24 @@ class FakeBatches:
         return iter(self._outcomes[batch_id])
 
 
+class FakeStream:
+    """What `client.messages.stream(**params)` returns: a context manager that gives the final message, as the SDK's does."""
+
+    def __init__(self, message: Message, request_id: str):
+        self.message, self.request_id = message, request_id
+
+    def __enter__(self) -> "FakeStream":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+    def get_final_message(self) -> Message:
+        return self.message
+
+
 class FakeMessages:
-    """`client.messages`: `create`, and `batches`."""
+    """`client.messages`: `create`, `stream` and `batches`."""
 
     def __init__(self, owner: "FakeAnthropic"):
         self.owner = owner
@@ -131,6 +147,15 @@ class FakeMessages:
         if error is not None:
             raise error
         return Message.model_validate(self.owner.respond(params))
+
+    def stream(self, **params):
+        """The streaming call `harness.client.call` makes. It is logged in `calls` with `create`'s, and `message_errors`
+        counts both together, so one list shows every request that reached the fake."""
+        self.owner.calls.append(json.loads(json.dumps(params)))
+        error = self.owner.message_errors.get(len(self.owner.calls))
+        if error is not None:
+            raise error
+        return FakeStream(Message.model_validate(self.owner.respond(params)), f"req_fake{len(self.owner.calls)}")
 
 
 class FakeAnthropic:

@@ -49,6 +49,11 @@ run_check analysis.check_final_run
 # is tampered with, and a macOS build or chip that differs reported. No results/, no Docker, no Jev or Anthropic call, nothing
 # near the real store. CI runs it too.
 run_check analysis.check_verify_list
+# Stage 8's ledger and the liveness calls (A19 items 2.2 and 9; issue #82): the two caps and the projection that refuses before the
+# first call, a made-up Stage 8 test or drift record counted and Stage 7's not, the liveness calls as hand-written JSON against a fake
+# client, a model other than the pin stopping the run, and Stage 7's "no test record" guards run on a made-up results folder holding
+# Stage 8's files. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_ledger
 run_check analysis.check_routers
 run_check analysis.check_comparisons
 run_check analysis.check_walk

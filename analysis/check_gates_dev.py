@@ -45,6 +45,7 @@ from analysis.operating_points import (
     section_hash,
     write_section,
 )
+from analysis.record_files import stage_7_files, unopened
 from analysis.references import TARGETS
 from analysis.router_names import CASCADES, FREE_GATE, HAIKU, JEV_GATE, NAMED_ROUTERS, SONNET_GATE, cascade_section
 
@@ -328,10 +329,10 @@ def real_checks() -> None:
     old = datetime.fromisoformat("2026-11-10T21:51:03-08:00")
     check(not old > when, "known positive: a time one second before the freeze commit is found early")
     allowed = {r["item_id"] for split in ("train", "dev") for r in read_rows(split=split)}
-    stored = sorted(folder.glob("*.jsonl"))
+    stored = stage_7_files(folder)
     check(all({json.loads(line)["item_id"] for line in path.read_text(encoding="utf-8").splitlines() if line} <= allowed
-              for path in stored) and not list(folder.glob("*_test.jsonl")),
-          "every gate record names a train or dev item, and no test file exists")  # fmt: skip
+              for path in stored) and unopened(PROJECT_ROOT / "results") == [],
+          "every Stage 7 gate record names a train or dev item, and no Stage 8 file exists without an unlock")  # fmt: skip
     check({"x:1"} - allowed == {"x:1"}, "known positive: an item that is neither is found")
 
     print("\n-- the record of the run --")
