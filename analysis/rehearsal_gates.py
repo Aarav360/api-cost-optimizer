@@ -117,19 +117,27 @@ class ScriptedJev(FakeJev):
         self.fail_at: set[int] = set()  # call numbers (from 1) answered with a 400
         self.calls = 0
         self.bodies: list[dict] = []
+        # The replay's check (#91): a wait before each answer (a real one, on the server), the numbers of the calls the
+        # server hangs up after (so the client's next call reconnects), and each call's (start, end) on `time.perf_counter`.
+        self.delay_s = 0.0
+        self.hang_up_after: set[int] = set()
+        self.intervals: list[tuple[float, float]] = []
 
     def reply_to(self, body: bytes) -> Reply:
         self.calls += 1
         decoded = json.loads(body)
         self.bodies.append(decoded)
         prompt = decoded["state"]["request"]["prompt"]
+        started = time.perf_counter()
+        self.intervals.append((started, started + self.delay_s))  # the handler waits `delay_s` before it replies
         if self.calls in self.fail_at:
             return Reply(400, {"detail": "made up"})
         if prompt not in self.scores:
             self.unexpected.append(f"no score for {prompt!r}")
             return Reply(422, {"detail": "the fake has no score for this prompt"})
         return Reply(200, response_body(answers_for(self.scores[prompt], self.settings), model=self.model,
-                                        input_tokens=self.tokens))  # fmt: skip
+                                        input_tokens=self.tokens), delay_s=self.delay_s,
+                     hang_up_after=self.calls in self.hang_up_after)  # fmt: skip
 
     def __enter__(self) -> "ScriptedJev":
         """Start a server on a fresh port, as often as asked: a step's session runs it only while it calls, since grading

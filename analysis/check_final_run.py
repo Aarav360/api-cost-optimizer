@@ -154,6 +154,7 @@ HAIKU_PARTS = [
     for section in (final_gates.FREE_SECTION, final_gates.JEV_SECTION)
     for k in (section, final_gates.tasks_key(section))
 ]
+REPLAY_ANSWERS = 24  # the live replay's graded answers on the made-up world
 INDICATIVE = "Only 2 test items, below the plan's minimum of a few hundred: indicative"
 
 
@@ -306,9 +307,10 @@ def first_go() -> None:
             "calls_jev_gate",
             "grading",
             "tables",
+            "replay",
             "record",
         },
-        f"the steps built so far are the twelve of #79, #82, #83, #84 and #85 {sorted(built)}",
+        f"the steps built so far are the thirteen of #79, #82, #83, #84, #85 and #91 {sorted(built)}",
     )
     with rehearsed() as r:
         spy = Spy()
@@ -346,7 +348,11 @@ def first_go() -> None:
 
 def grading(r: Rehearsal, spy: Spy) -> None:
     print("\n-- grading: every answer, one at a time, into test's results matrix --")
-    check(len(spy.calls) == 32, f"the grader ran on all 32 stored answers, {len(spy.calls)} times")
+    # 32 stored answers, then the live replay's 24 (8 items under 3 policies: A and haiku/Jev at its two realistic points)
+    check(
+        len(spy.calls) == 32 + REPLAY_ANSWERS,
+        f"the grader ran on all 32 stored answers and the replay's {REPLAY_ANSWERS}, {len(spy.calls)} times",
+    )
     check(spy.overlapped == 1 and spy.threads == {"MainThread"} and spy.thread_counts == {1},
           "one at a time: never two gradings at once, always on the main thread with no other thread running")  # fmt: skip
     probe = Spy(delay=0.05)
@@ -592,8 +598,8 @@ def crash_and_resume() -> None:
             resumed, _, _ = r.go()
         check(resumed == Outcome(), f"the next go runs every step {resumed}")
         check(
-            len(again.calls) == 20 and len(r.rows()) == 32,
-            "it graded only the 20 answers left, and the matrix holds all 32",
+            len(again.calls) == 20 + REPLAY_ANSWERS and len(r.rows()) == 32,
+            "it graded only the 20 answers left (and the replay's), and the matrix holds all 32",
         )
         gos = r.record["gos"]
         check([g["go"] for g in gos] == [1, 2] and all(g["unlock"] is not None for g in gos)

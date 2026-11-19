@@ -75,6 +75,14 @@ run_check analysis.check_final_gates
 # the real store. CI runs both too.
 run_check analysis.check_drift_rule
 run_check analysis.check_final_jev
+# Stage 8's live replay (A17 items 24 and 26.5; A19 items 2.7, 8, 9 and 10; issue #91): the best cascade by item 24's rule and its
+# realistic 99% and 97% points, a point that falls back to A skipped, the configs called on each item against the deployable cascade
+# decision for a Jev-gated, a Sonnet-gated and a router-started cascade, calls one at a time and the latency figures against the
+# fakes' injected delays with the first call and a reconnect apart, cost per request, escalation rate and graded quality beside the
+# offline estimate, the projection and the call guard against the $10 cap, a crash and the next go sending only what is unstored.
+# A made-up world, a fake Anthropic client, a fake Jev server and a stand-in sandbox: no results/, no Docker, no Jev or Anthropic
+# call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_replay
 run_check analysis.check_routers
 run_check analysis.check_comparisons
 run_check analysis.check_walk
