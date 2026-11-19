@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from analysis import verify_list
 from analysis.gate_answers import ANSWER_COLUMNS, Answer
 from analysis.unlock_facts import GitFactsError, draw_replay
 from analysis.world import World
@@ -186,6 +187,19 @@ def sealed_store_sha256(world: World) -> CheckResult:
     return CheckResult("sealed_store_sha256", {"sha256": recorded})
 
 
+def verified_list(world: World) -> CheckResult:
+    """Every entry of the world's verify list (`analysis/verify_list.py`): each freeze, hash and pin the amendments
+    record, observed under the world's root. The first entry that differs refuses everything, named by the entry; a
+    macOS build or chip that differs is reported in the result and the unlock goes on (F's drift check decides what
+    follows). The result holds each entry's observed value, which is the record's per-check entry. It never reads the
+    store: that is the next check's alone."""
+    report = verify_list.run(world.verify, world.root)
+    if report.refused is not None:
+        entry, found = report.refused
+        raise UnlockRefusal(entry.name, f"recorded {entry.expected!r}, found {found.observed!r}")
+    return CheckResult("verify_list", {"checked": report.checked, "reported": report.reported})
+
+
 # In order; each sits between comment lines, so tickets that add a line each merge without a conflict.
 CHECKS: tuple[Callable[[World], CheckResult], ...] = (
     # #80: the hook first, then the git facts (A19 item 3), then the replay's draw
@@ -195,6 +209,9 @@ CHECKS: tuple[Callable[[World], CheckResult], ...] = (
     # #78: the sealed store's checks
     sealed_store_path,
     manifest_record,
+    # #81: every freeze, hash and pin on the verify list, before the store's own hash is read
+    verified_list,
+    # #78: the store's hash, the one check that reads its bytes
     sealed_store_sha256,
 )
 

@@ -92,7 +92,16 @@ def reads(made: MadeUp) -> None:
     )
     names = [result.name for result in handle.results]
     check(
-        names == ["hook", "git_facts", "replay_draw", "sealed_store_path", "manifest_record", "sealed_store_sha256"],
+        names
+        == [
+            "hook",
+            "git_facts",
+            "replay_draw",
+            "sealed_store_path",
+            "manifest_record",
+            "verify_list",
+            "sealed_store_sha256",
+        ],
         f"its results name the checks {names}",
     )
     sha = handle.results[-1].detail["sha256"]

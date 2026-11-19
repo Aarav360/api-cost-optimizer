@@ -25,6 +25,7 @@ jobs:
       - run: uv run python -m analysis.check_operating_eval
       - run: uv run python -m analysis.check_trained_drift
       - run: uv run python -m analysis.check_final_routers
+      - run: uv run python -m analysis.check_verify_list
       - run: uv run python -m analysis.check_routers
       - run: uv run python -m analysis.check_comparisons
       - run: uv run python -m analysis.check_walk

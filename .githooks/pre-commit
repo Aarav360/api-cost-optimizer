@@ -52,6 +52,11 @@ run_check analysis.check_final_run
 run_check analysis.check_operating_eval
 run_check analysis.check_trained_drift
 run_check analysis.check_final_routers
+# The unlock's verify list (A19 items 3 and 13; issue #81): built from the plan's freeze records and held against each
+# amendment's hashes and pins and the committed files; on a made-up root, each entry alone refusing when its file or value
+# is tampered with, and a macOS build or chip that differs reported. No results/, no Docker, no Jev or Anthropic call, nothing
+# near the real store. CI runs it too.
+run_check analysis.check_verify_list
 run_check analysis.check_routers
 run_check analysis.check_comparisons
 run_check analysis.check_walk
@@ -181,6 +186,10 @@ run_check analysis.check_final_run_sandbox
 # dev requests and the calls score the made-up test requests through routers.trained.score. Needs the snapshot under .cache/; about
 # ten seconds.
 run_check analysis.check_final_run_trained
+# The real verify list on this machine: every freeze, hash and pin of A7, A9, A11, A15 and A17 against the working tree, the
+# model snapshot, the installed libraries, the sandbox image and a run of check_benchmark (the sealed store's hash is the
+# unlock's alone). Needs .cache/ and Docker; about 30 s. No Jev or Anthropic call.
+run_check analysis.check_verify_real
 if [ -f results/dev_matrix.sqlite ]; then
   # G's and G+'s dev tables, quantiles and walks (A15 items 13, 14): the pieces anywhere, and with results/jev's dev
   # responses and the freeze commit the stored records, the tables rebuilt, the sections reproduced (about 60 s). No Jev call.

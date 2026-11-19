@@ -21,6 +21,7 @@ from collections.abc import Sequence
 from analysis.benchmark import read_rows
 from analysis.final_run import run
 from analysis.unlock_facts import read_git_facts, run_hook
+from analysis.verify_list import real_list
 from analysis.world import World
 from harness.client import PROJECT_ROOT
 from harness.collect import MAIN, RESULTS
@@ -29,12 +30,13 @@ OUTPUT = RESULTS / "final"
 
 
 def real_world() -> World:
-    """The real world: the collection module's sealed-store path, the benchmark reader's default file, the project's folders."""
+    """The real world: the collection module's sealed-store path, the benchmark reader's default file, the project's
+    folders, and the verify list built from the plan's freeze records (A19 item 3; the unlock refuses on any entry)."""
     benchmark = inspect.signature(read_rows).parameters["path"].default
     # The real hook runner runs the tree's own `.githooks/pre-commit` by its path under the root; the real git facts fetch
     # origin/main and read the tree and the two commits through `analysis/checking.py`.
     return World(root=PROJECT_ROOT, sealed_store=MAIN.sealed, benchmark=benchmark, results=RESULTS, output=OUTPUT,
-                 hook_runner=run_hook, git_facts=read_git_facts)  # fmt: skip
+                 hook_runner=run_hook, git_facts=read_git_facts, verify=real_list())  # fmt: skip
 
 
 def main(argv: Sequence[str] = ()) -> int:
