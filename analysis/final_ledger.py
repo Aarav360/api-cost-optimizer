@@ -40,8 +40,9 @@ CALLS, LIVE = "calls", "live"
 CAPS = {CALLS: 25.0, LIVE: 10.0}  # A17 item 18, counted afresh by A19 item 9
 TOLERANCE_USD = 1e-9  # a float sum of many small prices should not tip a total that is exactly on a cap
 # The final evaluation's own files, in `world.output`, priced as Anthropic calls at list price by the model each record
-# requested: the liveness calls' (`analysis/final_liveness.py`). #91 adds the live replay's file here.
-LIVE_FILES = ("liveness.jsonl",)
+# requested: the liveness calls' (`analysis/final_liveness.py`) and the live replay's calls (`analysis/final_replay.py`),
+# in which a record with `"service": "jev"` is a Jev gate call, priced at Jev's input-token price.
+LIVE_FILES = ("liveness.jsonl", "replay.jsonl")
 
 
 class LedgerRefusal(StepRefusal):
@@ -84,7 +85,7 @@ PROJECTORS = (
     # #86: the Sonnet gate's drift resends and test batch
     Projector("sonnet_gate", CALLS, None),
     # #91: the live replay
-    Projector("replay", LIVE, None),
+    Projector("replay", LIVE, "analysis.final_replay:project"),
 )
 
 
@@ -133,12 +134,32 @@ def recorded_spend(
             else:
                 list_price = list_dollars(billed_in, billed_out, sonnet.input_per_million, sonnet.output_per_million)
                 calls += list_price * (float(models["batch_discount"]) if priced[path.name] == BATCH else 1.0)
+    live = live_spend(output_dir, models, jev_price_per_million)
+    files += sum((output_dir / name).is_file() for name in LIVE_FILES)
+    return Spend(calls, live, files)
+
+
+def live_spend(output_dir: Path, models: Mapping | None = None, jev_price_per_million: float | None = None) -> float:
+    """What the final evaluation's own record files hold, in dollars: the $10 pool's recorded spend. It reads only those
+    files, so the replay can ask before each call without reading the gate and Jev folders."""
+    models = models or load_models()
+    if jev_price_per_million is None:
+        jev_price_per_million = jev.read_client_settings().price_per_million_input_tokens
+    total = 0.0
     for name in LIVE_FILES:
         path = output_dir / name
         if path.is_file():
-            files += 1
-            live += sum(_anthropic_dollars(record, name, models) for record in _records(path))
-    return Spend(calls, live, files)
+            total += sum(call_dollars(record, name, models, jev_price_per_million) for record in _records(path))
+    return total
+
+
+def call_dollars(record: object, name: str, models: Mapping, jev_price_per_million: float) -> float:
+    """One live call's cost: a Jev gate call (`"service": "jev"`) by its billed input tokens at Jev's price, any other by
+    the model its request named, at list price."""
+    if isinstance(record, Mapping) and record.get("service") == "jev":
+        billed_in, _ = billed_tokens([record], name)
+        return jev_dollars(billed_in, jev_price_per_million)
+    return _anthropic_dollars(record, name, models)
 
 
 def _anthropic_dollars(record: object, name: str, models: Mapping) -> float:

@@ -233,7 +233,8 @@ def liveness() -> None:
         # Upper bound by hand: haiku 34 bytes at $0.10 and the whole 64,000 at $0.50 per million is 3.4 + 32,000 micro-dollars;
         # opus 34 bytes at $4 and 16,000 at $20 is 136 + 320,000: $0.3521394 in all.
         spend = liveness_step["detail"]["spend"]
-        check(close(spend[LIVE]["projected"], 0.3521394) and spend[LIVE]["recorded"] == 0.0 and spend[LIVE]["cap"] == 10.0
+        # And the live replay's bound (#91, worked by hand in `analysis/check_final_replay.py`): $0.965666496 for the made-up world.
+        check(close(spend[LIVE]["projected"], 0.3521394 + 0.965666496, 1e-7) and spend[LIVE]["recorded"] == 0.0 and spend[LIVE]["cap"] == 10.0
               and spend[CALLS]["cap"] == 25.0 and spend[CALLS]["recorded"] == 0.0 and 0 < spend[CALLS]["projected"] < 1.0
               and jev_gate_projection() < spend[CALLS]["projected"] < jev_gate_projection() + 1.0,
               f"it holds the projection against each cap, before any call: ${spend[LIVE]['projected']:.7f} live, the worst case")  # fmt: skip

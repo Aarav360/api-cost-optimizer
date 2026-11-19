@@ -87,7 +87,7 @@ STEPS = (
     # #79; #83 to #90 add what the tables hold, in analysis/offline_half.py (PARTS, EXTRAS)
     Step("tables", "analysis.offline_half:tables_step"),
     # #91
-    Step("replay", None),
+    Step("replay", "analysis.final_replay:replay_step"),
     # #92 completes the record, in analysis/final_record.py and `record_step`
     Step("record", "analysis.final_run:record_step"),
 )

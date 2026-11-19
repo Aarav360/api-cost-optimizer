@@ -516,8 +516,10 @@ def resume() -> None:
         check(len(r.gates.fake.received) == 8 + 5 and not (r.world.results / "test_matrix.sqlite").exists(),
               "5 test calls were made, and nothing was graded")  # fmt: skip
         r.gates.fake.fail_at = set()
-        outcome, out, _ = r.go()
-        check(outcome == Outcome(), f"the next go runs to the end {outcome}")
+        outcome, out, _ = r.go(
+            steps_to("tables")
+        )  # through the tables: the live replay (#91) sends Jev calls of its own
+        check(outcome == Outcome(), f"the next go runs on through the tables {outcome}")
         new = r.gates.fake.received[8 + 5 :]
         check([x.body for x in new] == [hand_body(*answers[k][:2]) for k in keys[4:]] and len(new) == 26,
               "it sent the 26 unstored calls only, in order, the failed one again: nothing stored was sent twice")  # fmt: skip

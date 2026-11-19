@@ -21,6 +21,10 @@ What it does:
   many `retrieve`s. `tamper` may rewrite a batch's results once built (an unrequested ID, a repeated ID).
 - Results arrive shuffled, and the same on a second read.
 - `message_errors` maps a call number of `messages.create` (from 1) to the exception raised on it.
+- `delay_s` (a number of seconds, or a function of the request's params) makes each `create` and `stream` call wait that long
+  before answering, and `intervals` keeps each call's (start, end) on `time.perf_counter`, so a check can show that the calls
+  came one at a time and that a latency it measures is the delay it injected. Production code has no such delay: it is the
+  fake's.
 
 Run as a library only:  from analysis.fake_anthropic import FakeAnthropic
 """
@@ -28,6 +32,7 @@ Run as a library only:  from analysis.fake_anthropic import FakeAnthropic
 import json
 import random
 import re
+import time
 from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -146,6 +151,7 @@ class FakeMessages:
         error = self.owner.message_errors.get(len(self.owner.calls))
         if error is not None:
             raise error
+        self.owner.wait(params)
         return Message.model_validate(self.owner.respond(params))
 
     def stream(self, **params):
@@ -155,6 +161,7 @@ class FakeMessages:
         error = self.owner.message_errors.get(len(self.owner.calls))
         if error is not None:
             raise error
+        self.owner.wait(params)
         return FakeStream(Message.model_validate(self.owner.respond(params)), f"req_fake{len(self.owner.calls)}")
 
 
@@ -168,6 +175,7 @@ class FakeAnthropic:
         polls_before_end: int = 0,
         tamper: Callable[[str, list[dict]], list[dict]] | None = None,
         message_errors: Mapping[int, Exception] | None = None,
+        delay_s: float | Callable[[Mapping[str, Any]], float] = 0.0,
     ):
         self.respond = respond
         self.batch_failures = dict(batch_failures or {})
@@ -176,7 +184,16 @@ class FakeAnthropic:
         self.tamper = tamper
         self.message_errors = dict(message_errors or {})
         self.calls: list[dict] = []  # every messages.create(**params) received
+        self.delay_s = delay_s
+        self.intervals: list[tuple[float, float]] = []  # each answered call's (start, end) on `time.perf_counter`
         self.messages = FakeMessages(self)
+
+    def wait(self, params: Mapping[str, Any]) -> None:
+        """The injected delay, kept as an interval."""
+        seconds = self.delay_s(params) if callable(self.delay_s) else self.delay_s
+        started = time.perf_counter()
+        time.sleep(seconds)
+        self.intervals.append((started, time.perf_counter()))
 
     @property
     def created(self) -> dict[str, list[dict]]:
