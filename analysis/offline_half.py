@@ -35,7 +35,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from analysis import final_gates, final_headline, final_jev, final_routed, final_routers, flip_rates, pareto, target_met
+from analysis import (
+    final_comparisons,
+    final_gates,
+    final_headline,
+    final_jev,
+    final_routed,
+    final_routers,
+    final_table,
+    flip_rates,
+    pareto,
+    target_met,
+)
 from analysis.bootstrap import RESAMPLES, SEED, Bootstrap, resample
 from analysis.final_grading import matrix_path
 from analysis.final_run import Run, StepResult
@@ -103,6 +114,9 @@ EXTRAS: tuple[Extra, ...] = (
     #
     # #85, #86: the gate-score table (the Jev gate's and the Sonnet gate's columns, `final_gates.test_data` and `dev_data`)
     Extra(final_gates.GATE_TABLE, final_gates.dev_data, final_gates.test_data, final_gates.gate_data_record),
+    #
+    # #89: the items whose request has an `assert` line, where the code check applies (the final table's estimated latency)
+    Extra(final_table.CODE_ITEMS, final_table.code_items_dev, final_table.code_items_test),
 )
 
 
@@ -216,13 +230,18 @@ PARTS: tuple[Part, ...] = (
     # #87: the twelve router-started cascades (E, F, G and G+ with the free checks, the Jev gate and the Sonnet gate)
     *routed_parts(),
     #
+    # #89: the 51 comparisons over every policy above, the replication summary from them, and the final table with the per-policy
+    # tables: after the policies, before #88's parts (which stay last)
+    Part("comparisons", final_comparisons.part, final_comparisons.committed),
+    Part("declared", final_comparisons.declared_part, None),
+    Part("replication", final_comparisons.replication_part, None),
+    Part("final_table", final_table.part, None),
+    #
     # #88: dev's flip rates (they carry over to test's references), then target met over every policy built above, then the
     # headline from it: keep these after the policies' parts, and the headline after target met
     Part("flip_rates", flip_rates.part, flip_rates.committed),
     Part("target_met", target_met.part, None),
     Part("headline", final_headline.part, None),
-    #
-    # #89: the final table, the 51 comparisons and the replication summary
 )
 
 
@@ -334,6 +353,9 @@ def tables_step(run: Run) -> StepResult:
         pareto.print_mix(mix, tables["parts"]["references"]["mixes"][mix])
     counts = tables["parts"]["target_met"]["counts"]["all"]
     run.say(f"tables: target met at a margin of zero: {json.dumps(counts)}")
+    run.say(
+        f"tables: replication summary, dev intervals excluding 0 and how many replicate: {json.dumps(tables['parts']['replication']['counts'])}"
+    )
     headline = tables["parts"]["headline"]
     run.say(f"tables: headline, {headline['label']} at realistic 99%: {headline['headline']['reading']}")
     # The stops are in the log and the tables file; the record's own fields for them are item 10's (#92).

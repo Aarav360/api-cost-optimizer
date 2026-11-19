@@ -169,6 +169,8 @@ ROUTED_PARTS = [
     for gate in (FREE_GATE, JEV_GATE, SONNET_GATE)
     for k in (cascade_section(router, gate), f"{cascade_section(router, gate)}_tasks")
 ]
+# #89: the 51 comparisons, their declared order, the replication summary and the final table, after every policy and before #88's three
+FINAL_PARTS = ["comparisons", "declared", "replication", "final_table"]
 LAST_PARTS = ["flip_rates", "target_met", "headline"]  # #88: the flip rates, target met over every policy, the headline
 REPLAY_ANSWERS = 24  # the live replay's graded answers on the made-up world
 INDICATIVE = "Only 2 test items, below the plan's minimum of a few hundred: indicative"
@@ -499,6 +501,7 @@ def tables(r: Rehearsal) -> None:
             NAMED_ROUTERS[G_PLUS],
             *HAIKU_PARTS,
             *ROUTED_PARTS,
+            *FINAL_PARTS,
             *LAST_PARTS,
         ],
         "the tables hold the parts in the order PARTS gives",
@@ -717,7 +720,7 @@ def extending() -> None:
         inputs = offline_half.test_inputs(state)
         extra = Part("extra", lambda i: {"items": len(i.matrix.items), "seen": sorted(i.extras)}, None)
         built = offline_half.build_tables(inputs, offline_half.PARTS + (extra,))
-        check(list(built["parts"]) == ["references", "stops", "rules", "trained", "jev", NAMED_ROUTERS[G_PLUS], *HAIKU_PARTS, *ROUTED_PARTS, *LAST_PARTS, "extra"] and built["parts"]["extra"] == {"items": 8, "seen": ["gate_table", "jev_bolstered_table", "jev_facts", "jev_table", "rules_table", "trained_facts", "trained_table"]},
+        check(list(built["parts"]) == ["references", "stops", "rules", "trained", "jev", NAMED_ROUTERS[G_PLUS], *HAIKU_PARTS, *ROUTED_PARTS, *FINAL_PARTS, *LAST_PARTS, "extra"] and built["parts"]["extra"] == {"items": 8, "seen": ["code_items", "gate_table", "jev_bolstered_table", "jev_facts", "jev_table", "rules_table", "trained_facts", "trained_table"]},
               "a part added by one line is built after the others and reads its inputs")  # fmt: skip
         extras_in = dataclasses.replace(inputs, extras={"loaded": 1})
         check(extras_in.extras == {"loaded": 1} and offline_half.stops_part(extras_in)["haiku"]["correct"] == 4,

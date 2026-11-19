@@ -57,6 +57,16 @@ run_check analysis.check_final_routers
 # rule on made-up dev tables (test never moves it), dev's flip rates against the plan, and the tables step's reports on the rehearsal's
 # made-up world. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.
 run_check analysis.check_target_met
+# Stage 8's 51 comparisons and replication summary (A19 item 8, A17 item 22; issue #89): every pair's six cells against the hand-worked
+# differences on a four-item matrix, item 22's order against table v4's and the write-up's declared order against WRITEUP.md's headings
+# and counts, and the replication summary on made-up dev and test cells (a sign flip, a test interval that includes 0). No results/, no
+# Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_comparisons
+# The final results table and the per-policy tables (PLAN_v4.md section 10, A17 items 16 and 24; issue #89): the estimated latency by hand
+# on a made-up gate-score table, then on the rehearsal's made-up world the eight rows under each mix and target, the G+ and best-cascade
+# rows, all nineteen policies, IFEval and MBPP+ marked indicative, the comparisons' cells against the policies' own rows and the
+# replication summary against a count made apart. No results/, no Docker, no call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_table
 # The unlock's verify list (A19 items 3 and 13; issue #81): built from the plan's freeze records and held against each
 # amendment's hashes and pins and the committed files; on a made-up root, each entry alone refusing when its file or value
 # is tampered with, and a macOS build or chip that differs reported. No results/, no Docker, no Jev or Anthropic call, nothing

@@ -31,12 +31,15 @@ explain, not a number to loosen.
 """
 
 import copy
+import hashlib
 import json
 import sys
 from typing import Any
 
 from analysis import offline_half
 from analysis.final_design import expected_misses, headline
+from analysis.final_gates import tasks_key
+from analysis.final_table import TARGET_KEYS
 from analysis.operating_points import OPERATING_POINTS_FILE
 from analysis.router_names import (
     CASCADES,
@@ -49,6 +52,7 @@ from analysis.router_names import (
     cascade_section,
 )
 from analysis.task_warnings import task_warning
+from harness.client import PROJECT_ROOT
 
 problems: list[str] = []
 
@@ -81,6 +85,145 @@ def committed_of(by_key: dict[str, offline_half.Part], key: str) -> dict:
     if committed is None:
         raise ValueError(f"part {key!r} has no committed counterpart")
     return committed()
+
+
+TABLE_V4_SHA256 = "07fbf22813988b626ca8e5898f9dac4291c1741392e76b044a05caf8f3b8c8cf"  # figures/table_v4.json as committed (A19 item 8)
+MIXES = ("realistic", "uniform")
+
+
+def committed_json(name: str) -> Any:
+    return json.loads((PROJECT_ROOT / "figures" / name).read_text(encoding="utf-8"))
+
+
+def same_numbers(row: dict, committed: dict, latency: float | None) -> bool:
+    """A final-table row against the committed row of the same policy and point: quality, cost, savings and captured fraction to
+    the last stored digit, and the estimated latency table v4 committed. On dev every routed point is met."""
+    fell_back = committed["fell_back"]
+    return (
+        row["fell_back"] == fell_back
+        and row["reading"] == ("falls back to A" if fell_back else "met")
+        and [row["quality"][k] for k in ("value", "low", "high")] == [committed["quality"][k] for k in ("value", "low", "high")]
+        and [row["cost_per_1k"][k] for k in ("value", "low", "high")] == [committed["cost_per_1k"][k] for k in ("value", "low", "high")]
+        and row["savings_vs_A"] == committed["savings_vs_A"]["share"]
+        and row["captured"] == committed["captured"]["value"]
+        and row["latency_p50_s"] == latency
+    )  # fmt: skip
+
+
+def comparisons_and_final_table(tables: dict[str, Any]) -> None:
+    print("\n-- table v4's comparisons and rows, the replication summary and the final table (issue #89) --")
+    held = committed_json("table_v4.json")
+    check(hashlib.sha256((PROJECT_ROOT / "figures" / "table_v4.json").read_bytes()).hexdigest() == TABLE_V4_SHA256,
+          "figures/table_v4.json is the committed file, byte for byte: test's tables are files of their own")  # fmt: skip
+    parts = tables["parts"]
+    check(all(key in parts and tasks_key(key) in parts for key in CASCADES),
+          "all fifteen cascades have a part and a per-task part, so the comparisons cover every pair")  # fmt: skip
+    group_names = {group: list(body["pairs"]) for group, body in parts["comparisons"]["groups"].items()}
+    check(parts["comparisons"]["count"] == 51 and [len(p) for p in group_names.values()] == [12, 12, 10, 5, 12]
+          and group_names == {g: list(b["pairs"]) for g, b in held["comparisons"]["groups"].items()},
+          "the 51 comparisons are table v4's, in its groups and order (the part loop above compared every cell to the last stored digit)")  # fmt: skip
+    check(parts["declared"]["order"][:2] == held["comparisons"]["headline"]
+          and sorted(parts["declared"]["order"]) == sorted(p for ps in group_names.values() for p in ps),
+          "the declared order leads with haiku/Jev against G and G+ and holds every pair once")  # fmt: skip
+    # Table v4's per-task McNemar rows and matched-cost rows, which the cascades' parts reproduce (their per-task parts had no
+    # committed numbers of their own)
+    mcnemar_ok = all(
+        parts[tasks_key(key)]["tasks"][task][mix][target]["mcnemar"] == held["comparisons"]["mcnemar"][key][task][mix][target]
+        for key in CASCADES for task in held["comparisons"]["mcnemar"][key] for mix in MIXES for target in TARGET_KEYS
+    )  # fmt: skip
+    check(
+        mcnemar_ok,
+        "each cascade's per-task McNemar rows equal table v4's comparisons.mcnemar, to the last stored digit",
+    )
+    check(all(parts[key]["mixes"][mix][target]["matched_cost"] == held["comparisons"]["matched_cost"][key][mix][target]
+              for key in CASCADES for mix in MIXES for target in TARGET_KEYS),
+          "each cascade's matched-cost rows equal table v4's comparisons.matched_cost")  # fmt: skip
+
+    # The replication summary on dev itself: every comparison whose dev interval excluded 0, counted straight from table v4's JSON
+    scanned = {"cost_per_1k": 0, "quality": 0}
+    for body in held["comparisons"]["groups"].values():
+        for by_mix in body["pairs"].values():
+            for by_target in by_mix.values():
+                for found in by_target.values():
+                    for measure in scanned:
+                        cell = found[measure]
+                        scanned[measure] += cell is not None and (cell["low"] > 0 or cell["high"] < 0)
+    counts = parts["replication"]["counts"]
+    check({m: counts[m]["dev_excluded"] for m in scanned} == scanned
+          and all(counts[m]["same_sign"] == counts[m]["same_sign_excluding_zero"] == scanned[m] for m in scanned)
+          and len(parts["replication"]["listed"]) == sum(scanned.values()),
+          f"dev against itself: the {scanned['cost_per_1k']} cost and {scanned['quality']} quality intervals that excluded 0 "
+          f"are listed, and each replicates (counted from table v4's JSON)")  # fmt: skip
+
+    # The final table's rows against the committed rows of each policy, to the last stored digit, and table v4's latency
+    final = parts["final_table"]
+    pareto, per_task = committed_json("pareto.json")["panels"], committed_json("pareto_tasks.json")["panels"]
+    latency = held["latency"]
+    letter_of = {section: letter for letter, section in NAMED_ROUTERS.items()}
+    ok, checked = True, 0
+    for mix in MIXES:
+        panel = pareto[mix]
+        for target in TARGET_KEYS:
+            by_system = {row["system"]: row for row in final["by_mix"][mix][target]}
+            ok &= list(by_system) == ["A", "B", "D", "E", "F", "G", G_PLUS, "I"]
+            for system, config in (("A", "opus"), ("B", "haiku")):
+                row, committed = by_system[system], panel["configs"][config]
+                ok &= (row["quality"] == {k: committed["quality"][k] for k in ("value", "low", "high")}
+                       and row["cost_per_1k"]["value"] == committed["cost_per_1k"]["value"]
+                       and row["savings_vs_A"] == committed["savings_vs_A"]["share"]
+                       and row["latency_p50_s"] == latency["configs"][config][mix])  # fmt: skip
+            oracle = panel["targets"][target]
+            row = by_system["D"]
+            ok &= (row["quality"]["value"] == oracle["quality"] and row["cost_per_1k"]["value"] == oracle["oracle"]["cost_per_1k"]
+                   and row["savings_vs_A"] == oracle["oracle"]["savings_vs_A"]["share"] and row["captured"] == 1.0
+                   and row["latency_p50_s"] is None)  # fmt: skip
+            best = by_system["I"]
+            ok &= best["section"] == held["best_cascade"]["best"] and best["label"].endswith(
+                held["best_cascade"]["label"]
+            )
+            for system, section in [("E", "rules"), ("F", "trained"), ("G", "jev"), (G_PLUS, NAMED_ROUTERS[G_PLUS])]:
+                committed = panel["routers"][section]["operating_points"][target]
+                ok &= same_numbers(by_system[system], committed, latency["routers"][system][mix][target])
+                checked += 1
+            committed = held["cascades"][best["section"]]["operating_points"][mix][target]
+            ok &= same_numbers(best, committed, latency["cascades"][best["section"]][mix][target])
+            checked += 1
+            for section, body in final["per_policy"].items():
+                if section in CASCADES:
+                    committed = held["cascades"][section]["operating_points"][mix][target]
+                    seconds = latency["cascades"][section][mix][target]
+                else:
+                    committed = panel["routers"][section]["operating_points"][target]
+                    seconds = latency["routers"][letter_of[section]][mix][target]
+                ok &= same_numbers(body["mixes"][mix][target], committed, seconds)
+                checked += 1
+    check(ok, f"the final table's A, B, D, E, F, G, G+ and best-cascade rows under both mixes and all three targets, and the "
+              f"per-policy tables' 19 policies, equal the committed rows and table v4's latency to the last stored digit ({checked} rows)")  # fmt: skip
+    check(list(final["per_policy"]) == [*NAMED_ROUTERS.values(), *CASCADES]
+          and final["best_cascade"]["section"] == held["best_cascade"]["best"],
+          "the per-policy tables list the four routers and all fifteen cascades, and the best cascade is dev's rule's")  # fmt: skip
+    ok = True
+    for task, body in final["by_task"].items():
+        ok &= body["warning"] == (task_warning(task, body["items"]) if task in ("ifeval", "mbppplus") else None)
+        for mix in MIXES:
+            for target in TARGET_KEYS:
+                a_cost = per_task[task]["configs"]["opus"]["cost_per_1k"]["value"]
+                by_system = {row["system"]: row for row in body["mixes"][mix][target]}
+                ok &= list(by_system) == ["A", "B", "E", "F", "G", G_PLUS, "I"]
+                for system, section in [
+                    ("E", "rules"),
+                    ("F", "trained"),
+                    ("G", "jev"),
+                    (G_PLUS, NAMED_ROUTERS[G_PLUS]),
+                ]:
+                    committed = per_task[task]["routers"][section]["operating_points"][mix][target]
+                    row = by_system[system]
+                    ok &= (row["quality"]["value"] == committed["quality"]["value"]
+                           and row["cost_per_1k"]["value"] == committed["cost_per_1k"]["value"]
+                           and row["savings_vs_A"] == 1 - committed["cost_per_1k"]["value"] / a_cost
+                           and row["reading"] is None)  # fmt: skip
+    check(ok, "per task, the rows equal pareto_tasks.json's committed quality and cost for E, F, G and G+, A7 item 2's warning "
+              "stands on IFEval and MBPP+ alone, and no row carries a verdict")  # fmt: skip
 
 
 def main() -> int:
@@ -241,6 +384,8 @@ def main() -> int:
           and abs(sum(1 - met["points"][s][m][t]["met_share"] for s, m, t in covered) - misses.dev_misses) < 1e-9,
           f"target met covers all 19 sections, and over its {len(covered)} covered routed points the shares of resamples missing "
           f"the target sum to A19 item 6's {misses.dev_misses:.2f} expected misses on dev")  # fmt: skip
+
+    comparisons_and_final_table(tables)
 
     print("\n-- the parts without committed numbers, against stored counts --")
     stops = tables["parts"]["stops"]
