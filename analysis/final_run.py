@@ -71,7 +71,7 @@ STEPS = (
     # #85
     Step("drift_jev_gate", "analysis.final_gates:drift_step"),
     # #86
-    Step("drift_sonnet_gate", None),
+    Step("drift_sonnet_gate", "analysis.final_sonnet:drift_step"),
     # #83
     Step("calls_rules_trained", "analysis.final_routers:calls_step"),
     # #84
@@ -81,7 +81,7 @@ STEPS = (
     # #85
     Step("calls_jev_gate", "analysis.final_gates:jev_gate_step"),
     # #86
-    Step("calls_sonnet_gate", None),
+    Step("calls_sonnet_gate", "analysis.final_sonnet:calls_step"),
     # #79
     Step("grading", "analysis.final_grading:grade_step"),
     # #79; #83 to #90 add what the tables hold, in analysis/offline_half.py (PARTS, EXTRAS)

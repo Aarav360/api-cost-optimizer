@@ -152,13 +152,31 @@ def delay_of(params: Mapping[str, Any]) -> float:
     return DELAY[CONFIG_OF[params["model"], params["output_config"]["effort"]]]
 
 
+PHASE = {
+    "replay": False
+}  # whether the replay step is the one asking: its Sonnet-gate calls are answered by `live_reply`
+
+
 @contextlib.contextmanager
 def prepared(
     respond: Callable[[Mapping[str, Any]], dict] = live_reply, **kwargs: Any
 ) -> Iterator[tuple[Rehearsal, FakeAnthropic]]:
     """A rehearsal whose Anthropic client is the delaying fake, and whose fake Jev waits before it answers."""
     with rehearsed() as r:
-        fake = FakeAnthropic(respond=respond, delay_s=delay_of, **kwargs)
+        PHASE["replay"] = False
+
+        def routed(params: Mapping[str, Any]) -> dict:
+            # Before the replay the Sonnet gate's own steps (#86: the drift resends and the test batch) ask the scripted model;
+            # the replay's Sonnet-gate calls are answered by `respond`, which scripts the replay's own scores.
+            if (
+                not PHASE["replay"]
+                and params["model"] == r.sonnet.model
+                and "<answer>\n" in params["messages"][0]["content"]
+            ):
+                return r.sonnet.respond(params)
+            return respond(params)
+
+        fake = FakeAnthropic(respond=routed, delay_s=delay_of, **kwargs)
         r.anthropic = fake
         r.world = dataclasses.replace(r.world, backends=dataclasses.replace(r.world.backends, anthropic=fake))
         r.gates.fake.delay_s = DELAY["jev"]
@@ -176,6 +194,7 @@ def through_tables(r: Rehearsal) -> None:
 
 
 def replay_go(r: Rehearsal) -> Outcome:
+    PHASE["replay"] = True
     outcome, _, _ = r.go(named("unlock", "replay"))
     return outcome
 
@@ -587,18 +606,13 @@ def refusal_cases() -> None:
 # ---- a Sonnet-gated cascade, and a cascade started by a router --------------------------------------------------------------
 
 
-def estimate_stub(plan: replay_plan.Plan) -> dict[str, replay_plan.Estimate]:
-    return {p.key: replay_plan.Estimate(8, 0.0, 0.0, 0.0, {}, 0.0, 0.0) for p in plan.policies}
-
-
 def sonnet_case() -> None:
     print("\n-- a Sonnet-gated cascade, through the standard API; its 99% point falls back to A and is skipped --")
     with prepared() as (r, fake):
         through_tables(r)
         base = len(fake.calls)
         plan = replay_plan.make_plan(HAIKU_SONNET)
-        with (mock.patch.object(final_replay, "plan_of", lambda: plan),
-              mock.patch.object(final_replay, "offline_numbers", lambda run, p, items, requests: estimate_stub(p))):  # fmt: skip
+        with mock.patch.object(final_replay, "plan_of", lambda: plan):
             outcome = replay_go(r)
         check(outcome == Outcome(), f"the replay runs with the Sonnet gate {outcome}")
         _, requests = files(r)

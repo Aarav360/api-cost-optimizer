@@ -32,6 +32,7 @@ jobs:
       - run: uv run python -m analysis.check_drift_rule
       - run: uv run python -m analysis.check_final_jev
       - run: uv run python -m analysis.check_final_replay
+      - run: uv run python -m analysis.check_final_sonnet
       - run: uv run python -m analysis.check_routers
       - run: uv run python -m analysis.check_comparisons
       - run: uv run python -m analysis.check_walk

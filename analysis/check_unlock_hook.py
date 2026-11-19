@@ -322,7 +322,7 @@ def rehearsal_refusals() -> None:
                   f"{what}: the run stops at the unlock, naming {expected}, with no unlock entry and no later step")  # fmt: skip
             nothing = (r.sandbox_calls == 0 and not final_grading.matrix_path(r.world.results).exists()
                        and not (r.world.output / "tables_test.json").exists()
-                       and {f.name for f in r.world.results.rglob("*") if f.is_file()} <= {"jev_gate_train.jsonl"})  # fmt: skip
+                       and {f.name for f in r.world.results.rglob("*") if f.is_file()} <= {"jev_gate_train.jsonl", "sonnet_gate_train.jsonl", "sonnet_gate_latency.jsonl"})  # fmt: skip
             check(nothing, f"{what}: the sandbox got nothing, and no matrix, tables or test record was made")
             check(len(hook.calls) == 1 and len(facts.calls) == (0 if expected == "hook" else 1),
                   f"{what}: the hook ran {len(hook.calls)} time, the git facts {len(facts.calls)}")  # fmt: skip

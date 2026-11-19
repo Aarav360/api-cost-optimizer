@@ -45,7 +45,15 @@ from unittest import mock
 
 import numpy as np
 
-from analysis import final_gates, final_grading, offline_half, rehearsal_gates, rehearsal_jev, rehearsal_trained
+from analysis import (
+    final_gates,
+    final_grading,
+    offline_half,
+    rehearsal_gates,
+    rehearsal_jev,
+    rehearsal_sonnet,
+    rehearsal_trained,
+)
 from analysis import rehearsal_world as rehearsal
 from analysis.backends import Backends
 from analysis.fake_anthropic import FakeAnthropic, message_dict
@@ -148,10 +156,10 @@ HAND_TASK_ENVELOPE = {
     "ifeval": {"haiku": (0.35, 0.5), "opus": (16.0, 1.0)},
     "mbppplus": {"haiku": (0.6, 0.5), "opus_low": (16.0, 1.0)},
 }
-# #85: the pure cascades haiku/free and haiku/Jev, each with its per-task rows as a part of their own
+# #85, #86: the pure cascades haiku/free, haiku/Jev and haiku/Sonnet, each with its per-task rows as a part of their own
 HAIKU_PARTS = [
     k
-    for section in (final_gates.FREE_SECTION, final_gates.JEV_SECTION)
+    for section in (final_gates.FREE_SECTION, final_gates.JEV_SECTION, final_gates.SONNET_SECTION)
     for k in (section, final_gates.tasks_key(section))
 ]
 LAST_PARTS = ["flip_rates", "target_met", "headline"]  # #88: the flip rates, target met over every policy, the headline
@@ -180,7 +188,10 @@ class Rehearsal:
 
     def __init__(self, made: MadeUp, gates: rehearsal_gates.GateStandIn, **jev: Any):
         self.sandbox_calls = 0
-        self.anthropic = FakeAnthropic(respond=pinned_reply)  # the liveness calls' fake: it answers as the model asked
+        # The Sonnet gate's made-up Stage 7 files and scripted model (`analysis/rehearsal_sonnet.py`), behind the same fake
+        # client as the liveness calls', which answer as the model asked
+        self.sonnet = rehearsal_sonnet.stand_in(made.world.results)
+        self.anthropic = FakeAnthropic(respond=self.sonnet.responder(pinned_reply))
         # F's stand-ins: a fake embedder that has not moved since dev's table was scored (`analysis/rehearsal_trained.py`)
         self.embedder = rehearsal_trained.stand_in(0.0)
         self.gates = gates  # the Jev gate's fake server, and Stage 7's made-up passes in the world's results folder
@@ -306,12 +317,14 @@ def first_go() -> None:
             "drift_jev_gate",
             "calls_free_checks",
             "calls_jev_gate",
+            "drift_sonnet_gate",
+            "calls_sonnet_gate",
             "grading",
             "tables",
             "replay",
             "record",
         },
-        f"the steps built so far are the thirteen of #79, #82, #83, #84, #85 and #91 {sorted(built)}",
+        f"the steps built so far are the fifteen of #79, #82, #83, #84, #85, #86 and #91 {sorted(built)}",
     )
     with rehearsed() as r:
         spy = Spy()
@@ -324,8 +337,9 @@ def first_go() -> None:
               "the record holds one go, which ended without stopping")  # fmt: skip
         check([s["name"] for s in go["steps"]] == expected, "the record's steps are in the same order")
         status = {s["name"]: s["status"] for s in go["steps"]}
-        check({n for n, v in status.items() if v == "done"} == built and set(status.values()) == {"done", "skipped"},
-              "each built step is done, and each step not built is skipped")  # fmt: skip
+        check({n for n, v in status.items() if v == "done"} == built and set(status.values()) <= {"done", "skipped"}
+              and {n for n, v in status.items() if v == "skipped"} == set(expected) - built,
+              "each built step is done, and each step not built (none of A19 item 2's steps is left) is skipped")  # fmt: skip
         times = [t for s in go["steps"] for t in (s["started"], s["ended"])]
         check(times == sorted(times) and times[0] > go["started"] and go["ended"] > times[-1],
               "each step's start and end, and the go's, follow the clock in order")  # fmt: skip
