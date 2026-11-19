@@ -228,6 +228,12 @@ Topics to come back to for the write-up, newest last. Details are in PLAN_v4.md'
 - The Sonnet gate mostly costs more than it saves. `haiku/Jev` is $3.0–5.8 per 1k cheaper than `haiku/Sonnet` at 99% and 97%, and 36 of the 90 cascade operating points fall back to A.
 - Talking point: §9 asked whether "Jev may fit better as a gate than as a router". On dev, used as a gate on `haiku`, it is cheaper than G at the 99% and 97% targets and about level with G+. Neither Jev router beats it on the realistic mix's looser targets.
 
+### 2026-11-19 · One way to test, rehearsed before the go (Amendment A19, items 3, 4 and 13)
+- The whole final evaluation was built and rehearsed on made-up worlds and stores before anything touched test. The unlock runs its checks in order: the hook, the git facts, the replay's draw and plan, the verify list, then the store's hash. It returns the only handle to test's requests and answers.
+- The code review found two readers of expected answers outside grading: the replay's spending projection and the table builder. They now use a read that carries no answer. A check holds that only grading uses the read that carries them.
+- The replay's plan moved into the unlock. A best cascade the replay can't run now refuses before the store is opened, not after test's calls.
+- Talking point: the seal is held by code, with checks that prove each guard can fail, not by care alone.
+
 ## Part 2
 
 Ideas for a follow-up study after Stage 8, newest last.
