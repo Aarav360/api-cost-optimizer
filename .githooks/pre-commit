@@ -69,6 +69,12 @@ run_check analysis.check_final_ledger
 # at their frozen points against hand-worked numbers. No results/, no Docker, no Jev or Anthropic call, nothing near the real store.
 # CI runs it too.
 run_check analysis.check_final_gates
+# The Jev routers on test (A15 item 17; A19 items 2, 5, 9, 10 and 13; issue #84): the shared drift rule's three refusals with the
+# shift rule's known positive, then G's and G+'s drift resends, test calls, cap, mid-run failure and resume, and the first test call's
+# Date, on a made-up world and a fake Jev on a loopback port. No results/, no Docker, no Jev or Anthropic call, no key, nothing near
+# the real store. CI runs both too.
+run_check analysis.check_drift_rule
+run_check analysis.check_final_jev
 run_check analysis.check_routers
 run_check analysis.check_comparisons
 run_check analysis.check_walk

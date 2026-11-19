@@ -45,7 +45,7 @@ from unittest import mock
 
 import numpy as np
 
-from analysis import final_gates, final_grading, offline_half, rehearsal_gates, rehearsal_trained
+from analysis import final_gates, final_grading, offline_half, rehearsal_gates, rehearsal_jev, rehearsal_trained
 from analysis import rehearsal_world as rehearsal
 from analysis.backends import Backends
 from analysis.fake_anthropic import FakeAnthropic, message_dict
@@ -53,6 +53,7 @@ from analysis.final_record import RECORD_FILE, Record
 from analysis.final_run import LOG_FILE, STEPS, ItemFailure, Outcome, Run, Step, StepResult, describe, now_utc, run
 from analysis.made_up_world import MadeUp, made_up_world
 from analysis.offline_half import OfflineError, Part
+from analysis.router_names import G_PLUS, NAMED_ROUTERS
 from analysis.unlock import HandleError, unlock
 from harness import collect, evaluators
 
@@ -175,23 +176,30 @@ def pinned_reply(params: Mapping[str, Any]) -> dict:
 class Rehearsal:
     """A made-up world in a folder, a counting stand-in sandbox, and what a run printed."""
 
-    def __init__(self, made: MadeUp, gates: rehearsal_gates.GateStandIn):
+    def __init__(self, made: MadeUp, gates: rehearsal_gates.GateStandIn, **jev: Any):
         self.sandbox_calls = 0
         self.anthropic = FakeAnthropic(respond=pinned_reply)  # the liveness calls' fake: it answers as the model asked
         # F's stand-ins: a fake embedder that has not moved since dev's table was scored (`analysis/rehearsal_trained.py`)
         self.embedder = rehearsal_trained.stand_in(0.0)
         self.gates = gates  # the Jev gate's fake server, and Stage 7's made-up passes in the world's results folder
+        # G's and G+'s fake Jev, with the world's train items stored as the drift check's noise sample (closed with `close`).
+        self.stack = contextlib.ExitStack()
+        self.jev = self.stack.enter_context(rehearsal_jev.jev_rehearsal(made.world, **jev))
         self.world = dataclasses.replace(
             made.world,
             backends=Backends(
                 sandbox=self.sandbox,
                 anthropic=self.anthropic,
                 trained=self.embedder,
+                jev=self.jev.stand_in,
                 jev_gate=gates.jev,
                 gate_train=gates.gate_train,
             ),
         )
         self.tick = clock()
+
+    def close(self) -> None:
+        self.stack.close()
 
     def sandbox(self, source: str, timeout_s: float = 10.0, memory: str = "512m"):
         self.sandbox_calls += 1
@@ -228,9 +236,14 @@ class Rehearsal:
 
 
 @contextlib.contextmanager
-def rehearsed(content: Any = None):
+def rehearsed(content: Any = None, **jev: Any):
+    """A rehearsal; `jev` is what `rehearsal_jev.jev_rehearsal` takes (the train passes' bodies, the fake's model)."""
     with made_up_world(content or rehearsal.content()) as made, rehearsal_gates.stand_in(made.world.results) as gates:
-        yield Rehearsal(made, gates)
+        r = Rehearsal(made, gates, **jev)
+        try:
+            yield r
+        finally:
+            r.close()
 
 
 class Spy:
@@ -286,6 +299,8 @@ def first_go() -> None:
             "liveness",
             "drift_trained_router",
             "calls_rules_trained",
+            "drift_jev_router",
+            "calls_jev_router",
             "drift_jev_gate",
             "calls_free_checks",
             "calls_jev_gate",
@@ -293,7 +308,7 @@ def first_go() -> None:
             "tables",
             "record",
         },
-        f"the steps built so far are the ten of #79, #82, #83 and #85 {sorted(built)}",
+        f"the steps built so far are the twelve of #79, #82, #83, #84 and #85 {sorted(built)}",
     )
     with rehearsed() as r:
         spy = Spy()
@@ -446,7 +461,7 @@ def tables(r: Rehearsal) -> None:
           and file["bootstrap"] == {"resamples": 2000, "seed": 2026, "interval": "percentile 95%"},
           "the tables name the split, its 8 items, the snapshot and the seeded bootstrap")  # fmt: skip
     check(
-        list(file["parts"]) == ["references", "stops", "rules", "trained", *HAIKU_PARTS],
+        list(file["parts"]) == ["references", "stops", "rules", "trained", "jev", NAMED_ROUTERS[G_PLUS], *HAIKU_PARTS],
         "the tables hold the parts in the order PARTS gives",
     )
     mixes = file["parts"]["references"]["mixes"]
@@ -663,7 +678,7 @@ def extending() -> None:
         inputs = offline_half.test_inputs(state)
         extra = Part("extra", lambda i: {"items": len(i.matrix.items), "seen": sorted(i.extras)}, None)
         built = offline_half.build_tables(inputs, offline_half.PARTS + (extra,))
-        check(list(built["parts"]) == ["references", "stops", "rules", "trained", *HAIKU_PARTS, "extra"] and built["parts"]["extra"] == {"items": 8, "seen": ["gate_table", "rules_table", "trained_facts", "trained_table"]},
+        check(list(built["parts"]) == ["references", "stops", "rules", "trained", "jev", NAMED_ROUTERS[G_PLUS], *HAIKU_PARTS, "extra"] and built["parts"]["extra"] == {"items": 8, "seen": ["gate_table", "jev_bolstered_table", "jev_facts", "jev_table", "rules_table", "trained_facts", "trained_table"]},
               "a part added by one line is built after the others and reads its inputs")  # fmt: skip
         extras_in = dataclasses.replace(inputs, extras={"loaded": 1})
         check(extras_in.extras == {"loaded": 1} and offline_half.stops_part(extras_in)["haiku"]["correct"] == 4,

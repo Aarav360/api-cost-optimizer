@@ -64,6 +64,10 @@ from routers.request import Request, from_row
 
 RESULTS_DIR = PROJECT_ROOT / "results"
 SPLITS = ("train", "dev", "smoke")
+# Stage 8's two labels (A19 items 9 and 13; `analysis/record_files.py`): test's calls and the drift check's resends of train
+# items. They are not in `SPLITS`, so every caller here still refuses them; only `analysis/final_jev.py`, with the unlocked
+# handle in hand, passes `splits=STAGE_8_SPLITS` and a Stage 8 call reaches Jev.
+STAGE_8_SPLITS = (*SPLITS, "test", "drift")
 PASSES = (1, 2)  # 2 is the noise pass
 STORED_FIELDS = (
     "router", "split", "item_id", "pass", "body_sha256", "response", "model", "usage", "request_id", "server_date",
@@ -207,16 +211,18 @@ def noise_items(loaded: Loaded, benchmark_file: Path | None = None) -> list[Item
 # ---- storage --------------------------------------------------------------------------------------------------
 
 
-def records_path(router: str, split: str, results_dir: Path = RESULTS_DIR) -> Path:
-    if router not in ROUTERS or split not in SPLITS:
+def records_path(router: str, split: str, results_dir: Path = RESULTS_DIR, splits: Sequence[str] | None = None) -> Path:
+    if router not in ROUTERS or split not in (SPLITS if splits is None else splits):
         raise CollectError(f"unknown router {router!r} or split {split!r}")
     return results_dir / "jev" / f"{router}_{split}.jsonl"
 
 
-def read_records(router: str, split: str, results_dir: Path = RESULTS_DIR) -> list[dict]:
+def read_records(
+    router: str, split: str, results_dir: Path = RESULTS_DIR, splits: Sequence[str] | None = None
+) -> list[dict]:
     """A router's stored records for a split, in the order stored: the one reader of the stored records, which the
     collection, the fit and the table builders share."""
-    return read_records_file(records_path(router, split, results_dir), router, split)
+    return read_records_file(records_path(router, split, results_dir, splits), router, split)
 
 
 def read_records_file(path: Path, router: str, split: str) -> list[dict]:
@@ -289,13 +295,17 @@ def collect(
     pass_number: int = 1,
     now: Callable[[], str] = now_local,
     progress: Callable[[int, int], None] | None = None,
+    splits: Sequence[str] | None = None,
+    before_call: Callable[[str], None] | None = None,
 ) -> Summary:
     """Send every item not yet stored for this router, split and pass, storing each record as it comes.
 
     Everything that can be refused is refused before the first call. `budget_bytes` replaces the settings file's for
     this router (null there until the smoke test fills it in). A `RunStop` from the client ends the run and
-    names the request; the records stored before it stay valid."""
-    if router not in ROUTERS or split not in SPLITS or pass_number not in PASSES:
+    names the request; the records stored before it stay valid. `splits` is the labels this call may use (Stage 8 passes
+    `STAGE_8_SPLITS`); `before_call(item_id)` is told which item is about to be sent, so a caller can name the item a
+    failure stopped on."""
+    if router not in ROUTERS or split not in (SPLITS if splits is None else splits) or pass_number not in PASSES:
         raise CollectError(f"unknown router {router!r}, split {split!r} or pass {pass_number!r}")
     if pass_number == 2 and split != "train":
         raise CollectError("the noise pass sends train items only")
@@ -305,9 +315,9 @@ def collect(
     budget = loaded.call.budget_bytes[router] if budget_bytes is None else budget_bytes
     if budget is None or budget < 1:
         raise CollectError(f"no byte budget for {router}: pass one, or fill budget_bytes in the settings file")
-    path = records_path(router, split, results_dir)
+    path = records_path(router, split, results_dir, splits)
     trim_torn_line(path)
-    existing = read_records(router, split, results_dir)
+    existing = read_records(router, split, results_dir, splits)
     done = {(r["item_id"], r["pass"]) for r in existing}
     if pass_number == 2 and (missing := [i for i in ids if (i, 1) not in done]):
         raise CollectError(f"{len(missing)} items have no pass 1 stored for {router}, e.g. {missing[0]}")
@@ -318,6 +328,8 @@ def collect(
             skipped += 1
             continue
         call = build(item.request, loaded.call, budget_bytes=budget)
+        if before_call is not None:
+            before_call(item.item_id)
         result = client.call(call.body, call.sha256, f"{router} {split} {item.item_id} (pass {pass_number})")
         record = {"router": router, "split": split, "item_id": item.item_id, "pass": pass_number}
         append_record(path, record | result.to_record() | {"collected_at": now()})

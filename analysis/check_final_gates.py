@@ -121,9 +121,15 @@ def without_liveness(steps: tuple[Step, ...]) -> tuple[Step, ...]:
     return tuple(s for s in steps if s.name != "liveness")
 
 
+# G's and G+'s steps (#84) are held by `analysis/check_final_jev.py`; here they would add their calls and their projection to the
+# exact-dollar arithmetic of the gates' own caps, so the runs that stop at a gate step leave them out and `main` takes their
+# projector out of the ledger's.
+ROUTER_STEPS = ("drift_jev_router", "calls_jev_router")
+
+
 def steps_to(name: str) -> tuple[Step, ...]:
     names = [s.name for s in STEPS]
-    return STEPS[: names.index(name) + 1]
+    return tuple(s for s in STEPS[: names.index(name) + 1] if s.name not in ROUTER_STEPS)
 
 
 def leak_search(text: str) -> list[str]:
@@ -311,7 +317,7 @@ def refused_at(
         r.gates.fake.resend(scenario)
         for name, value in changes.items():
             setattr(r.gates.fake, name, value)
-        outcome, out, _ = r.go()
+        outcome, out, _ = r.go(steps_to("drift_jev_gate"))  # G's and G+'s own D8 lines are in the log of a full run
         calls = [json.loads(x.body)["state"]["request"]["prompt"] for x in r.gates.fake.received]
         shown = r.record["gos"][0]["stopped"]
         check(outcome == Outcome("drift_jev_gate", "DriftRefusal", None),
@@ -761,15 +767,17 @@ def counts_with_the_tables() -> None:
 
 
 def main() -> int:
-    what_the_gates_see()
-    drift_quiet()
-    drift_refusals()
-    free_checks()
-    test_calls()
-    resume()
-    table_checks()
-    cascades()
-    counts_with_the_tables()
+    projectors = tuple(p for p in final_ledger.PROJECTORS if p.name != "jev_router")
+    with mock.patch.object(final_ledger, "PROJECTORS", projectors):
+        what_the_gates_see()
+        drift_quiet()
+        drift_refusals()
+        free_checks()
+        test_calls()
+        resume()
+        table_checks()
+        cascades()
+        counts_with_the_tables()
     print("\nall checks passed" if not problems else f"\n{len(problems)} checks failed")
     return 1 if problems else 0
 

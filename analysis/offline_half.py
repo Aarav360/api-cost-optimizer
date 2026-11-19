@@ -30,18 +30,20 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from analysis import final_gates, final_routers, pareto
+from analysis import final_gates, final_jev, final_routers, pareto
 from analysis.bootstrap import RESAMPLES, SEED, Bootstrap, resample
 from analysis.final_grading import matrix_path
 from analysis.final_run import Run, StepResult
 from analysis.matrix import LADDER, Matrix, MatrixError, list_price, load, read_store
 from analysis.operating_eval import shared_fixed, shared_savings
+from analysis.router_names import G_PLUS, NAMED_ROUTERS
 from analysis.simulator import load_mixes
 from analysis.unlock import Handle
 from harness.client import load_models
 from harness.collect import MAIN
 
 TABLES_FILE = "tables_{split}.json"
+G_PLUS_SECTION = NAMED_ROUTERS[G_PLUS]  # G+'s section of the operating-points file, spelled in one place
 MIXES = pareto.PANELS  # realistic, then uniform: the figures' order
 
 
@@ -89,7 +91,10 @@ EXTRAS: tuple[Extra, ...] = (
     Extra("trained_table", final_routers.trained_dev, final_routers.trained_test),
     Extra("trained_facts", lambda: None, final_routers.stored_scores, final_routers.trained_facts_record),
     #
-    # #84: G's and G+'s router-score tables
+    # #84: G's and G+'s router-score tables, and their test calls' facts (refusals, truncations: kept in the record)
+    Extra("jev_table", final_jev.dev_table("jev"), final_jev.test_table("jev")),
+    Extra("jev_bolstered_table", final_jev.dev_table(G_PLUS_SECTION), final_jev.test_table(G_PLUS_SECTION)),
+    Extra("jev_facts", lambda: None, final_jev.facts, final_jev.facts_record),
     #
     # #85, #86: the gate-score table (#86 adds the Sonnet gate's column in `final_gates.test_data` and `dev_data`)
     Extra(final_gates.GATE_TABLE, final_gates.dev_data, final_gates.test_data, final_gates.gate_data_record),
@@ -141,7 +146,13 @@ PARTS: tuple[Part, ...] = (
     Part("rules", final_routers.router_part("rules", "rules_table"), final_routers.committed_part("rules")),
     Part("trained", final_routers.router_part("trained", "trained_table"), final_routers.committed_part("trained")),
     #
-    # #84: G and G+
+    # #84: G and G+ at their operating points
+    Part("jev", final_routers.router_part("jev", "jev_table"), final_routers.committed_part("jev")),
+    Part(
+        G_PLUS_SECTION,
+        final_routers.router_part(G_PLUS_SECTION, "jev_bolstered_table"),
+        final_routers.committed_part(G_PLUS_SECTION),
+    ),  # fmt: skip
     #
     # #85: the free checks and the Jev gate: haiku/free and haiku/Jev (dev's per-task rows have no committed numbers)
     Part(

@@ -78,7 +78,7 @@ PROJECTORS = (
     # #82: the liveness calls
     Projector("liveness", LIVE, "analysis.final_liveness:project"),
     # #84: the drift resends and test's calls for G and G+
-    Projector("jev_router", CALLS, None),
+    Projector("jev_router", CALLS, "analysis.final_jev:project"),
     # #85: the Jev gate's drift resends and test calls
     Projector("jev_gate", CALLS, "analysis.final_gates:project"),
     # #86: the Sonnet gate's drift resends and test batch

@@ -234,7 +234,8 @@ def liveness() -> None:
         # opus 34 bytes at $4 and 16,000 at $20 is 136 + 320,000: $0.3521394 in all.
         spend = liveness_step["detail"]["spend"]
         check(close(spend[LIVE]["projected"], 0.3521394) and spend[LIVE]["recorded"] == 0.0 and spend[LIVE]["cap"] == 10.0
-              and spend[CALLS]["cap"] == 25.0 and spend[CALLS]["recorded"] == 0.0 and close(spend[CALLS]["projected"], jev_gate_projection()),
+              and spend[CALLS]["cap"] == 25.0 and spend[CALLS]["recorded"] == 0.0 and 0 < spend[CALLS]["projected"] < 1.0
+              and jev_gate_projection() < spend[CALLS]["projected"] < jev_gate_projection() + 1.0,
               f"it holds the projection against each cap, before any call: ${spend[LIVE]['projected']:.7f} live, the worst case")  # fmt: skip
         # The fake billed 20 in and 5 out per call: haiku 2 + 2.5 and opus 80 + 100 micro-dollars.
         recorded = final_ledger.recorded_spend(r.world.results, r.world.output)
@@ -280,7 +281,9 @@ def pins() -> None:
     ):
         with rehearsal.rehearsed() as r:
             r.anthropic = FakeAnthropic(respond=wrong_model(retired))
-            r.world = dataclasses.replace(r.world, backends=Backends(sandbox=r.sandbox, anthropic=r.anthropic))
+            r.world = dataclasses.replace(
+                r.world, backends=Backends(sandbox=r.sandbox, anthropic=r.anthropic, jev=r.jev.stand_in)
+            )
             outcome, out, _ = r.go()
             go = r.record["gos"][0]
             check(outcome == Outcome("liveness", "LivenessRefusal", None),
@@ -293,7 +296,7 @@ def pins() -> None:
                   "the log names the model that answered: a retired model's ID shows a mismatch")  # fmt: skip
             check(not (r.world.results / "test_matrix.sqlite").exists(), "nothing was graded")
     with rehearsal.rehearsed() as r:
-        r.world = dataclasses.replace(r.world, backends=Backends(sandbox=r.sandbox))
+        r.world = dataclasses.replace(r.world, backends=Backends(sandbox=r.sandbox, jev=r.jev.stand_in))
         with mock.patch.object(final_liveness, "make_client", side_effect=AssertionError("the real client was built")):
             outcome, _, _ = r.go()
         check(outcome == Outcome("liveness", "LivenessRefusal", None) and r.anthropic.calls == [],

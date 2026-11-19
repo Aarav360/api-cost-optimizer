@@ -67,7 +67,7 @@ STEPS = (
     # #83
     Step("drift_trained_router", "analysis.trained_drift:drift_step"),
     # #84
-    Step("drift_jev_router", None),
+    Step("drift_jev_router", "analysis.final_jev:drift_step"),
     # #85
     Step("drift_jev_gate", "analysis.final_gates:drift_step"),
     # #86
@@ -75,7 +75,7 @@ STEPS = (
     # #83
     Step("calls_rules_trained", "analysis.final_routers:calls_step"),
     # #84
-    Step("calls_jev_router", None),
+    Step("calls_jev_router", "analysis.final_jev:calls_step"),
     # #85
     Step("calls_free_checks", "analysis.final_gates:free_checks_step"),
     # #85

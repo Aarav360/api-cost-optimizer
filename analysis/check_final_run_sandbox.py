@@ -58,7 +58,11 @@ def main() -> int:
         real.world = dataclasses.replace(
             real.world,
             backends=Backends(
-                anthropic=real.anthropic, trained=real.embedder, jev_gate=gates.jev, gate_train=gates.gate_train
+                anthropic=real.anthropic,
+                trained=real.embedder,
+                jev=real.jev.stand_in,
+                jev_gate=gates.jev,
+                gate_train=gates.gate_train,
             ),
         )
         stand_in = ci.Rehearsal(stand_in_made, stand_in_gates)

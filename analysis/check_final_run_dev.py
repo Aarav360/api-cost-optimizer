@@ -31,6 +31,7 @@ import sys
 from typing import Any
 
 from analysis import offline_half
+from analysis.router_names import G_PLUS, NAMED_ROUTERS
 from analysis.task_warnings import task_warning
 
 problems: list[str] = []
@@ -86,11 +87,11 @@ def main() -> int:
         found = differences(tables["parts"][part.key], part.committed())
         check(not found, f"part {part.key!r} reproduces dev's committed numbers to the last stored digit {found[:3]}")
 
-    print("\n-- E and F at their frozen operating points (issue #83) --")
+    print("\n-- E, F, G and G+ at their frozen operating points (issues #83 and #84) --")
     by_key = {part.key: part for part in offline_half.PARTS}
-    check(all(by_key[k].committed is not None for k in ("rules", "trained")),
-          "E's and F's parts each name their committed dev numbers, so the loop above checked them")  # fmt: skip
-    for key, routes in (("rules", 4), ("trained", 3)):
+    check(all(by_key[k].committed is not None for k in ("rules", "trained", "jev", NAMED_ROUTERS[G_PLUS])),
+          "E's, F's, G's and G+'s parts each name their committed dev numbers, so the loop above checked them")  # fmt: skip
+    for key, routes in (("rules", 4), ("trained", 3), ("jev", 6), (NAMED_ROUTERS[G_PLUS], 5)):
         rows = tables["parts"][key]["mixes"]
         points = [row for by_target in rows.values() for row in by_target.values()]
         check(len(points) == 6 and sum(not row["fell_back"] for row in points) == routes
@@ -102,6 +103,24 @@ def main() -> int:
         check(set(tasks) == {"ifeval", "banking77", "mmlu_pro", "mbppplus"} and len(per_task) == 24
               and all(row["mcnemar"] is None for row in per_task if row["fell_back"]),
               f"{key}: the per-task rows cover the four tasks, and a point that fell back has no McNemar row")  # fmt: skip
+
+    print("\n-- G's and G+'s D6 from Stage 6's stored train passes, as the drift step measures it (A15 item 19) --")
+    from analysis import collect_jev, final_jev
+    from routers import jev
+
+    loaded = collect_jev.load_settings()
+
+    def no_client() -> jev.JevClient:
+        raise AssertionError("this section reads stored records and calls nothing")
+
+    setup = final_jev.Setup(loaded, jev.read_weights(loaded.call), no_client, collect_jev.RESULTS_DIR)
+    sample = collect_jev.noise_items(loaded)
+    # A15 item 19's record, to four decimals: D6 by config, haiku, sonnet, opus_low
+    recorded = {"jev": (0.0119, 0.0120, 0.0112), NAMED_ROUTERS[G_PLUS]: (0.0118, 0.0075, 0.0046)}
+    for router, d6 in recorded.items():
+        noise = final_jev.train_passes(router, setup, sample)[2]
+        check(len(sample) == 100 and [round(noise[c].d6, 4) for c in ("haiku", "sonnet", "opus_low")] == list(d6),
+              f"{router}: D6 over the 100 noise items is A15 item 19's recorded {d6}")  # fmt: skip
 
     print("\n-- the parts without committed numbers, against stored counts --")
     stops = tables["parts"]["stops"]

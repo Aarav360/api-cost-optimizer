@@ -147,8 +147,12 @@ def sealed_rows() -> list[tuple[tuple, str]]:
     return rows
 
 
-def content() -> Content:
-    return Content(BENCHMARK_ROWS, sealed_rows())
+def content(train_items: int = 1) -> Content:
+    """The rehearsal's benchmark and sealed rows. `train_items` is how many train rows the benchmark holds (the Jev routers'
+    drift check, whose noise sample is a world's train items, wants several); each is the first test item's text again."""
+    more = [{**ITEMS[0], "split": "train", "source_group": f"made-train-{n}", "item_id": f"banking77:made-train-{n}"}
+            for n in range(1, train_items)]  # fmt: skip
+    return Content(BENCHMARK_ROWS + more, sealed_rows())
 
 
 def local_run_python(source: str, timeout_s: float = 10.0, memory: str = "512m") -> ExecResult:

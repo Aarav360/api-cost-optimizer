@@ -30,6 +30,21 @@ class TrainedStandIn:
 
 
 @dataclass(frozen=True)
+class JevStandIn:
+    """What a rehearsal gives G's and G+'s steps in place of the real Jev (`analysis/rehearsal_jev.py` builds one): the
+    settings on a fake server's address (with a noise sample of made-up train items), G+'s weights, and a client for the
+    fake with its waits injected. The go's world names none and gets the real settings, weights and key."""
+
+    loaded: Any  # `analysis.collect_jev.Loaded`
+    weights: Any  # `routers.jev.GPlusWeights`
+    client: Callable[[], Any]  # a `routers.jev.JevClient` on the fake
+    # The results folder holding Stage 6's train records (`jev/<router>_train.jsonl`), which the drift check reads its first
+    # two passes from. None is the world's own results folder, where the go's real ones are; a rehearsal keeps its made-up
+    # ones in a folder of their own, so a refused unlock still leaves the world's results folder uncreated.
+    train_results: Any = None
+
+
+@dataclass(frozen=True)
 class Backends:
     sandbox: SandboxRunner | None = None  # the grader's code runner: a stand-in in CI, the real sandbox otherwise
     # The Anthropic client the liveness calls (and the live replay) use. Unlike the sandbox, None here is not "the real
@@ -48,3 +63,7 @@ class Backends:
     gate_train: Callable[[Sequence[tuple[str, str]]], Sequence[Any]] | None = None
     # The sandbox image's digest a free-check record carries when `sandbox` is a stand-in (the real one is read from Docker).
     image_digest: str | None = None
+    # The Jev endpoint G's and G+'s drift resends and test calls use. As with the Anthropic client, None is not "the real
+    # one": a world that names backends and no Jev stand-in is refused by the Jev router steps, so a rehearsal can't reach
+    # the real service.
+    jev: JevStandIn | None = None
