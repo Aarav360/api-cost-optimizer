@@ -34,6 +34,7 @@ HOOK_ONLY = {
     "analysis.check_final_run_sandbox": "grades the rehearsal's made-up MBPP+ answers in the real sandbox, which needs Docker",
     "analysis.check_final_gates_sandbox": "runs the free checks' code check on made-up MBPP+ answers in the real sandbox, which needs Docker",
     "analysis.check_final_gates_real": "recomputes the Jev gate's noise sample, D6 and body hashes from train's stored records in results/",
+    "analysis.check_final_sonnet_real": "recomputes the Sonnet gate's drift sample, D6 and request hashes from train's stored records in results/",
     "analysis.check_verify_real": "reads the model snapshot under .cache/ and the sandbox image, which needs Docker",
     "analysis.check_gates_design": "recomputes A17's facts from train's and dev's stored rows in results/",
     "analysis.check_gates_sandbox": "runs the code check in the real sandbox, which needs Docker",

@@ -82,7 +82,7 @@ PROJECTORS = (
     # #85: the Jev gate's drift resends and test calls
     Projector("jev_gate", CALLS, "analysis.final_gates:project"),
     # #86: the Sonnet gate's drift resends and test batch
-    Projector("sonnet_gate", CALLS, None),
+    Projector("sonnet_gate", CALLS, "analysis.final_sonnet:project"),
     # #91: the live replay
     Projector("replay", LIVE, None),
 )

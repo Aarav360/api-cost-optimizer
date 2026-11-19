@@ -75,6 +75,14 @@ run_check analysis.check_final_gates
 # the real store. CI runs both too.
 run_check analysis.check_drift_rule
 run_check analysis.check_final_jev
+# The Sonnet gate on test and its drift check (A15 item 17; A17 items 14 and 26; A19 items 2, 7, 9 and 13; issue #86), on the same
+# made-up world and a scripted fake Anthropic client: what the gate sees, the drift check's hand-worked D6, D8, shift and flips and its
+# three refusals (a model that isn't the pin, D8 above 3 x D6, a uniform move) before any test call, the floor, the test batch's
+# requests against hand-written JSON and the batch's ID and creation time in the record, the four batch safeguards (IDs saved on
+# creation, only errored or expired requests resent, a cap refusal at its boundary, results keyed by request ID), refusals and cap
+# stops as rejections charged their tokens, the Sonnet column refused on A17 item 13's cases, and haiku/Sonnet at its frozen points
+# against hand-worked numbers. No results/, no Docker, no Anthropic call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_sonnet
 run_check analysis.check_routers
 run_check analysis.check_comparisons
 run_check analysis.check_walk
@@ -237,5 +245,9 @@ if [ -f results/dev_matrix.sqlite ]; then
   # The Jev gate's drift check against Stage 7's stored records (A15 item 17; A17 items 26 and 28): the noise sample, D6 and the shift
   # recomputed, and the frozen call's body hashes against the stored ones. Train only; no gate and no Jev call.
   run_check analysis.check_final_gates_real
+  # The Sonnet gate's drift check against Stage 7's stored records (A15 item 17; A17 items 26 and 28): the 80-answer sample, D6 and the
+  # shift recomputed (0.0266 and +0.0006 over 77), the frozen request's hashes against the stored ones, the three frozen cutoffs and
+  # the projection against the cap. Train only; no gate and no Anthropic call.
+  run_check analysis.check_final_sonnet_real
 fi
 echo "the hook passed in $((SECONDS / 60)) min $((SECONDS % 60)) s"

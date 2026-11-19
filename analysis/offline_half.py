@@ -96,7 +96,7 @@ EXTRAS: tuple[Extra, ...] = (
     Extra("jev_bolstered_table", final_jev.dev_table(G_PLUS_SECTION), final_jev.test_table(G_PLUS_SECTION)),
     Extra("jev_facts", lambda: None, final_jev.facts, final_jev.facts_record),
     #
-    # #85, #86: the gate-score table (#86 adds the Sonnet gate's column in `final_gates.test_data` and `dev_data`)
+    # #85, #86: the gate-score table (the Jev gate's and the Sonnet gate's columns, `final_gates.test_data` and `dev_data`)
     Extra(final_gates.GATE_TABLE, final_gates.dev_data, final_gates.test_data, final_gates.gate_data_record),
 )
 
@@ -176,7 +176,17 @@ PARTS: tuple[Part, ...] = (
         None,
     ),  # fmt: skip
     #
-    # #86: the Sonnet gate: haiku/Sonnet
+    # #86: the Sonnet gate: haiku/Sonnet (dev's per-task rows have no committed numbers)
+    Part(
+        final_gates.SONNET_SECTION,
+        final_gates.cascade_part(final_gates.SONNET_SECTION),
+        final_gates.committed_part(final_gates.SONNET_SECTION),
+    ),  # fmt: skip
+    Part(
+        final_gates.tasks_key(final_gates.SONNET_SECTION),
+        final_gates.cascade_part(final_gates.SONNET_SECTION, per_task=True),
+        None,
+    ),  # fmt: skip
     #
     # #87: the twelve router-started cascades
     #

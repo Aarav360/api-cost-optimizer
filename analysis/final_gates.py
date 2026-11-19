@@ -30,8 +30,9 @@ the tables (`gate_data_record`, an `Extra`'s record). A failure names the answer
 **Test's gate-score table** (`test_table`, `build_test_table`) is built from the stored records through the gates' own parsers
 and refused whole on each of A17 item 13's conditions: an answer missing or repeated, a gate score that isn't a number from 0
 to 1, a paid score on an answer that failed a free check, an overhead that is negative or not finite, a call missing from a
-passing answer, and a stored refusal flag that differs from the parser's. #86 adds the Sonnet gate's column through
-`build_test_table(..., extra_paid=...)`.
+passing answer, and a stored refusal flag that differs from the parser's. The Sonnet gate's column (`analysis/final_sonnet.py`,
+issue #86) is added through `build_test_table(..., extra_paid=...)` by `test_data`, from `sonnet_gate_test.jsonl`, with the
+same refusals: a gated answer that passed the free checks and has no verdict, and a verdict on any other answer.
 
 **The pure cascades** `haiku/free` and `haiku/Jev` (`cascade_part`) are evaluated at their frozen operating points and cutoffs
 with `analysis/operating_eval.py`: the file decides each point's dials and whether it fell back, and nothing is walked on
@@ -46,7 +47,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from analysis import collect_jev_gate, drift_rule
+from analysis import collect_jev_gate, collect_sonnet_gate, drift_rule
 from analysis.collect_gates import (
     FREE,
     FREE_RECORD_FIELDS,
@@ -64,18 +65,19 @@ from analysis.gate_spend import JEV_OVERHEAD_TOKENS, jev_projected_cost
 from analysis.gate_table import GateScoreTable, PaidScore, build_table, pure_traces
 from analysis.gate_train import count_configs, difference, jev_noise
 from analysis.operating_points import read_section
-from analysis.router_names import CASCADES, FREE_GATE, HAIKU, JEV_GATE, cascade_section, parse_cascade
+from analysis.router_names import CASCADES, FREE_GATE, HAIKU, JEV_GATE, SONNET_GATE, cascade_section, parse_cascade
 from analysis.unlock import Handle
-from routers import jev, jev_gate
+from routers import jev, jev_gate, sonnet_gate
 from routers.cascade import configs_called
 from routers.gates import CodeCheckSettings, Runner, free_checks, image_digest, read_gate_settings, sandbox_runner
 from routers.ladder import LADDER
 
-FREE_NAME, JEV_NAME = "free_checks", "jev_gate"  # `results/gates/{name}_{label}.jsonl`
+FREE_NAME, JEV_NAME, SONNET_NAME = "free_checks", "jev_gate", "sonnet_gate"  # `results/gates/{name}_{label}.jsonl`
 TEST, DRIFT = "test", "drift"  # the two labels of Stage 8's files (`analysis/record_files.py`)
 DRIFT_CHECK = "drift_jev_gate"  # the drift check's name: the step's, and the refusal's
 STAND_IN_DIGEST = "sha256:" + "0" * 63 + "1"  # what a stand-in sandbox's free-check records carry as the image's digest
 FREE_SECTION, JEV_SECTION = cascade_section(HAIKU, FREE_GATE), cascade_section(HAIKU, JEV_GATE)  # haiku/free, haiku/Jev
+SONNET_SECTION = cascade_section(HAIKU, SONNET_GATE)  # haiku/Sonnet (#86)
 GATE_TABLE = "gate_table"  # the `Extra`'s name for test's and dev's gate-score table
 
 
@@ -104,6 +106,11 @@ def read_jev(label: str, results: Path) -> list[dict]:
     if any(type(r["refused"]) is not bool for r in records):
         raise GateCollectError("a stored Jev gate record has a refusal flag that isn't a bool")
     return records
+
+
+def read_sonnet_test(results: Path) -> list[dict]:
+    """Test's stored Sonnet batch verdicts (pass 1) in the order stored: the one reader of them."""
+    return collect_sonnet_gate.read_sonnet_records(TEST, results, path=gate_file(SONNET_NAME, TEST, results))
 
 
 # ---- what the gates are given ------------------------------------------------------------------------------------
@@ -314,12 +321,13 @@ def drift_inputs(run: Run, sample: Sequence[tuple[str, str]]) -> list[GateInput]
     return [by_key[key] for key in sample]
 
 
-def cutoff_labels() -> dict[float, list[str]]:
-    """Each frozen cutoff of a cascade that ends in the Jev gate, with the operating points that sit on it: the pure
-    cascade's walked ones and the fixed one the router-started cascades share. A point that fell back holds none."""
+def cutoff_labels(gate: str = JEV_GATE) -> dict[float, list[str]]:
+    """Each frozen cutoff of a cascade that ends in `gate` (the Jev gate, or the Sonnet gate for #86), with the operating
+    points that sit on it: the pure cascade's walked ones and the fixed one the router-started cascades share. A point that
+    fell back holds none."""
     labels: dict[float, list[str]] = {}
     for section, label in CASCADES.items():
-        if parse_cascade(section)[1] != JEV_GATE:
+        if parse_cascade(section)[1] != gate:
             continue
         for mix, by_target in read_section(section).items():
             for target, point in by_target.items():
@@ -458,15 +466,37 @@ class GateData:
     table: GateScoreTable
     free: tuple[Mapping[str, Any], ...]
     jev: tuple[Mapping[str, Any], ...]
+    sonnet: tuple[Mapping[str, Any], ...] = ()  # the Sonnet gate's batch verdicts (pass 1)
+
+
+def sonnet_column(
+    free: Sequence[Mapping[str, Any]], verdicts: Sequence[Mapping[str, Any]], settings: sonnet_gate.SonnetSettings
+) -> dict[tuple[str, str], PaidScore]:
+    """The Sonnet column of test's table from the stored batch verdicts, through the gate's own parser (A17 item 13). Refused
+    whole (GateCollectError) on a passing answer of a gated config with no verdict and on a verdict for any other answer (a
+    config the gate doesn't judge, or an answer that failed a free check); a stored refusal flag or usage the result doesn't
+    bear out is refused by the reader (SonnetCollectError)."""
+    wanted = {
+        (str(r["item_id"]), str(r["config"])) for r in free if r["passed"] and r["config"] in settings.gated_configs
+    }
+    column = collect_sonnet_gate.column_of(verdicts, settings)
+    if missing := sorted(wanted - set(column)):
+        raise GateCollectError(
+            f"{len(missing)} answers that passed the free checks have no Sonnet verdict, e.g. {missing[0]}"
+        )
+    if stray := sorted(set(column) - wanted):
+        raise GateCollectError(f"{len(stray)} Sonnet verdicts are on answers the gate must not judge, e.g. {stray[0]}")
+    return column
 
 
 def test_data(run: Run) -> GateData:
     inputs = test_inputs(run.unlocked())
     results = run.world.results
-    free, calls = read_free_test(results), read_jev(TEST, results)
+    free, calls, verdicts = read_free_test(results), read_jev(TEST, results), read_sonnet_test(results)
+    column = sonnet_column(free, verdicts, sonnet_gate.load_settings())
     table = build_test_table(free, calls, [(i.item_id, i.config) for i in inputs], jev_gate.read_settings(),
-                             jev.read_client_settings())  # fmt: skip
-    return GateData(table, tuple(free), tuple(calls))
+                             jev.read_client_settings(), extra_paid={SONNET_GATE: column})  # fmt: skip
+    return GateData(table, tuple(free), tuple(calls), tuple(verdicts))
 
 
 def dev_data() -> GateData:
@@ -475,16 +505,17 @@ def dev_data() -> GateData:
     from analysis.collect_gates import read_free_records
 
     return GateData(gate_dev_run.dev_table(), tuple(read_free_records("dev")),
-                    tuple(collect_jev_gate.read_records("dev")))  # fmt: skip
+                    tuple(collect_jev_gate.read_records("dev")),
+                    tuple(collect_sonnet_gate.read_sonnet_records("dev")))  # fmt: skip
 
 
 def gate_data_record(data: GateData | None) -> Mapping[str, Any]:
     """What the record keeps and the tables step says: A17 item 28's counts per config, free-check rejections by the check
-    that failed first, Jev calls, refusals (a rejection) and truncations. Outcomes, so shown with the tables and not before."""
+    that failed first, Jev calls, refusals (a rejection) and truncations, and the Sonnet gate's verdicts, refusals and cap
+    stops (a rejection each, charged its tokens). Outcomes, so shown with the tables and not before."""
     if data is None:
         return {}
-    counts = count_configs(data.free, data.jev, [], LADDER)
-    return {config: {k: v for k, v in asdict(c).items() if not k.startswith("sonnet")} for config, c in counts.items()}
+    return {config: asdict(c) for config, c in count_configs(data.free, data.jev, data.sonnet, LADDER).items()}
 
 
 # ---- the pure cascades at their frozen points --------------------------------------------------------------------

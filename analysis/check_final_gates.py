@@ -128,8 +128,10 @@ ROUTER_STEPS = ("drift_jev_router", "calls_jev_router")
 
 
 def steps_to(name: str) -> tuple[Step, ...]:
+    """The steps up to `name`, the Sonnet gate's two left out: they are #86's, held by `analysis/check_final_sonnet.py`, and their
+    calls and spend would be counted in these steps' hand-worked numbers."""
     names = [s.name for s in STEPS]
-    return tuple(s for s in STEPS[: names.index(name) + 1] if s.name not in ROUTER_STEPS)
+    return tuple(s for s in STEPS[: names.index(name) + 1] if s.name not in ROUTER_STEPS and "sonnet" not in s.name)
 
 
 def leak_search(text: str) -> list[str]:
@@ -296,8 +298,9 @@ def drift_quiet() -> None:
         check(received == hashes == [x["body_sha256"] for x in records] == stage_7,
               "each resend's body hashes to the hand-written one, the frozen code's, and the one Stage 7 stored")  # fmt: skip
         check(train_file.read_bytes() == before and sorted(p.name for p in (r.world.results / "gates").iterdir())
-              == ["jev_gate_drift.jsonl", "jev_gate_train.jsonl"],
-              "Stage 7's file is as it was, and the drift's own is the only new file: no test file yet")  # fmt: skip
+              == ["jev_gate_drift.jsonl", "jev_gate_train.jsonl", "sonnet_gate_latency.jsonl", "sonnet_gate_train.jsonl"],
+              "Stage 7's file is as it was, and the drift's own is the only new file (beside the made-up Sonnet gate "
+              "files of Stage 7): no test file yet")  # fmt: skip
         spent = final_ledger.recorded_spend(r.world.results, r.world.output)
         check(
             close(spent.calls, 8 * OVERHEAD, 1e-12),
@@ -548,7 +551,7 @@ def resume() -> None:
               "no test call is stored")  # fmt: skip
         spent = final_ledger.recorded_spend(r.world.results, r.world.output).calls
         with mock.patch.dict(final_ledger.CAPS, {CALLS: need + spent + 1e-12}):
-            outcome, _, _ = r.go(steps_to("calls_jev_gate"))
+            outcome, _, _ = r.go(without_liveness(steps_to("calls_jev_gate")))
         check(outcome == Outcome() and len(final_gates.read_jev("test", r.world.results)) == 30,
               "at the cap exactly, the calls go")  # fmt: skip
 
@@ -762,7 +765,8 @@ def counts_with_the_tables() -> None:
               and sonnet["rejected"] == 1 and sonnet["jev_calls"] == 7 and extras["opus"]["jev_calls"] == 8,
               f"the tables step's record holds the free-check rejections and the Jev gate's calls, refusals and cuts per config {haiku}")  # fmt: skip
         check(
-            all(not key.startswith("sonnet") for c in extras.values() for key in c), "and no Sonnet gate field: #86's"
+            all({"sonnet_calls", "sonnet_refused", "sonnet_cap_stops"} <= set(c) for c in extras.values()),
+            "and the Sonnet gate's fields (#86's, held by analysis/check_final_sonnet.py)",
         )
 
 

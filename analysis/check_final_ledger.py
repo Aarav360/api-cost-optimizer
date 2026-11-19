@@ -234,8 +234,9 @@ def liveness() -> None:
         # opus 34 bytes at $4 and 16,000 at $20 is 136 + 320,000: $0.3521394 in all.
         spend = liveness_step["detail"]["spend"]
         check(close(spend[LIVE]["projected"], 0.3521394) and spend[LIVE]["recorded"] == 0.0 and spend[LIVE]["cap"] == 10.0
-              and spend[CALLS]["cap"] == 25.0 and spend[CALLS]["recorded"] == 0.0 and 0 < spend[CALLS]["projected"] < 1.0
-              and jev_gate_projection() < spend[CALLS]["projected"] < jev_gate_projection() + 1.0,
+              and spend[CALLS]["cap"] == 25.0 and spend[CALLS]["recorded"] == 0.0 and 0 < spend[CALLS]["projected"] < 2.0
+              and jev_gate_projection() + sonnet_gate_projection() < spend[CALLS]["projected"]
+              < jev_gate_projection() + sonnet_gate_projection() + 1.0,
               f"it holds the projection against each cap, before any call: ${spend[LIVE]['projected']:.7f} live, the worst case")  # fmt: skip
         # The fake billed 20 in and 5 out per call: haiku 2 + 2.5 and opus 80 + 100 micro-dollars.
         recorded = final_ledger.recorded_spend(r.world.results, r.world.output)
@@ -255,6 +256,14 @@ def liveness() -> None:
         check(outcome == Outcome() and close(closing[LIVE]["recorded"], 184.5e-6) and closing[LIVE]["cap"] == 10.0
               and closing[CALLS] == {"cap": 25.0, "recorded": 0.0, "projected": 0.0},
               "the record's closing step holds the spend against each cap")  # fmt: skip
+
+
+def sonnet_gate_projection() -> float:
+    """The Sonnet gate's projection on the rehearsal's world, by hand (#86): 6 drift resends and 24 gated test answers, at twice
+    dev's list price per verdict, the test batch's at half of it."""
+    from analysis import check_final_sonnet as sonnet
+
+    return sonnet.hand_projection()
 
 
 def jev_gate_projection() -> float:
@@ -326,7 +335,9 @@ def projection() -> None:
             if recorded_calls:
                 # A Stage 8 Sonnet drift record that is $recorded_calls at list price: output tokens at $10 per million.
                 write_lines(r.world.results / "gates", "sonnet_gate_drift.jsonl", [(0, round(recorded_calls * 1e5))])
-            with mock.patch.object(final_ledger, "PROJECTORS", (*final_ledger.PROJECTORS, projector)):
+            # The Sonnet gate's own projection (#86, a few cents on this world) is left out, so the boundary is the extra's alone.
+            others = tuple(p for p in final_ledger.PROJECTORS if p.name != "sonnet_gate")
+            with mock.patch.object(final_ledger, "PROJECTORS", (*others, projector)):
                 outcome, out, _ = r.go(STEPS[:2])
             if refuses:
                 check(outcome == Outcome("liveness", "LedgerRefusal", None) and r.anthropic.calls == [],

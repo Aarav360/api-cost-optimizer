@@ -169,9 +169,10 @@ def save_log(path: Path, log: Mapping[str, Any]) -> None:
     os.replace(tmp, path)
 
 
-def read_sonnet_records(split: str, results_dir: Path = RESULTS_DIR) -> list[dict]:
-    """A split's stored batch verdicts (pass 1), or a refusal (GateCollectError) if the file is not a clean one."""
-    return read_gate_records(gate_path("sonnet_gate", split, results_dir), RECORD_FIELDS, split, SONNET_GATE,
+def read_sonnet_records(split: str, results_dir: Path = RESULTS_DIR, *, path: Path | None = None) -> list[dict]:
+    """A split's stored batch verdicts (pass 1), or a refusal (GateCollectError) if the file is not a clean one. `path` is
+    Stage 8's own file for a label `gate_path` refuses (`results/gates/sonnet_gate_test.jsonl`)."""
+    return read_gate_records(path or gate_path("sonnet_gate", split, results_dir), RECORD_FIELDS, split, SONNET_GATE,
                              passes=(BATCH_PASS,))  # fmt: skip
 
 
@@ -188,6 +189,9 @@ def _record(job: Job, split: str, number: int, result: dict, verdict: sonnet_gat
         "model": verdict.model, "usage": {"input_tokens": verdict.input_tokens, "output_tokens": verdict.output_tokens},
         "stop_reason": result["message"].get("stop_reason"), "refused": verdict.refused, "collected_at": now(),
     }  # fmt: skip
+
+
+build_record = _record  # Stage 8's steps (`analysis/final_sonnet.py`) store their records through the same function
 
 
 # ---- batches --------------------------------------------------------------------------------------------------
@@ -208,11 +212,19 @@ def _chunks(jobs: Sequence[Job], max_requests: int, max_bytes: int) -> list[list
     return chunks
 
 
-def pending_jobs(jobs: Sequence[Job], split: str, results_dir: Path = RESULTS_DIR) -> tuple[list[Job], int, int]:
-    """The jobs to send, how many are left alone for being in an unfinished batch, and how many for being stored."""
-    in_flight = {c for b in load_log(batch_log_path(results_dir))["batches"] if b["ingested_at"] is None
+def pending_jobs(
+    jobs: Sequence[Job],
+    split: str,
+    results_dir: Path = RESULTS_DIR,
+    *,
+    records: Path | None = None,
+    log_path: Path | None = None,
+) -> tuple[list[Job], int, int]:
+    """The jobs to send, how many are left alone for being in an unfinished batch, and how many for being stored. `records`
+    and `log` name Stage 8's own verdict file and batch log, where `split` has none under `results_dir`."""
+    in_flight = {c for b in load_log(log_path or batch_log_path(results_dir))["batches"] if b["ingested_at"] is None
                  for c in b["custom_ids"]}  # fmt: skip
-    stored = {r["custom_id"] for r in read_sonnet_records(split, results_dir)}
+    stored = {r["custom_id"] for r in read_sonnet_records(split, results_dir, path=records)}
     pending = [j for j in jobs if j.custom_id not in in_flight and j.custom_id not in stored]
     return pending, sum(j.custom_id in in_flight for j in jobs), sum(j.custom_id in stored for j in jobs)
 
@@ -229,22 +241,32 @@ def submit(
     max_bytes: int = MAX_BATCH_BYTES,
     stage_cap_usd: float = STAGE_CAP_USD,
     now: Callable[[], str] = now_local,
+    records: Path | None = None,
+    log_path: Path | None = None,
+    cap: Callable[[float], str | None] | None = None,
 ) -> Submitted:
     """Send the jobs with no stored verdict and no unfinished batch, in as few batches as the API's limits allow.
 
     Refuses (CapExceeded) before sending anything if `cost_per_check` times the requests to send is over `max_usd`, or
-    if it and the spend recorded in `results/gates/` are over `stage_cap_usd` (Stage 7's $25, A17 item 18). Each batch's ID is written to the batch log as soon as `create` returns."""
+    if it and the spend recorded in `results/gates/` are over `stage_cap_usd` (Stage 7's $25, A17 item 18). Each batch's ID is written to the batch log as soon as `create` returns.
+
+    Stage 8 (issue #86) passes `records` and `log` (its own verdict file and batch log) and `cap`, which takes the dollars about
+    to be sent and gives the refusal's words or None, in place of Stage 7's cumulative cap; the safeguards are the same code."""
     if not (cost_per_check >= 0 and max_usd >= 0):
         raise SonnetCollectError("the cost per check and the cap must be given, and can't be negative")
-    trim_torn_line(gate_path("sonnet_gate", split, results_dir))
-    pending, in_flight, stored = pending_jobs(jobs, split, results_dir)
+    trim_torn_line(records or gate_path("sonnet_gate", split, results_dir))
+    pending, in_flight, stored = pending_jobs(jobs, split, results_dir, records=records, log_path=log_path)
     projected = cost_per_check * len(pending)
     if projected > max_usd:
         raise CapExceeded(f"{len(pending)} requests at ${cost_per_check:.4f} is a projected ${projected:.2f}, over the "
                           f"cap of ${max_usd:.2f}; nothing was sent")  # fmt: skip
-    if pending and (stage := over_cap(recorded_spend(results_dir).total, projected, stage_cap_usd)):
+    if pending and (
+        stage := cap(projected)
+        if cap is not None
+        else over_cap(recorded_spend(results_dir).total, projected, stage_cap_usd)
+    ):
         raise CapExceeded(stage)
-    path = batch_log_path(results_dir)
+    path = log_path or batch_log_path(results_dir)
     created: list[str] = []
     for chunk in _chunks(pending, max_requests, max_bytes):
         batch = client.messages.batches.create(requests=[{"custom_id": j.custom_id, "params": j.params} for j in chunk])
@@ -265,6 +287,7 @@ def ingest(
     client: Any,
     results_dir: Path = RESULTS_DIR,
     now: Callable[[], str] = now_local,
+    records: Path | None = None,
 ) -> dict[str, int]:
     """Store an ended batch's succeeded results, matched to jobs by request ID. Returns the count of each kind of
     result. A result for an ID the batch didn't hold, or a result that is neither a success nor errored or expired,
@@ -272,9 +295,9 @@ def ingest(
     split = entry["split"]
     by_id = {j.custom_id: j for j in jobs}
     held = set(entry["custom_ids"])
-    path = gate_path("sonnet_gate", split, results_dir)
+    path = records or gate_path("sonnet_gate", split, results_dir)
     trim_torn_line(path)
-    stored = {r["custom_id"] for r in read_sonnet_records(split, results_dir)}
+    stored = {r["custom_id"] for r in read_sonnet_records(split, results_dir, path=records)}
     counts: dict[str, int] = {}
     seen: set[str] = set()
     for item in client.messages.batches.results(entry["id"]):
@@ -310,9 +333,11 @@ def wait(
     poll_s: float = 30.0,
     sleep: Callable[[float], None] = time.sleep,
     now: Callable[[], str] = now_local,
+    records: Path | None = None,
+    log_path: Path | None = None,
 ) -> None:
     """Poll the split's unfinished batches until each has ended, storing each as it ends."""
-    path = batch_log_path(results_dir)
+    path = log_path or batch_log_path(results_dir)
     while True:
         log = load_log(path)
         open_entries = [b for b in log["batches"] if b["split"] == split and b["ingested_at"] is None]
@@ -320,7 +345,7 @@ def wait(
             return
         for entry in open_entries:
             if client.messages.batches.retrieve(entry["id"]).processing_status == "ended":
-                ingest(entry, jobs, client=client, results_dir=results_dir, now=now)
+                ingest(entry, jobs, client=client, results_dir=results_dir, now=now, records=records)
                 save_log(path, log)
         if any(b["ingested_at"] is None for b in log["batches"] if b["split"] == split):
             sleep(poll_s)
@@ -375,8 +400,13 @@ def paid_scores(
     """The Sonnet column of the gate-score table, from the stored batch verdicts: each record's result read again
     through the gate's own parser, its overhead at list price, its refusal flag. Refuses (SonnetCollectError) a record
     whose stored flag, usage or request ID disagrees with what the parser reads, or whose result is no success."""
+    return column_of(read_sonnet_records(split, results_dir), settings)
+
+
+def column_of(records: Sequence[Mapping[str, Any]], settings: SonnetSettings) -> dict[tuple[str, str], PaidScore]:
+    """The Sonnet column from stored batch verdicts, whatever file they came from (`paid_scores` reads a split's)."""
     scores: dict[tuple[str, str], PaidScore] = {}
-    for record in read_sonnet_records(split, results_dir):
+    for record in records:
         name = f"{record['item_id']} {record['config']}"
         result = record["result"]
         if not isinstance(result, dict) or result.get("type") != "succeeded":

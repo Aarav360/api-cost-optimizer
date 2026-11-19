@@ -45,7 +45,15 @@ from unittest import mock
 
 import numpy as np
 
-from analysis import final_gates, final_grading, offline_half, rehearsal_gates, rehearsal_jev, rehearsal_trained
+from analysis import (
+    final_gates,
+    final_grading,
+    offline_half,
+    rehearsal_gates,
+    rehearsal_jev,
+    rehearsal_sonnet,
+    rehearsal_trained,
+)
 from analysis import rehearsal_world as rehearsal
 from analysis.backends import Backends
 from analysis.fake_anthropic import FakeAnthropic, message_dict
@@ -148,10 +156,10 @@ HAND_TASK_ENVELOPE = {
     "ifeval": {"haiku": (0.35, 0.5), "opus": (16.0, 1.0)},
     "mbppplus": {"haiku": (0.6, 0.5), "opus_low": (16.0, 1.0)},
 }
-# #85: the pure cascades haiku/free and haiku/Jev, each with its per-task rows as a part of their own
+# #85, #86: the pure cascades haiku/free, haiku/Jev and haiku/Sonnet, each with its per-task rows as a part of their own
 HAIKU_PARTS = [
     k
-    for section in (final_gates.FREE_SECTION, final_gates.JEV_SECTION)
+    for section in (final_gates.FREE_SECTION, final_gates.JEV_SECTION, final_gates.SONNET_SECTION)
     for k in (section, final_gates.tasks_key(section))
 ]
 INDICATIVE = "Only 2 test items, below the plan's minimum of a few hundred: indicative"
@@ -178,7 +186,10 @@ class Rehearsal:
 
     def __init__(self, made: MadeUp, gates: rehearsal_gates.GateStandIn, **jev: Any):
         self.sandbox_calls = 0
-        self.anthropic = FakeAnthropic(respond=pinned_reply)  # the liveness calls' fake: it answers as the model asked
+        # The Sonnet gate's made-up Stage 7 files and scripted model (`analysis/rehearsal_sonnet.py`), behind the same fake
+        # client as the liveness calls', which answer as the model asked
+        self.sonnet = rehearsal_sonnet.stand_in(made.world.results)
+        self.anthropic = FakeAnthropic(respond=self.sonnet.responder(pinned_reply))
         # F's stand-ins: a fake embedder that has not moved since dev's table was scored (`analysis/rehearsal_trained.py`)
         self.embedder = rehearsal_trained.stand_in(0.0)
         self.gates = gates  # the Jev gate's fake server, and Stage 7's made-up passes in the world's results folder
@@ -304,11 +315,13 @@ def first_go() -> None:
             "drift_jev_gate",
             "calls_free_checks",
             "calls_jev_gate",
+            "drift_sonnet_gate",
+            "calls_sonnet_gate",
             "grading",
             "tables",
             "record",
         },
-        f"the steps built so far are the twelve of #79, #82, #83, #84 and #85 {sorted(built)}",
+        f"the steps built so far are the fourteen of #79, #82, #83, #84, #85 and #86 {sorted(built)}",
     )
     with rehearsed() as r:
         spy = Spy()
