@@ -14,6 +14,11 @@ What is built is a list of parts, each a function of the inputs, with the commit
 - `stops`: how many answers each config's graded rows hold of each status, which carries the refusal and truncation counts
   that A19 item 5 has reported with the tables and not before.
 
+- `flip_rates`, `target_met` and `headline` (#88), after the policies: dev's flip rates, which carry over to test's references
+  (`analysis/flip_rates.py`); target met at a margin of zero for every policy's points, read from what the policies' parts
+  evaluated (`analysis/target_met.py`); and the headline cascade chosen by A17 item 24's rule on dev's table
+  (`analysis/final_headline.py`). Each part is built in order and kept in `inputs.cache["built"]`, so these three read the others.
+
 How to extend: a policy or a table is one `Part` line in `PARTS` (its function in a module of its own, the committed dev
 numbers it must reproduce as a second function, or None where dev has none), and what it reads beyond the matrix is one
 `Extra` line in `EXTRAS`: a name and how to load it from dev's stored records and from test's through the handle. A part
@@ -30,12 +35,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from analysis import final_gates, final_jev, final_routers, pareto
+from analysis import final_gates, final_headline, final_jev, final_routers, flip_rates, pareto, target_met
 from analysis.bootstrap import RESAMPLES, SEED, Bootstrap, resample
 from analysis.final_grading import matrix_path
 from analysis.final_run import Run, StepResult
 from analysis.matrix import LADDER, Matrix, MatrixError, list_price, load, read_store
-from analysis.operating_eval import shared_fixed, shared_savings
+from analysis.operating_eval import forget_evaluated, shared_fixed, shared_savings
 from analysis.router_names import G_PLUS, NAMED_ROUTERS
 from analysis.simulator import load_mixes
 from analysis.unlock import Handle
@@ -138,6 +143,16 @@ def stops_part(inputs: Inputs) -> dict:
     return {config: dict(sorted(inputs.statuses.get(config, {}).items())) for config in LADDER}
 
 
+STOPS_LABEL = "refusals and truncations by config"
+NOT_STOPS = ("correct", "wrong", "no_answer")  # a graded row's other statuses are the stop reasons
+
+
+def stops_report(stops: Mapping[str, Mapping[str, int]]) -> dict[str, dict[str, int]]:
+    """Each config's stops other than a finished answer (refusals, cap stops, any other stop reason), as the tables report them."""
+    return {config: {status: n for status, n in by_status.items() if status not in NOT_STOPS}
+            for config, by_status in stops.items()}  # fmt: skip
+
+
 # A part per line, in the order the tables file holds them. A policy's or a table's part goes in its own place.
 PARTS: tuple[Part, ...] = (
     Part("references", references_part, committed_references),
@@ -180,7 +195,11 @@ PARTS: tuple[Part, ...] = (
     #
     # #87: the twelve router-started cascades
     #
-    # #88: target met, the oracle, the envelope and the headline
+    # #88: dev's flip rates (they carry over to test's references), then target met over every policy built above, then the
+    # headline from it: keep these after the policies' parts, and the headline after target met
+    Part("flip_rates", flip_rates.part, flip_rates.committed),
+    Part("target_met", target_met.part, None),
+    Part("headline", final_headline.part, None),
     #
     # #89: the final table, the 51 comparisons and the replication summary
 )
@@ -188,6 +207,13 @@ PARTS: tuple[Part, ...] = (
 
 def build_tables(inputs: Inputs, parts: tuple[Part, ...] = PARTS) -> dict:
     """The tables for one split: its facts, and each part's numbers by its key."""
+    # The parts built so far are kept in `inputs.cache["built"]` for the parts that read the others (target met, the headline),
+    # and the policies' outcomes that target met reads start afresh.
+    built: dict[str, dict] = {}
+    inputs.cache["built"] = built
+    forget_evaluated(inputs.cache)
+    for part in parts:
+        built[part.key] = part.build(inputs)
     return {
         "built_by": "analysis/offline_half.py",
         "split": inputs.split,
@@ -195,7 +221,7 @@ def build_tables(inputs: Inputs, parts: tuple[Part, ...] = PARTS) -> dict:
         "n": len(inputs.matrix.items),
         "price_snapshot": load_models()["price_snapshot"],
         "bootstrap": {"resamples": RESAMPLES, "seed": SEED, "interval": "percentile 95%"},
-        "parts": {part.key: part.build(inputs) for part in parts},
+        "parts": built,
     }
 
 
@@ -279,6 +305,16 @@ def tables_step(run: Run) -> StepResult:
     kept = {extra.name: extra.record(inputs.extras[extra.name]) for extra in EXTRAS if extra.record is not None}
     for name, facts in kept.items():
         run.say(f"tables: {name}: {json.dumps(facts)}")
+    stops = stops_report(tables["parts"]["stops"])
+    run.say(
+        f"tables: {STOPS_LABEL}: {json.dumps(stops)}"
+    )  # a refusal is a rejection and a cap stop a failure: outcomes (item 5)
     for mix in MIXES:
         pareto.print_mix(mix, tables["parts"]["references"]["mixes"][mix])
-    return StepResult(detail={"file": path.name, "items": len(inputs.matrix.items), "extras": kept})
+    counts = tables["parts"]["target_met"]["counts"]["all"]
+    run.say(f"tables: target met at a margin of zero: {json.dumps(counts)}")
+    headline = tables["parts"]["headline"]
+    run.say(f"tables: headline, {headline['label']} at realistic 99%: {headline['headline']['reading']}")
+    # The stops are in the log and the tables file; the record's own fields for them are item 10's (#92).
+    return StepResult(detail={"file": path.name, "items": len(inputs.matrix.items), "extras": kept, "target_met": counts,
+                              "headline": headline["headline"]["reading"]})  # fmt: skip

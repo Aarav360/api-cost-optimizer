@@ -86,10 +86,35 @@ def fixed_outcomes(matrix: Matrix) -> dict[str, list[Outcome]]:
 
 # The offline half's `Inputs.cache` holds what its parts share, so the references and every policy's part build the fixed
 # configs' outcomes and each mix's resampled oracles (the slow part: one oracle per resample) once.
-def shared_fixed(cache: dict, matrix: Matrix) -> dict[str, list[Outcome]]:
+class Fixed(dict[str, list[Outcome]]):
+    """The fixed configs' outcomes, which every policy's part is given by `shared_fixed`. `mix_rows` and `task_rows` note each
+    policy's outcomes here, by frozen point (which names its section), so what reads every policy at its operating points
+    (`analysis/target_met.py`) needs no line per policy. `forget` empties them, for a new build on the same inputs."""
+
+    def __init__(self, outcomes: dict[str, list[Outcome]]) -> None:
+        super().__init__(outcomes)
+        self.evaluated: dict[FrozenPoint, list[Outcome]] = {}
+
+    def note(self, outcomes: Mapping[FrozenPoint, list[Outcome]]) -> None:
+        self.evaluated.update(outcomes)
+
+
+def note_evaluated(fixed: Mapping[str, list[Outcome]], outcomes: Mapping[FrozenPoint, list[Outcome]]) -> None:
+    """Keep a policy's outcomes where `shared_fixed` kept the fixed configs'; a plain dict of fixed outcomes keeps nothing."""
+    if isinstance(fixed, Fixed):
+        fixed.note(outcomes)
+
+
+def forget_evaluated(cache: dict) -> None:
+    """Drop the policies' outcomes noted so far (the next build notes its own)."""
+    if isinstance(cache.get("fixed"), Fixed):
+        cache["fixed"].evaluated.clear()
+
+
+def shared_fixed(cache: dict, matrix: Matrix) -> Fixed:
     if "fixed" not in cache:
-        cache["fixed"] = fixed_outcomes(matrix)
-    fixed: dict[str, list[Outcome]] = cache["fixed"]
+        cache["fixed"] = Fixed(fixed_outcomes(matrix))
+    fixed: Fixed = cache["fixed"]
     return fixed
 
 
@@ -144,6 +169,7 @@ def mix_rows(
 ) -> dict[str, dict[str, dict]]:
     """Each point's row under its mix: the file's dials and flag, the target on this split (`share` of A's quality
     there), and table v1's numbers. `savings_of(mix)` gives the mix's resampled oracles, solved once and shared."""
+    note_evaluated(fixed, outcomes)
     rows: dict[str, dict[str, dict]] = {}
     for point, found in outcomes.items():
         mix = mixes[point.mix]
@@ -166,6 +192,7 @@ def task_rows(
 ) -> dict[str, dict[str, dict[str, dict]]]:
     """Each point's row in each task: the policy's quality and cost there with intervals and McNemar's test against A
     (None where the point fell back). Keyed by task, then mix, then target."""
+    note_evaluated(fixed, outcomes)
     frontier = fixed[FRONTIER]
     rows: dict[str, dict[str, dict[str, dict]]] = {task: {} for task in tasks}
     spreads: dict[tuple[bool, float | None, float | None, str], TotalEstimate] = {}

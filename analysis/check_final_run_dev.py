@@ -31,7 +31,8 @@ import sys
 from typing import Any
 
 from analysis import offline_half
-from analysis.router_names import G_PLUS, NAMED_ROUTERS
+from analysis.final_design import headline
+from analysis.router_names import CASCADES, G_PLUS, HAIKU, JEV_GATE, NAMED_ROUTERS, cascade_section
 from analysis.task_warnings import task_warning
 
 problems: list[str] = []
@@ -57,6 +58,14 @@ def differences(built: Any, committed: Any, path: str = "") -> list[str]:
             return [f"{path}: {len(built)} entries, {len(committed)} committed"]
         return [d for i, (b, c) in enumerate(zip(built, committed)) for d in differences(b, c, f"{path}[{i}]")]
     return [] if built == committed and type(built) is type(committed) else [f"{path}: {built!r} is not {committed!r}"]
+
+
+def committed_of(by_key: dict[str, offline_half.Part], key: str) -> dict:
+    """A part's committed dev numbers (only for a part that names them)."""
+    committed = by_key[key].committed
+    if committed is None:
+        raise ValueError(f"part {key!r} has no committed counterpart")
+    return committed()
 
 
 def main() -> int:
@@ -121,6 +130,63 @@ def main() -> int:
         noise = final_jev.train_passes(router, setup, sample)[2]
         check(len(sample) == 100 and [round(noise[c].d6, 4) for c in ("haiku", "sonnet", "opus_low")] == list(d6),
               f"{router}: D6 over the 100 noise items is A15 item 19's recorded {d6}")  # fmt: skip
+
+    print("\n-- the oracle, the envelope and the captured fractions on dev (issue #88) --")
+    references = committed_of(by_key, "references")
+    panel = references["mixes"]["realistic"]
+    check(len(panel["oracle"]) > 1 and len(panel["envelope"]) >= 2
+          and all("captured" in panel["targets"][t]["envelope"] for t in ("100%", "99%", "97%")),
+          "the references' committed counterpart holds the oracle's curve, the envelope's corners and the envelope's captured "
+          "fractions, so the loop above compared them to the last stored digit")  # fmt: skip
+    policies = [
+        key
+        for key, part in by_key.items()
+        if part.committed is not None and "mixes" in committed_of(by_key, key) and key != "references"
+    ]
+    check(bool(policies) and all("captured" in row for key in policies for by_target in committed_of(by_key, key)["mixes"].values()
+                           for row in by_target.values()),
+          f"each policy's committed rows hold the captured fraction ({', '.join(policies)}), compared in the same loop")  # fmt: skip
+    check(all(tables["parts"]["flip_rates"]["configs"][c]["pairs"] == 75 for c in ("haiku", "sonnet", "opus_low", "opus")),
+          "dev's flip rates are recounted from dev's runs 0 to 2 of the 75-item noise subset and equal the carried-over file's")  # fmt: skip
+
+    print("\n-- target met at a margin of zero, against the dev tables' own numbers (issue #88) --")
+    met = tables["parts"]["target_met"]
+    check(list(met["points"]) == [k for k in tables["parts"] if "mixes" in tables["parts"][k] and k != "references"],
+          "target met covers every policy's part, as built")  # fmt: skip
+    ok, routed = True, 0
+    for section in met["points"]:
+        for mix, by_target in committed_of(by_key, section)["mixes"].items():
+            for target, row in by_target.items():
+                found = met["points"][section][mix][target]
+                if row["fell_back"]:
+                    ok &= found["reading"] == "falls back to A" and found["difference"] is None
+                    continue
+                routed += 1
+                # dev's own tables: the walk's step cleared the target by its margin, so quality less target is not negative,
+                # and the share of resamples meeting it is the committed captured.met
+                ok &= (
+                    found["reading"] == "met"
+                    and found["difference"]["value"] == row["quality"]["value"] - row["target"]
+                )
+                ok &= found["met_share"] == row["captured"]["met"] and row["quality"]["value"] - row["target"] >= 0
+    check(ok, "dev: each routed point is met at a margin of zero (its walk cleared the target by a margin), its difference is "
+              "the committed quality less the committed target, and its share of resamples is the committed captured.met; "
+              "each fall back reads falls back to A")  # fmt: skip
+    wanted = sum(
+        not p["fell_back"]
+        for key in met["points"]
+        for p in (q for mixed in committed_of(by_key, key)["mixes"].values() for q in mixed.values())
+    )
+    check(met["counts"]["all"]["routes"] == routed == wanted and met["counts"]["all"]["missed"] == 0
+          and met["counts"]["all"]["met"] == routed,
+          f"the counts: {routed} routed points, all met on dev (the rows' own fell_back flags), none missed")  # fmt: skip
+    head = tables["parts"]["headline"]
+    plan = headline()
+    check(head["cascade"] == plan.best == cascade_section(HAIKU, JEV_GATE) and head["label"] == CASCADES[plan.best]
+          and head["headline"]["reading"] == "met" and head["dev"] == {"savings_share": plan.saves, "met_share": plan.met}
+          and head["headline"]["met_share"] == plan.met and head["headline"]["savings_vs_A"]["share"] == plan.saves,
+          f"the headline on dev's own matrix is haiku/Jev at realistic 99%: met, saving {plan.saves:.1%} and meeting its target "
+          f"in {plan.met:.2%} of resamples, as A19 item 6 quotes (read from the committed table by analysis/final_design.py)")  # fmt: skip
 
     print("\n-- the parts without committed numbers, against stored counts --")
     stops = tables["parts"]["stops"]
