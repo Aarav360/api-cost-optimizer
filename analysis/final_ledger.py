@@ -9,7 +9,7 @@ reader and prices and the Jev routers' price. Stage 7's cap and its records are 
 
 - **$25 (`CALLS`)** covers every Stage 8 call but the live replay's: the drift resends, G's and G+'s Jev calls on test and
   both gates.
-- **$10 (`LIVE`)** covers the liveness calls and the live replay. Their records are in the final evaluation's own folder
+- **$12 (`LIVE`)** covers the liveness calls and the live replay (A19 item 9 raised A17 item 18's $10). Their records are in the final evaluation's own folder
   (`world.output`), `LIVE_FILES`, since they are not router or gate records.
 
 **The projection.** Each call ticket adds one line to `PROJECTORS`: a function `(run) -> dollars` still to be spent in its
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from analysis.final_run import Run
 
 CALLS, LIVE = "calls", "live"
-CAPS = {CALLS: 25.0, LIVE: 10.0}  # A17 item 18, counted afresh by A19 item 9
+CAPS = {CALLS: 25.0, LIVE: 12.0}  # A17 item 18's $25, and A19 item 9's $12 for the live pool; both counted afresh
 TOLERANCE_USD = 1e-9  # a float sum of many small prices should not tip a total that is exactly on a cap
 # The final evaluation's own files, in `world.output`, priced as Anthropic calls at list price by the model each record
 # requested: the liveness calls' (`analysis/final_liveness.py`) and the live replay's calls (`analysis/final_replay.py`),
@@ -185,7 +185,7 @@ def recorded_spend(
 
 
 def live_spend(output_dir: Path, models: Mapping | None = None, jev_price_per_million: float | None = None) -> float:
-    """What the final evaluation's own record files hold, in dollars: the $10 pool's recorded spend. It reads only those
+    """What the final evaluation's own record files hold, in dollars: the live pool's recorded spend. It reads only those
     files, so the replay can ask before each call without reading the gate and Jev folders."""
     models = models or load_models()
     if jev_price_per_million is None:

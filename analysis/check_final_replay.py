@@ -18,7 +18,7 @@ scripted answers, the plan's cutoffs and the price sheet, never from the code un
   and a cut request apart, and the hand-made list in the statistics' own case gives the hand-worked median and p90;
 - cost per request, escalation rate and graded quality (with its n, overall and per task) are the hand-worked ones, beside the
   hand-worked offline estimate for the same items, and the ledger's live pool holds the hand-priced sum of the replay's calls;
-- a projection over the $10 cap refuses before any call, a call that would pass the cap is refused, and a crash mid-replay
+- a projection over the live cap refuses before any call, a call that would pass the cap is refused, and a crash mid-replay
   stops the run naming the policy and the item with no answer shown; the next go sends only what has no stored response, and
   the stored calls and the finished requests equal those of a go with no crash;
 - the record holds the conditions, and a stored record of another plan is refused.
@@ -571,7 +571,7 @@ def refusal_cases() -> None:
         with mock.patch.object(final_replay, "SAFETY", 1e6):
             outcome = replay_go(r)
         check(outcome == Outcome("replay", "LedgerRefusal", None) and len(fake.calls) == base,
-              "a projection over the $10 cap refuses up front, with nothing sent")  # fmt: skip
+              "a projection over the live cap refuses up front, with nothing sent")  # fmt: skip
         check("over Stage 8's cap" in (r.world.output / "final_run.log").read_text(), "and the refusal says which cap")
         # Recorded so far: the liveness calls, $0.01435. Opus's worst case is its whole 16,000 output tokens, $0.32.
         with (
@@ -698,7 +698,7 @@ def projection_case() -> None:
         with mock.patch.object(final_replay, "SAFETY", 1e6):
             outcome, _, _ = r.go(STEPS[:2])
         check(outcome == Outcome("liveness", "LedgerRefusal", None) and fake.calls == [],
-              "a replay projected over the $10 cap stops the run at the liveness step, before the first call of any step")  # fmt: skip
+              "a replay projected over the live cap stops the run at the liveness step, before the first call of any step")  # fmt: skip
 
 
 def stray_case() -> None:

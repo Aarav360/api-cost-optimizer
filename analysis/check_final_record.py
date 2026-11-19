@@ -412,7 +412,7 @@ def the_holds(r: Rehearsal, record: dict) -> None:
         ),
         (
             "the live pool's spend passed its cap",
-            held(lambda go: detail(go, "record")["spend"]["live"].update(recorded=11.0)),
+            held(lambda go: detail(go, "record")["spend"]["live"].update(recorded=13.0)),
             "over a cap",
         ),
         (

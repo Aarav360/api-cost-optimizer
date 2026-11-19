@@ -7,7 +7,7 @@ request and no substitute is ever chosen with outcomes known.
 
 **The whole run is projected first** (`analysis/final_ledger.py`): this step is the first to call, so it adds up every
 call ticket's projection and refuses over a cap before its own first call. The calls are stored in `liveness.jsonl` in the
-final evaluation's folder and count under the $10 cap with the live replay.
+final evaluation's folder and count under the live pool's cap with the live replay.
 
 **A resume asks again.** A liveness call isn't an outcome that a second draw would change, it asks whether the model still
 answers, so each go sends both. The cost is cents, and a model retired between two goes is found at once. This is the researcher's

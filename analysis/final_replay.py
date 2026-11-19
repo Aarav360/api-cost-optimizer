@@ -10,7 +10,7 @@ function the offline traces call too), from the gates' own modules and the liven
 policies together (so API load touches them alike), and each is timed from the request to the answer returned, on one clock.
 
 **What is stored.** Every model and gate call, as it is made, in `replay.jsonl` in the final evaluation's folder (it is the
-$10 pool's, `analysis/final_ledger.py`), and one summary per finished request in `replay_requests.jsonl`. A crash stops the run
+live pool's, `analysis/final_ledger.py`), and one summary per finished request in `replay_requests.jsonl`. A crash stops the run
 and the next go sends only what has no stored response: a request that was cut keeps its stored calls and finishes from them,
 flagged `interrupted` so its time (which spans the crash) is set apart, not counted. A stored response is never drawn again.
 
@@ -19,7 +19,7 @@ request and the escalation rate, beside the offline estimate for the same 100 it
 graders (`harness.collect.make_row`, one at a time on the main thread after every call is made) and shown with their n, not
 judged. The conditions (machine, network, the go's times) go in the record, with the first call and any reconnect apart.
 
-**The cap.** The $10 pool counts the liveness calls with the replay. The projection (`project`) is each pending request's
+**The cap.** The live pool counts the liveness calls with the replay. The projection (`project`) is each pending request's
 stored cost on test, doubled (`SAFETY`), and the escalation counted as if every request needed it, summed and checked before
 the first call of the run (the ledger's `check_projection`, and again here); before each call the pool's recorded spend plus
 that call's worst case (its whole `max_tokens`) must fit, so a run that costs more than projected still stops at the cap.
@@ -204,7 +204,7 @@ class Context:
         return self.run.world.output / CALLS_FILE
 
     def guard(self, worst_case: float) -> None:
-        """Refuse (LedgerRefusal) a call whose worst case wouldn't fit under the $10 pool with what is recorded."""
+        """Refuse (LedgerRefusal) a call whose worst case wouldn't fit under the live pool's cap with what is recorded."""
         words = refusal(
             Spend(0.0, live_spend(self.run.world.output, self.models, self.jev_price), 0), {LIVE: worst_case}
         )

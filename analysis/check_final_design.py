@@ -5,16 +5,17 @@ Run from the project root:  uv run python -m analysis.check_final_design
 
 Reads no test item and calls nothing. Item 6's numbers come from the committed tables (`figures/table_v3.json`,
 `figures/table_v4.json`) and the operating-points file; item 9's Sonnet cost from `analysis/gates_dev_record.json`, the
-caps from A17 item 18 and the spend before Stage 6 from A6's record. Where results/ holds them, the spend since is
-recomputed from the stored Jev router records, at `analysis/collect_jev.py`'s price, and the stored gate records,
-through `recorded_spend` in `analysis/gate_spend.py`. CI has no results/, so that part prints a SKIP line there.
+caps from A17 item 18 and the ledger (`analysis/final_ledger.py`) and the spend before Stage 6 from A6's record. Where
+results/ holds them, the spend since is recomputed from the stored Jev router records, at `analysis/collect_jev.py`'s price,
+and the stored gate records, through `recorded_spend` in `analysis/gate_spend.py`. CI has no results/, so that part prints a
+SKIP line there.
 """
 
 import json
 import sys
 from pathlib import Path
 
-from analysis import collect_jev
+from analysis import collect_jev, final_ledger
 from analysis.final_design import TABLE_V4, expected_misses, fresh_miss, headline, points
 from analysis.gate_spend import recorded_spend
 from analysis.plan import PLAN, amendment_item
@@ -24,6 +25,7 @@ from harness.client import PROJECT_ROOT
 
 DEV_RECORD = PROJECT_ROOT / "analysis" / "gates_dev_record.json"
 BEFORE_STAGE_6 = 38  # A6's record: "That brings spending to about $38 of the $150 ceiling."
+A17_LIVE = 10  # A17 item 18: "$10 for the live replay", the cap A19 item 9 raises
 
 problems: list[str] = []
 
@@ -92,9 +94,14 @@ def spend(plan: str) -> None:
     item = amendment_item(plan, "A19", 9)
     print("\n-- item 9: the caps, the Sonnet gate's dev cost and the spend so far --")
     caps = amendment_item(plan, "A17", 18)
-    check(all(words in caps for words in ("$25 for its gate calls", "about $5", "$10 for the live replay"))
-          and "$25" in item and "$10" in item and "A17 item 18's \"about $5\"" in item,
-          "A17 item 18's $25 and $10 caps and its \"about $5\" are the ones item 9 quotes")  # fmt: skip
+    calls_cap, live_cap = (round(final_ledger.CAPS[pool]) for pool in (final_ledger.CALLS, final_ledger.LIVE))
+    check(all(words in caps for words in ("$25 for its gate calls", "about $5", f"${A17_LIVE} for the live replay"))
+          and f"A17 item 18's ${calls_cap} for Stage 8's calls holds" in item and "A17 item 18's \"about $5\"" in item,
+          f"A17 item 18's $25 cap and its \"about $5\" are the ones item 9 quotes, and the ledger's calls cap is ${calls_cap}")  # fmt: skip
+    rise = round(100 * (live_cap - A17_LIVE) / A17_LIVE)
+    check(f"its ${A17_LIVE} for the live replay rises {rise}% to ${live_cap}" in item and f"**The ${live_cap}** covers" in item
+          and f"Why ${live_cap}, not ${A17_LIVE}" in item,
+          f"item 9 raises A17 item 18's ${A17_LIVE} live cap by {rise}% to the ledger's ${live_cap}")  # fmt: skip
     batch = json.loads(DEV_RECORD.read_text(encoding="utf-8"))["spend"]["batch"]
     check(f"The Sonnet gate on dev cost ${batch:.2f}" in item and f"nearer ${round(batch)}" in item,
           f"the dev run's record prices the Sonnet gate's dev batch at ${batch:.2f}, as quoted")  # fmt: skip
@@ -111,8 +118,9 @@ def spend(plan: str) -> None:
     so_far = round(BEFORE_STAGE_6 + jev + gates)
     check(f"${jev:.2f} for the Jev routers' stored calls" in item and f"${gates:.2f} for Stage 7's stored gate records" in item,
           f"the stored records price the Jev routers' calls at ${jev:.2f} and Stage 7's gates at ${gates:.2f}, as quoted")  # fmt: skip
-    check(f"About ${so_far} is spent so far" in item and f"about ${so_far + 25 + 10} of the $150 ceiling at worst" in item,
-          f"so about ${so_far} is spent, and the caps leave about ${so_far + 35} at worst, as quoted")  # fmt: skip
+    worst = so_far + round(sum(final_ledger.CAPS.values()))
+    check(f"About ${so_far} is spent so far" in item and f"about ${worst} of the $150 ceiling at worst" in item,
+          f"so about ${so_far} is spent, and the ledger's caps leave about ${worst} at worst, as quoted")  # fmt: skip
 
 
 def main() -> int:

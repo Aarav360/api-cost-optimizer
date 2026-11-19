@@ -13,10 +13,10 @@ Sonnet at $2 in and $10 out per million, batches at half, haiku $0.10 in and $0.
   dropped, and an unreadable line, a record with no billed tokens and a Stage 8 file it has no price for refuse it whole;
 - Stage 7's spend counts only Stage 7's files, so it is what it was before Stage 8's files existed (known positive: the
   old rule, every `jev_gate_*` and `sonnet_gate_*` file, gives another total);
-- the two caps are $25 and $10, a projection over either refuses before the first call and one under both goes on, the
+- the two caps are $25 and $12 (A19 item 9 raised the live pool's from A17 item 18's $10), a projection over either refuses before the first call and one under both goes on, the
   recorded spend counts in the projection, and Stage 7's cap is still $25;
 - the liveness calls reach a fake Anthropic client exactly as hand-written JSON, equal what the live replay's request
-  builder builds, are never answered from a cache, and count under the $10 cap;
+  builder builds, are never answered from a cache, and count under the live pool's cap;
 - a fake that returns another model ID stops the run at the liveness step, and its log shows no other call;
 - the hook's "no test record" guards, run on a made-up results folder holding Stage 8's files: they fail before the
   unlock (known positive: the old guard fails on the same folder after it) and pass once the record shows one, and the
@@ -169,7 +169,7 @@ def ledger() -> None:
         # haiku: 1,000 in at $0.10 and 2,000 out at $0.50 per million is $0.0001 + $0.001; its second record (500 in, 300
         # out) is $0.00005 + $0.00015; opus 500 in at $4 and 300 out at $20 is $0.002 + $0.006.
         check(close(live.live, 0.0011 + 0.0002 + 0.008) and close(live.calls, 4.689),
-              f"the liveness file counts in the $10 pool, ${live.live:.5f} (hand-worked $0.0093), and not in the $25 one")  # fmt: skip
+              f"the liveness file counts in the live pool, ${live.live:.5f} (hand-worked $0.0093), and not in the $25 one")  # fmt: skip
         write_lines(output, "liveness.jsonl", [(1, 1)], model="claude-nobody-1")
         check(refused(gate_spend.GateSpendError, lambda: final_ledger.recorded_spend(results, output)),
               "a live call to a model the price sheet doesn't list refuses the count")  # fmt: skip
@@ -177,18 +177,18 @@ def ledger() -> None:
 
 def caps() -> None:
     print("\n-- two caps, counted afresh, and a projection over either refuses --")
-    check(final_ledger.CAPS == {CALLS: 25.0, LIVE: 10.0} and gate_spend.STAGE_CAP_USD == 25.0,
-          "Stage 8's caps are $25 for every call but the replay's and $10 for the liveness calls and the replay; Stage 7's is $25")  # fmt: skip
+    check(final_ledger.CAPS == {CALLS: 25.0, LIVE: 12.0} and gate_spend.STAGE_CAP_USD == 25.0,
+          "Stage 8's caps are $25 for every call but the replay's and $12 for the liveness calls and the replay; Stage 7's is $25")  # fmt: skip
     none = final_ledger.Spend(0.0, 0.0, 0)
-    fine = final_ledger.refusal(final_ledger.Spend(20.0, 4.0, 3), {CALLS: 5.0, LIVE: 6.0})
-    check(fine is None, "exactly $25 of calls and exactly $10 of live spend are allowed")
+    fine = final_ledger.refusal(final_ledger.Spend(20.0, 4.0, 3), {CALLS: 5.0, LIVE: 8.0})
+    check(fine is None, "exactly $25 of calls and exactly $12 of live spend are allowed")
     over_calls = final_ledger.refusal(final_ledger.Spend(20.0, 0.0, 3), {CALLS: 5.0001})
-    over_live = final_ledger.refusal(none, {LIVE: 10.0001})
+    over_live = final_ledger.refusal(none, {LIVE: 12.0001})
     check(over_calls is not None and "calls pool" in over_calls and "$25.00" in over_calls and over_live is not None
-          and "live pool" in over_live and "$10.00" in over_live,
+          and "live pool" in over_live and "$12.00" in over_live,
           "a projection a hair over either cap refuses, naming the pool and its cap")  # fmt: skip
-    check(final_ledger.refusal(none, {CALLS: 24.99, LIVE: 9.99}) is None
-          and final_ledger.refusal(final_ledger.Spend(0.0, 9.5, 1), {CALLS: 1.0, LIVE: 0.6}) is not None,
+    check(final_ledger.refusal(none, {CALLS: 24.99, LIVE: 11.99}) is None
+          and final_ledger.refusal(final_ledger.Spend(0.0, 11.5, 1), {CALLS: 1.0, LIVE: 0.6}) is not None,
           "a projection under both goes on, and what is already recorded counts in the live pool too")  # fmt: skip
     check(over_calls is not None and "nothing was sent" in over_calls, "the refusal says nothing was sent")
 
@@ -234,7 +234,7 @@ def liveness() -> None:
         # opus 34 bytes at $4 and 16,000 at $20 is 136 + 320,000: $0.3521394 in all.
         spend = liveness_step["detail"]["spend"]
         # And the live replay's bound (#91, worked by hand in `analysis/check_final_replay.py`): $0.965666496 for the made-up world.
-        check(close(spend[LIVE]["projected"], 0.3521394 + 0.965666496, 1e-7) and spend[LIVE]["recorded"] == 0.0 and spend[LIVE]["cap"] == 10.0
+        check(close(spend[LIVE]["projected"], 0.3521394 + 0.965666496, 1e-7) and spend[LIVE]["recorded"] == 0.0 and spend[LIVE]["cap"] == 12.0
               and spend[CALLS]["cap"] == 25.0 and spend[CALLS]["recorded"] == 0.0 and 0 < spend[CALLS]["projected"] < 2.0
               and jev_gate_projection() + sonnet_gate_projection() < spend[CALLS]["projected"]
               < jev_gate_projection() + sonnet_gate_projection() + 1.0,
@@ -242,7 +242,7 @@ def liveness() -> None:
         # The fake billed 20 in and 5 out per call: haiku 2 + 2.5 and opus 80 + 100 micro-dollars.
         recorded = final_ledger.recorded_spend(r.world.results, r.world.output)
         check(close(recorded.live, 184.5e-6) and recorded.calls == 0.0,
-              f"the two calls count under the $10 cap: ${recorded.live:.7f}, the hand-worked $0.0001845")  # fmt: skip
+              f"the two calls count under the live pool's cap: ${recorded.live:.7f}, the hand-worked $0.0001845")  # fmt: skip
         stored = [json.loads(line) for line in (r.world.output / "liveness.jsonl").read_text().splitlines()]
         check([s["config"] for s in stored] == ["haiku", "opus"] and all(s["request"] in (HAIKU_JSON, OPUS_JSON) for s in stored),
               "they are stored with their requests and responses, one record each")  # fmt: skip
@@ -255,7 +255,7 @@ def liveness() -> None:
         # (the file hashes are #92's, held by `analysis/check_final_record.py`; this go has not written the files they name)
         outcome, _, _ = r.go((STEPS[0], STEPS[1], STEPS[-1]))
         closing = r.record["gos"][0]["steps"][-1]["detail"]["spend"]
-        check(outcome == Outcome() and close(closing[LIVE]["recorded"], 184.5e-6) and closing[LIVE]["cap"] == 10.0
+        check(outcome == Outcome() and close(closing[LIVE]["recorded"], 184.5e-6) and closing[LIVE]["cap"] == 12.0
               and closing[CALLS] == {"cap": 25.0, "recorded": 0.0, "projected": 0.0},
               "the record's closing step holds the spend against each cap")  # fmt: skip
 
@@ -365,7 +365,7 @@ def projection() -> None:
         ("$24 projected for calls and $0.35 for the liveness calls: both under", extra, 0.0, False),
         ("$24 projected with $1.01 already recorded: $25.01 of calls", extra, 1.01, True),
         ("$24 projected with $0.99 already recorded: $24.99 of calls", extra, 0.99, False),
-        ("$10 projected for the live pool beside the liveness calls' $0.35",
+        ("$24 projected for the live pool beside the liveness calls' $0.35: over its $12",
          Projector("live", LIVE, "analysis.check_final_ledger:over_calls_projector"), 0.0, True),
     ):  # fmt: skip
         with rehearsal.rehearsed() as r:

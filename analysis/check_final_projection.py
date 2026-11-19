@@ -20,15 +20,15 @@ case taken from train and dev:
   also draws 2,000 other samples of 25 per task from dev (seeded) and counts how many would be refused, and runs the dearest 25
   of each task as a known positive: the replay's projection is a bound that doubles each request's cost and counts an
   escalation to `opus` for every one (`final_replay.SAFETY`), so it is far above what the replay will cost, and it can be over
-  the $10 pool for a draw of expensive items.
+  the $12 pool for a draw of expensive items.
 
 Needs `results/` (dev's stored records, not committed), so the hook runs it and CI doesn't (`HOOK_ONLY` in
 `analysis/check_guardrails.py`). It reads no test item, no answer and no verdict, opens no store, and calls nothing: no Jev or
 Anthropic call, no router, no gate. Nothing writes to `results/`: the world's output folder is a temporary one.
 
 - each pool's projection, with nothing recorded at the go's start, is under its cap: the $25 calls pool (G's and G+'s drift
-  resends and test calls, the Jev gate's, the Sonnet gate's, each part printed, every input at its worst) and the $10 live pool (the
-  liveness calls and the replay, on a draw from dev), and at most 1% of dev draws are over the live pool's cap;
+  resends and test calls, the Jev gate's, the Sonnet gate's, each part printed, every input at its worst) and the $12 live pool (the
+  liveness calls and the replay, on a draw from dev), and no dev draw is over the live pool's cap (A19 item 9's reason for $12);
 - the stand-in is no handle: `require_issued` refuses it, so nothing can read a store through it;
 - known positives: a cap just below a pool's total refuses it and one just above lets it through, the dearest 25 dev items of each
   task as the replay's items are refused by the live pool's cap, the worst-case request's body is at least every dev request's,
@@ -251,8 +251,8 @@ def main() -> int:
     print(f"   {DRAWS} draws: mean ${statistics.fmean(draws):.2f}, median ${draws[DRAWS // 2]:.2f}, 99th percentile "
           f"${draws[int(DRAWS * 0.99)]:.2f}, largest ${draws[-1]:.2f}; the replay may be ${room:.2f}; {over:.2%} are over")  # fmt: skip
     check(
-        over <= 0.01,
-        f"at most 1% of dev draws would make the live pool's projection refuse at the liveness step ({over:.2%})",
+        over == 0,
+        f"no dev draw would make the live pool's projection refuse at the liveness step ({over:.2%} would)",
     )
     check(refusal(Spend(0.0, 0.0, 0), totals(list(worst_draw.values()))) is not None,
           f"known positive: the dearest 25 dev items of each task as the replay's are refused by the live cap (${worst_draw['replay'].dollars:.2f})")  # fmt: skip
