@@ -35,7 +35,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from analysis import final_gates, final_headline, final_jev, final_routers, flip_rates, pareto, target_met
+from analysis import final_gates, final_headline, final_jev, final_routed, final_routers, flip_rates, pareto, target_met
 from analysis.bootstrap import RESAMPLES, SEED, Bootstrap, resample
 from analysis.final_grading import matrix_path
 from analysis.final_run import Run, StepResult
@@ -153,6 +153,16 @@ def stops_report(stops: Mapping[str, Mapping[str, int]]) -> dict[str, dict[str, 
             for config, by_status in stops.items()}  # fmt: skip
 
 
+def routed_parts() -> tuple["Part", ...]:
+    """The twelve router-started cascades' parts (#87), in item 8's order: for each, its rows under both mixes (with table v4's
+    committed dev numbers to reproduce) and its per-task rows (dev committed none)."""
+    parts = []
+    for section in final_routed.ROUTED:
+        parts.append(Part(section, final_routed.routed_part(section), final_routed.committed_part(section)))
+        parts.append(Part(final_routed.tasks_key(section), final_routed.routed_part(section, per_task=True), None))
+    return tuple(parts)
+
+
 # A part per line, in the order the tables file holds them. A policy's or a table's part goes in its own place.
 PARTS: tuple[Part, ...] = (
     Part("references", references_part, committed_references),
@@ -203,7 +213,8 @@ PARTS: tuple[Part, ...] = (
         None,
     ),  # fmt: skip
     #
-    # #87: the twelve router-started cascades
+    # #87: the twelve router-started cascades (E, F, G and G+ with the free checks, the Jev gate and the Sonnet gate)
+    *routed_parts(),
     #
     # #88: dev's flip rates (they carry over to test's references), then target met over every policy built above, then the
     # headline from it: keep these after the policies' parts, and the headline after target met

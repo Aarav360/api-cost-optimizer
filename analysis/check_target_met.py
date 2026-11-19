@@ -470,7 +470,18 @@ def leaky_stops(run: Run) -> StepResult:
     return StepResult()
 
 
-SECTIONS_BUILT = ["rules", "trained", "jev", NAMED_ROUTERS[G_PLUS], HAIKU_FREE, HAIKU_JEV, HAIKU_SONNET]
+# the twelve router-started cascades (#87), built by `final_routed` with no line of target met's own
+ROUTED_SECTIONS = [cascade_section(r, g) for r in NAMED_ROUTERS.values() for g in (FREE_GATE, JEV_GATE, SONNET_GATE)]
+SECTIONS_BUILT = [
+    "rules",
+    "trained",
+    "jev",
+    NAMED_ROUTERS[G_PLUS],
+    HAIKU_FREE,
+    HAIKU_JEV,
+    HAIKU_SONNET,
+    *ROUTED_SECTIONS,
+]
 STOPS = {
     "haiku": {GRADE_MARKER: 1},
     "sonnet": {"refusal": 1},
@@ -491,7 +502,7 @@ def rehearsal() -> None:
         met = parts["target_met"]
         check(outcome.stopped_at is None, "the whole made-up run goes through")
         check(list(met["points"]) == SECTIONS_BUILT,
-              "target met covers E, F, G, G+, haiku/free, haiku/Jev and haiku/Sonnet, which no line of this ticket names: whatever the policies' parts built")  # fmt: skip
+              "target met covers E, F, G, G+, the three pure cascades and the twelve router-started ones, which no line of this ticket names: whatever the policies' parts built")  # fmt: skip
         agree, label_ok, counted = True, True, {"routes": 0, "met": 0, "missed": 0, "falls_back": 0}
         for section in SECTIONS_BUILT:
             for mix in ("realistic", "uniform"):
@@ -515,7 +526,8 @@ def rehearsal() -> None:
             label_ok and counted["falls_back"] > 0,
             f"each of the {counted['falls_back']} points that fall back reads falls back to A, with no numbers",
         )
-        check(met["counts"]["all"] == {"points": 42, **counted} and counted["routes"] + counted["falls_back"] == 42
+        check(met["counts"]["all"] == {"points": 6 * len(SECTIONS_BUILT), **counted}
+              and counted["routes"] + counted["falls_back"] == 6 * len(SECTIONS_BUILT)
               and counted["met"] + counted["missed"] == counted["routes"],
               f"the counts are the rows': {counted}; the points that fall back are in no count of met")  # fmt: skip
         head = parts["headline"]

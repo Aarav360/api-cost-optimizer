@@ -96,6 +96,11 @@ run_check analysis.check_final_replay
 # stops as rejections charged their tokens, the Sonnet column refused on A17 item 13's cases, and haiku/Sonnet at its frozen points
 # against hand-worked numbers. No results/, no Docker, no Anthropic call, nothing near the real store. CI runs it too.
 run_check analysis.check_final_sonnet
+# The twelve router-started cascades on test (A17 items 8, 10 and 26.4; A19 items 6, 8 and 13; issue #87): E, F, G and G+ with the
+# free checks, the Jev gate and the Sonnet gate, their traces against hand-worked ones on made-up tables (overheads included), their
+# rows through the parts, the file's own thresholds and cutoffs, nothing walked, each refusal, and the rehearsal's own tables
+# recomputed by a loop of the check's own. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_routed
 run_check analysis.check_routers
 run_check analysis.check_comparisons
 run_check analysis.check_walk

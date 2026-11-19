@@ -22,6 +22,11 @@ explain, not a number to loosen.
   stored values counted outside this code (the stops part against the dev matrix's own counts of each config's non-correct
   rows by status: haiku wrong 111; sonnet wrong 102 and max_tokens 1; opus_low wrong 74 and refusal 1; opus wrong 73 and
   refusal 1; 2,976 rows in all);
+- the twelve router-started cascades' parts (`analysis/final_routed.py`, issue #87: E, F, G and G+, each with the free checks,
+  the Jev gate and the Sonnet gate) are evaluated at their frozen points, with each router's own dev table and the gate-score
+  table, and reproduce table v4's committed rows to the last stored digit; each holds the file's threshold, cutoff and
+  `fell_back`, and the number of points that route is the file's (A19 item 6: 46 of the twelve's 72, E 4, 4 and 0, F 3, 4
+  and 0, G 6, 6 and 6, G+ 5, 5 and 3 by the free checks, Jev and Sonnet);
 - dev's IFEval and MBPP+ entries carry the plan's dev words, unchanged by the test wording.
 """
 
@@ -31,8 +36,18 @@ import sys
 from typing import Any
 
 from analysis import offline_half
-from analysis.final_design import headline
-from analysis.router_names import CASCADES, G_PLUS, HAIKU, JEV_GATE, NAMED_ROUTERS, cascade_section
+from analysis.final_design import expected_misses, headline
+from analysis.operating_points import OPERATING_POINTS_FILE
+from analysis.router_names import (
+    CASCADES,
+    FREE_GATE,
+    G_PLUS,
+    HAIKU,
+    JEV_GATE,
+    NAMED_ROUTERS,
+    SONNET_GATE,
+    cascade_section,
+)
 from analysis.task_warnings import task_warning
 
 problems: list[str] = []
@@ -113,6 +128,29 @@ def main() -> int:
               and all(row["mcnemar"] is None for row in per_task if row["fell_back"]),
               f"{key}: the per-task rows cover the four tasks, and a point that fell back has no McNemar row")  # fmt: skip
 
+    print("\n-- the twelve router-started cascades at their frozen operating points (issue #87) --")
+    held = json.loads(OPERATING_POINTS_FILE.read_text(encoding="utf-8"))
+    # how many of each cascade's six points route in the file (46 in all: A19 item 6's 54 of the cascades, 8 of them haiku's),
+    # by gate (free, Jev, Sonnet)
+    routing = {"rules": (4, 4, 0), "trained": (3, 4, 0), "jev": (6, 6, 6), NAMED_ROUTERS[G_PLUS]: (5, 5, 3)}
+    for router, by_gate in routing.items():
+        for gate, n_routes in zip((FREE_GATE, JEV_GATE, SONNET_GATE), by_gate):
+            key = cascade_section(router, gate)
+            built = tables["parts"][key]["mixes"]
+            points = [(mix, target) for mix in built for target in built[mix]]
+            check(by_key[key].committed is not None and len(points) == 6
+                  and sum(not built[m][t]["fell_back"] for m, t in points) == n_routes
+                  and all(built[m][t]["fell_back"] == held[key][m][t]["fell_back"]
+                          and built[m][t]["threshold"] == held[key][m][t].get("threshold")
+                          and built[m][t]["cutoff"] == held[key][m][t].get("cutoff") for m, t in points)
+                  and all(built[m][t]["escalation_rate"] == 0 for m, t in points if built[m][t]["fell_back"]),
+                  f"{CASCADES[key]}: six points, {n_routes} of which route, each holding the file's own threshold and cutoff")  # fmt: skip
+            per_task = tables["parts"][f"{key}_tasks"]["tasks"]
+            check(set(per_task) == {"ifeval", "banking77", "mmlu_pro", "mbppplus"}
+                  and all(row["mcnemar"] is None for task in per_task.values() for by_target in task.values()
+                          for row in by_target.values() if row["fell_back"]),
+                  f"{CASCADES[key]}: the per-task rows cover the four tasks (dev committed none to compare)")  # fmt: skip
+
     print("\n-- G's and G+'s D6 from Stage 6's stored train passes, as the drift step measures it (A15 item 19) --")
     from analysis import collect_jev, final_jev
     from routers import jev
@@ -187,6 +225,22 @@ def main() -> int:
           and head["headline"]["met_share"] == plan.met and head["headline"]["savings_vs_A"]["share"] == plan.saves,
           f"the headline on dev's own matrix is haiku/Jev at realistic 99%: met, saving {plan.saves:.1%} and meeting its target "
           f"in {plan.met:.2%} of resamples, as A19 item 6 quotes (read from the committed table by analysis/final_design.py)")  # fmt: skip
+
+    # A19 item 6's expected misses, which no policy's own part could check until every section was built: the sum of 1 less the share
+    # of resamples meeting the target over the 65 covered routed points (G's and G+'s, and every cascade's) is the plan's dev count
+    misses = expected_misses()
+    covered = [
+        (section, mix, target)
+        for section, by_mix in met["points"].items()
+        if section in ("jev", NAMED_ROUTERS[G_PLUS]) or section in CASCADES
+        for mix, by_target in by_mix.items()
+        for target, found in by_target.items()
+        if found["met_share"] is not None
+    ]
+    check(len(met["points"]) == 19 and len(covered) == misses.covered
+          and abs(sum(1 - met["points"][s][m][t]["met_share"] for s, m, t in covered) - misses.dev_misses) < 1e-9,
+          f"target met covers all 19 sections, and over its {len(covered)} covered routed points the shares of resamples missing "
+          f"the target sum to A19 item 6's {misses.dev_misses:.2f} expected misses on dev")  # fmt: skip
 
     print("\n-- the parts without committed numbers, against stored counts --")
     stops = tables["parts"]["stops"]

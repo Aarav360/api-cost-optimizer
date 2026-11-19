@@ -61,7 +61,7 @@ from analysis.final_record import RECORD_FILE, Record
 from analysis.final_run import LOG_FILE, STEPS, ItemFailure, Outcome, Run, Step, StepResult, describe, now_utc, run
 from analysis.made_up_world import MadeUp, made_up_world
 from analysis.offline_half import OfflineError, Part
-from analysis.router_names import G_PLUS, NAMED_ROUTERS
+from analysis.router_names import FREE_GATE, G_PLUS, JEV_GATE, NAMED_ROUTERS, SONNET_GATE, cascade_section
 from analysis.unlock import HandleError, unlock
 from harness import collect, evaluators
 
@@ -161,6 +161,13 @@ HAIKU_PARTS = [
     k
     for section in (final_gates.FREE_SECTION, final_gates.JEV_SECTION, final_gates.SONNET_SECTION)
     for k in (section, final_gates.tasks_key(section))
+]
+# #87: the twelve router-started cascades (E, F, G and G+ with free, Jev and Sonnet), each with its per-task rows
+ROUTED_PARTS = [
+    k
+    for router in NAMED_ROUTERS.values()
+    for gate in (FREE_GATE, JEV_GATE, SONNET_GATE)
+    for k in (cascade_section(router, gate), f"{cascade_section(router, gate)}_tasks")
 ]
 LAST_PARTS = ["flip_rates", "target_met", "headline"]  # #88: the flip rates, target met over every policy, the headline
 REPLAY_ANSWERS = 24  # the live replay's graded answers on the made-up world
@@ -483,7 +490,17 @@ def tables(r: Rehearsal) -> None:
           "the tables name the split, its 8 items, the snapshot and the seeded bootstrap")  # fmt: skip
     check(
         list(file["parts"])
-        == ["references", "stops", "rules", "trained", "jev", NAMED_ROUTERS[G_PLUS], *HAIKU_PARTS, *LAST_PARTS],
+        == [
+            "references",
+            "stops",
+            "rules",
+            "trained",
+            "jev",
+            NAMED_ROUTERS[G_PLUS],
+            *HAIKU_PARTS,
+            *ROUTED_PARTS,
+            *LAST_PARTS,
+        ],
         "the tables hold the parts in the order PARTS gives",
     )
     mixes = file["parts"]["references"]["mixes"]
@@ -700,7 +717,7 @@ def extending() -> None:
         inputs = offline_half.test_inputs(state)
         extra = Part("extra", lambda i: {"items": len(i.matrix.items), "seen": sorted(i.extras)}, None)
         built = offline_half.build_tables(inputs, offline_half.PARTS + (extra,))
-        check(list(built["parts"]) == ["references", "stops", "rules", "trained", "jev", NAMED_ROUTERS[G_PLUS], *HAIKU_PARTS, *LAST_PARTS, "extra"] and built["parts"]["extra"] == {"items": 8, "seen": ["gate_table", "jev_bolstered_table", "jev_facts", "jev_table", "rules_table", "trained_facts", "trained_table"]},
+        check(list(built["parts"]) == ["references", "stops", "rules", "trained", "jev", NAMED_ROUTERS[G_PLUS], *HAIKU_PARTS, *ROUTED_PARTS, *LAST_PARTS, "extra"] and built["parts"]["extra"] == {"items": 8, "seen": ["gate_table", "jev_bolstered_table", "jev_facts", "jev_table", "rules_table", "trained_facts", "trained_table"]},
               "a part added by one line is built after the others and reads its inputs")  # fmt: skip
         extras_in = dataclasses.replace(inputs, extras={"loaded": 1})
         check(extras_in.extras == {"loaded": 1} and offline_half.stops_part(extras_in)["haiku"]["correct"] == 4,
