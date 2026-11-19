@@ -65,7 +65,7 @@ STEPS = (
     # #82
     Step("liveness", "analysis.final_liveness:liveness_step"),
     # #83
-    Step("drift_trained_router", None),
+    Step("drift_trained_router", "analysis.trained_drift:drift_step"),
     # #84
     Step("drift_jev_router", None),
     # #85
@@ -73,7 +73,7 @@ STEPS = (
     # #86
     Step("drift_sonnet_gate", None),
     # #83
-    Step("calls_rules_trained", None),
+    Step("calls_rules_trained", "analysis.final_routers:calls_step"),
     # #84
     Step("calls_jev_router", None),
     # #85
@@ -182,8 +182,9 @@ def describe(error: BaseException) -> dict[str, str | None]:
     shown: dict[str, str | None] = {"item": item, "error": type(cause).__qualname__}
     if isinstance(cause, MESSAGE_SHOWN):
         shown["message"] = str(cause)
-    if isinstance(cause, UnlockRefusal):
-        shown["check"] = cause.check
+    check = getattr(cause, "check", None)  # an unlock refusal and a drift refusal name their check
+    if isinstance(cause, MESSAGE_SHOWN) and check is not None:
+        shown["check"] = check
     return shown
 
 

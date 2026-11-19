@@ -30,12 +30,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from analysis import pareto
+from analysis import final_routers, pareto
 from analysis.bootstrap import RESAMPLES, SEED, Bootstrap, resample
 from analysis.final_grading import matrix_path
 from analysis.final_run import Run, StepResult
 from analysis.matrix import LADDER, Matrix, MatrixError, list_price, load, read_store
-from analysis.simulator import always, load_mixes, simulate
+from analysis.operating_eval import shared_fixed, shared_savings
+from analysis.simulator import load_mixes
 from analysis.unlock import Handle
 from harness.client import load_models
 from harness.collect import MAIN
@@ -59,6 +60,9 @@ class Inputs:
     draws: Bootstrap
     statuses: Mapping[str, Mapping[str, int]]
     extras: Mapping[str, Any] = field(default_factory=dict)
+    # What parts share, filled as they build (`operating_eval.shared_fixed` and `shared_savings`): the fixed configs'
+    # outcomes and each mix's resampled oracles, solved once. Not part of the inputs' identity.
+    cache: dict = field(default_factory=dict, compare=False, repr=False)
 
 
 @dataclass(frozen=True)
@@ -66,6 +70,9 @@ class Extra:
     name: str
     dev: Callable[[], Any]  # from dev's stored records, through the existing readers
     test: Callable[[Run], Any]  # from test's, through the handle (`run.unlocked()`)
+    # What the record keeps of the loaded value on test (and the tables step says), or None to keep nothing: a fact of the
+    # run (fold shares, a truncation count), never a grade. Shown from the tables step on, as item 5 has it.
+    record: Callable[[Any], Mapping[str, Any]] | None = None
 
 
 @dataclass(frozen=True)
@@ -77,7 +84,10 @@ class Part:
 
 # What parts read beyond the matrix: one line each, in a ticket's own place. None yet: A to D need only the matrix.
 EXTRAS: tuple[Extra, ...] = (
-    # #83: E's and F's router-score tables
+    # #83: E's and F's router-score tables, and F's facts (fold shares, truncations: kept in the record)
+    Extra("rules_table", final_routers.rules_dev, final_routers.rules_test),
+    Extra("trained_table", final_routers.trained_dev, final_routers.trained_test),
+    Extra("trained_facts", lambda: None, final_routers.stored_scores, final_routers.trained_facts_record),
     #
     # #84: G's and G+'s router-score tables
     #
@@ -93,10 +103,10 @@ def indicative_for(split: str, warning: str | None) -> str | None:
 def references_part(inputs: Inputs) -> dict:
     """A to D under each mix and per task: the numbers `analysis/pareto.py`'s `mix_panel` and `task_panels` build for dev."""
     matrix, draws, mixes = inputs.matrix, inputs.draws, load_mixes()
-    outcomes = {config: simulate(matrix, always(matrix, config)) for config in LADDER}
+    outcomes = shared_fixed(inputs.cache, matrix)
     panels = {}
     for mix in MIXES:
-        savings = draws.savings(matrix, outcomes["opus"], mixes[mix])
+        savings = shared_savings(inputs.cache, matrix, draws, mix)
         panels[mix] = pareto.mix_panel(matrix, draws, outcomes, mixes[mix], savings)
     tasks = pareto.task_panels(matrix, draws, outcomes)
     for panel in tasks.values():
@@ -127,6 +137,8 @@ PARTS: tuple[Part, ...] = (
     Part("references", references_part, committed_references),
     Part("stops", stops_part, None),
     # #83: E and F at their operating points
+    Part("rules", final_routers.router_part("rules", "rules_table"), final_routers.committed_part("rules")),
+    Part("trained", final_routers.router_part("trained", "trained_table"), final_routers.committed_part("trained")),
     #
     # #84: G and G+
     #
@@ -232,6 +244,9 @@ def tables_step(run: Run) -> StepResult:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(tables, indent=2) + "\n", encoding="utf-8")
     run.say(f"tables: wrote {path.name}, {len(inputs.matrix.items)} test items")
+    kept = {extra.name: extra.record(inputs.extras[extra.name]) for extra in EXTRAS if extra.record is not None}
+    for name, facts in kept.items():
+        run.say(f"tables: {name}: {json.dumps(facts)}")
     for mix in MIXES:
         pareto.print_mix(mix, tables["parts"]["references"]["mixes"][mix])
-    return StepResult(detail={"file": path.name, "items": len(inputs.matrix.items)})
+    return StepResult(detail={"file": path.name, "items": len(inputs.matrix.items), "extras": kept})

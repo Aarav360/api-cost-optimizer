@@ -44,6 +44,14 @@ run_check analysis.check_unlock_hook
 # world with a stand-in sandbox, against hand-worked numbers; the markers shown in nothing before the tables step; a crash
 # and a resume. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.
 run_check analysis.check_final_run
+# Stage 8's E and F on test (A9 item 7, A11 items 9 and 17, A19 items 2, 6 and 8; issue #83): a policy evaluated at its frozen operating
+# points with no walk, on a hand-worked table and the file's own points; F's drift check under A11 item 17's limits (the rule by hand, and
+# the rehearsal with a fake embedder moved nothing, slightly, then a lot); E's and F's tables on test through the handle, the fold
+# shares and the truncation count, a resume, and F-train and the diagnostics shown unable to run on test. No results/, no model
+# snapshot, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs all three.
+run_check analysis.check_operating_eval
+run_check analysis.check_trained_drift
+run_check analysis.check_final_routers
 # The unlock's verify list (A19 items 3 and 13; issue #81): built from the plan's freeze records and held against each
 # amendment's hashes and pins and the committed files; on a made-up root, each entry alone refusing when its file or value
 # is tampered with, and a macOS build or chip that differs reported. No results/, no Docker, no Jev or Anthropic call, nothing
@@ -179,6 +187,10 @@ run_check harness.check_sandbox 'FAIL|MBPP\+ references:'
 # The same rehearsal with no stand-in: the grader runs the made-up MBPP+ answers in the real sandbox, and the tables must equal
 # the CI rehearsal's (needs Docker; a few seconds).
 run_check analysis.check_final_run_sandbox
+# The rehearsal's F path with the real embedding model on made-up requests (A19 item 13; issue #83): F's drift check re-embeds made-up
+# dev requests and the calls score the made-up test requests through routers.trained.score. Needs the snapshot under .cache/; about
+# ten seconds.
+run_check analysis.check_final_run_trained
 # The real verify list on this machine: every freeze, hash and pin of A7, A9, A11, A15 and A17 against the working tree, the
 # model snapshot, the installed libraries, the sandbox image and a run of check_benchmark (the sealed store's hash is the
 # unlock's alone). Needs .cache/ and Docker; about 30 s. No Jev or Anthropic call.
