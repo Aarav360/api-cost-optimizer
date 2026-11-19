@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- Built by analysis/explorer.py into figures/pareto_explorer.html: edit this template, not the page. -->
-<title>Router Pareto Explorer</title>
+<title>Router Pareto Explorer: {{SPLIT}} split</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600;700&display=swap">
@@ -104,11 +104,12 @@ footer { color: var(--muted); font-size: 0.78rem; }
 <body>
 <div class="wrap">
   <header>
-    <h1>Router Pareto Explorer</h1>
-    <p class="sub">Quality against cost on dev for the four routers (E rules, F trained, G Jev, G+ bolstered Jev) and the fifteen cascades (the free checks, the Jev gate or the Sonnet gate, started at haiku or at a router's pick), with the fixed configs, the random-mixture envelope and the hindsight oracle. Every router and every cascade switches on and off. The numbers are chart v4's, from <code>figures/pareto.json</code>, <code>figures/pareto_tasks.json</code> and <code>figures/pareto_routed.json</code>.</p>
+    <h1>Router Pareto Explorer: <span id="h1Split">{{SPLIT}}</span> split</h1>
+    <p class="sub">Quality against cost on <span id="subSplit">{{SPLIT}}</span> for the four routers (E rules, F trained, G Jev, G+ bolstered Jev) and the fifteen cascades (the free checks, the Jev gate or the Sonnet gate, started at haiku or at a router's pick), with the fixed configs, the random-mixture envelope and the hindsight oracle. Every router and every cascade switches on and off. The split switch picks which split's numbers are drawn: dev's are chart v4's, from <code>figures/pareto.json</code>, <code>figures/pareto_tasks.json</code> and <code>figures/pareto_routed.json</code>; test's are the final evaluation's, from the files of the same names with <code>_test</code> added, where every operating point is a dev-frozen one evaluated on test, never walked.</p>
   </header>
 
   <nav class="views" aria-label="Panel">
+    <div class="group"><span class="group-label">Split</span><div class="seg" id="splitSeg"></div></div>
     <div class="group"><span class="group-label">Mix</span><div class="seg" id="mixSeg"></div></div>
     <div class="group"><span class="group-label">Task</span><div class="seg" id="taskSeg"></div></div>
   </nav>
@@ -151,13 +152,17 @@ footer { color: var(--muted); font-size: 0.78rem; }
 
   <section class="tablebox" id="tableBox" aria-live="polite"></section>
 
-  <footer>Dev split, run 0. Intervals are percentile 95% from <span id="resamples"></span> resamples of source groups within each task. List prices <span id="prices"></span>.</footer>
+  <footer><span id="footSplit">{{SPLIT_CAP}}</span> split, run 0. Intervals are percentile 95% from <span id="resamples"></span> resamples of source groups within each task. List prices <span id="prices"></span>.</footer>
 </div>
 
 <!-- jsDelivr, not cdnjs: cdnjs lists Plotly 2.35.2 but serves none of its files. -->
 <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
 <script>
 const DATA = /*DATA*/null;
+// Each split the page holds has its own views and facts; `DATA.views` is the split the page opens on (test when it has test's).
+const SPLITS = DATA.splits;
+DATA.views = SPLITS[DATA.open].views;
+DATA.meta = SPLITS[DATA.open].meta;
 
 const ROUTERS = [
   { key: "rules", short: "E", token: "--s-e", step: "square", point: "diamond", dash: "solid" },
@@ -188,6 +193,7 @@ const VIEW_SLUGS = { realistic: "realistic", uniform: "uniform", ifeval: "ifeval
 const SLUG_VIEWS = Object.fromEntries(Object.entries(VIEW_SLUGS).map(([k, v]) => [v, k]));
 
 const state = {
+  split: DATA.open,
   view: "realistic",
   series: Object.fromEntries(SERIES.map((r) => [r.key, r.kind !== "routed"])),
   refs: { configs: true, envelope: true, oracle: true, targets: true },
@@ -205,6 +211,9 @@ function save() {
   try { localStorage.setItem("pareto-explorer", JSON.stringify({ series: state.series, refs: state.refs, layers: state.layers, axis: state.axis })); } catch (e) {}
 }
 
+const views = () => SPLITS[state.split].views;
+const meta = () => SPLITS[state.split].meta;
+const capital = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 // What a series offers on a view: a router's or a cascade's part, or nothing (a task view has no router-started cascades).
 const partOf = (v, r) => (r.kind === "router" ? v.routers[r.key] : v.cascades[r.key]);
@@ -247,11 +256,19 @@ function glyph(symbol, dash, color, size = 26, outline = null) {
 }
 
 function buildControls() {
-  const mixSeg = document.getElementById("mixSeg"), taskSeg = document.getElementById("taskSeg");
+  const mixSeg = document.getElementById("mixSeg"), taskSeg = document.getElementById("taskSeg"), splitSeg = document.getElementById("splitSeg");
+  for (const name of DATA.order) {
+    const b = document.createElement("button");
+    const held = name in SPLITS;
+    b.type = "button"; b.id = "split-" + name; b.textContent = name; b.dataset.split = name; b.disabled = !held;
+    b.title = held ? "" : "The " + name + " split has not been run: this page holds only the splits committed so far";
+    b.addEventListener("click", () => { location.hash = name + "/" + VIEW_SLUGS[state.view]; });
+    splitSeg.appendChild(b);
+  }
   for (const [key, v] of Object.entries(DATA.views)) {
     const b = document.createElement("button");
     b.type = "button"; b.id = "view-" + key; b.textContent = v.title; b.dataset.view = key;
-    b.addEventListener("click", () => { location.hash = VIEW_SLUGS[key]; });
+    b.addEventListener("click", () => { location.hash = state.split + "/" + VIEW_SLUGS[key]; });
     (v.kind === "mix" ? mixSeg : taskSeg).appendChild(b);
   }
   const hosts = { router: document.getElementById("routerChips"), pure: document.getElementById("pureChips") };
@@ -295,12 +312,22 @@ function buildControls() {
   }
   document.getElementById("zoomBusy").addEventListener("click", () => { state.zoom = [2, 15]; state.rev++; render(); });
   document.getElementById("zoomReset").addEventListener("click", () => { state.zoom = null; state.rev++; render(); });
-  document.getElementById("resamples").textContent = DATA.meta.resamples.toLocaleString("en-US");
-  document.getElementById("prices").textContent = DATA.meta.prices;
+}
+
+// The split's name in the title, the heading, the sub-title and the footer, and the facts of its own run.
+function paintSplit() {
+  const s = state.split, m = meta();
+  document.title = "Router Pareto Explorer: " + s + " split";
+  document.getElementById("h1Split").textContent = s;
+  document.getElementById("subSplit").textContent = s;
+  document.getElementById("footSplit").textContent = capital(s);
+  document.getElementById("resamples").textContent = m.resamples.toLocaleString("en-US");
+  document.getElementById("prices").textContent = m.prices;
+  document.querySelectorAll("#splitSeg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.split === s)));
 }
 
 function paintControls() {
-  const v = DATA.views[state.view];
+  const v = views()[state.view];
   document.querySelectorAll("#mixSeg button, #taskSeg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === state.view)));
   for (const r of SERIES) {
     const b = document.getElementById("chip-" + r.key);
@@ -406,6 +433,9 @@ function traces(v) {
       hoverinfo: "text", cliponaxis: false, name: "configs",
     });
   }
+  // Every readout names the split, so two splits' close numbers can't be mixed up.
+  const tag = `<br><i>${state.split} split</i>`;
+  for (const t of T) if (t.hovertext) t.hovertext = t.hovertext.map((h) => h + tag);
   return T;
 }
 
@@ -436,31 +466,34 @@ function layout(v) {
     const yr = yRangeFor(v, state.zoom[0], state.zoom[1]);
     if (yr) y.range = yr;
   }
-  const shapes = [], annotations = [];
+  const shapes = [], annotations = [{ xref: "paper", yref: "paper", x: 0, y: 1, xanchor: "left", yanchor: "bottom", showarrow: false,
+    text: `<b>${state.split} split</b> · ${v.title}`, font: { size: 12, color: ink, family: css("--font-ui") } }];
   if (v.kind === "mix" && state.refs.targets) for (const t of v.targets) {
     shapes.push({ type: "line", xref: "paper", x0: 0, x1: 1, y0: t.q, y1: t.q, line: { color: css("--s-target"), width: 1, dash: "dot" }, layer: "below" });
     annotations.push({ xref: "paper", x: 1, xanchor: "left", y: t.q, yanchor: "middle", text: t.name, showarrow: false, font: { size: 11, color: ink2, family: css("--font-data") } });
   }
   return {
     paper_bgcolor: surface, plot_bgcolor: surface, font: { family: font, color: ink },
-    margin: { l: 62, r: 46, t: 12, b: 52 }, xaxis: x, yaxis: y, shapes, annotations, showlegend: false,
+    margin: { l: 62, r: 46, t: 30, b: 52 }, xaxis: x, yaxis: y, shapes, annotations, showlegend: false,
     hovermode: "closest", hoverdistance: 18, dragmode: "zoom",
     hoverlabel: { bgcolor: surface, bordercolor: css("--rule"), font: { family: font, size: 12, color: ink }, align: "left" },
-    uirevision: state.view + ":" + state.axis + ":" + state.rev,
+    uirevision: state.split + ":" + state.view + ":" + state.axis + ":" + state.rev,
   };
 }
 
 function caption(v) {
   const cap = document.getElementById("caption");
-  const parts = [];
+  const parts = [`<b>${capital(state.split)} split.</b>`];
   if (v.note) parts.push(`<span class="note">${v.note}</span>`);
   if (v.kind === "mix") {
     const fb = [];
     for (const r of SERIES) { const part = partOf(v, r); if (state.series[r.key] && part) for (const o of part.ops) if (o.fell_back) fb.push(`${r.label} at ${o.target}`); }
-    parts.push("Large markers are operating points, chosen on dev by each policy's walk at the 100%, 99% and 97% targets; the free checks alone are one point." +
+    parts.push((state.split === "dev"
+      ? "Large markers are operating points, chosen on dev by each policy's walk at the 100%, 99% and 97% targets; the free checks alone are one point."
+      : "Large markers are the frozen operating points: dev's walks chose them at the 100%, 99% and 97% targets, and test only evaluates them, with no walk; each line joins A to the frozen dials that route, and the free checks alone are one point.") +
       (fb.length ? ` Falling back to A (drawn at A: opus): ${fb.join(", ")}.` : ""));
   } else {
-    parts.push(`${v.items} dev items. Each task has its own envelope and oracle. There are no quality targets per task, so the routers' and the pure cascades' steps are drawn with no operating points (Amendment A7). The router-started cascades are on the two mix views only.`);
+    parts.push(`${v.items} ${state.split} items. Each task has its own envelope and oracle. There are no quality targets per task, so the routers' and the pure cascades' steps are drawn with no operating points (Amendment A7). The router-started cascades are on the two mix views only.`);
   }
   parts.push("G's and G+'s costs include Jev's overhead per request, and E's and F's have none; a cascade's costs include every gate call it makes. Differences between policies are judged by the paired intervals in tables v3 and v4, not by whether intervals overlap.");
   cap.innerHTML = parts.map((p) => `<span>${p}</span>`).join("");
@@ -470,7 +503,7 @@ function table(v) {
   const box = document.getElementById("tableBox");
   if (v.kind !== "mix") {
     const rows = v.configs.map((c) => `<tr><td>${c.label}</td><td></td><td class="num">${pct(c.q[0])} <span class="ci">(${pct(c.q[1])} to ${pct(c.q[2])})</span></td><td class="num">${money(c.c[0])} <span class="ci">(${money(c.c[1])} to ${money(c.c[2])})</span></td></tr>`).join("");
-    box.innerHTML = `<h2>Fixed configs on ${v.title}</h2><p>Per-task readings carry no verdicts; they show where each config sits.</p>
+    box.innerHTML = `<h2>Fixed configs on ${v.title}, ${state.split} split</h2><p>Per-task readings carry no verdicts; they show where each config sits.</p>
       <div class="scroll"><table><thead><tr><th>Config</th><th></th><th>Quality (95% interval)</th><th>$ per 1,000 (95% interval)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     return;
   }
@@ -489,14 +522,15 @@ function table(v) {
     });
     first = false;
   }
-  if (first) { box.innerHTML = `<h2>Operating points, ${v.title.toLowerCase()}</h2><p>No router or cascade is switched on.</p>`; return; }
-  box.innerHTML = `<h2>Operating points, ${v.title.toLowerCase()}</h2>
-    <p>Each switched-on policy's certified step at each target: a router's threshold, a pure cascade's gate cutoff, or a router-started cascade's threshold and fixed gate cutoff. The last column is the paired difference from the envelope at the policy's own cost, in points; descriptive, with no multiplicity correction (A15 item 14, A17 item 22).</p>
+  if (first) { box.innerHTML = `<h2>Operating points, ${v.title.toLowerCase()}, ${state.split} split</h2><p>No router or cascade is switched on.</p>`; return; }
+  box.innerHTML = `<h2>Operating points, ${v.title.toLowerCase()}, ${state.split} split</h2>
+    <p>Each switched-on policy's operating point at each target (on dev the walk's certified step, on test the dev-frozen point, not walked): a router's threshold, a pure cascade's gate cutoff, or a router-started cascade's threshold and fixed gate cutoff. The last column is the paired difference from the envelope at the policy's own cost, in points; descriptive, with no multiplicity correction (A15 item 14, A17 item 22).</p>
     <div class="scroll"><table><thead><tr><th>Policy</th><th>Target</th><th>Threshold / cutoff</th><th>Quality (95% interval)</th><th>$ per 1,000 (95% interval)</th><th>Saves vs A</th><th>vs envelope, pts (95% interval)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 function render() {
-  const v = DATA.views[state.view];
+  const v = views()[state.view];
+  paintSplit();
   paintControls();
   Plotly.react("plot", traces(v), layout(v), {
     responsive: true, displaylogo: false, scrollZoom: true,
@@ -507,8 +541,11 @@ function render() {
 }
 
 function fromHash() {
-  const slug = location.hash.replace(/^#/, "");
-  const view = SLUG_VIEWS[slug] || "realistic";
+  const [first, second] = location.hash.replace(/^#/, "").split("/");
+  const named = second !== undefined;
+  const wanted = named ? first : state.split;
+  if (wanted in SPLITS && wanted !== state.split) { state.split = wanted; state.zoom = null; }
+  const view = SLUG_VIEWS[named ? second : first] || "realistic";
   if (view !== state.view) { state.view = view; state.zoom = null; }
   render();
 }

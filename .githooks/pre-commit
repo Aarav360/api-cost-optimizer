@@ -144,6 +144,12 @@ run_check analysis.check_stage6
 # The interactive explorer (figures/pareto_explorer.html) against chart v4's JSONs: the committed page is their build,
 # and its numbers and words are theirs. Rerun analysis.explorer after analysis.pareto.
 run_check analysis.check_explorer
+# Test's figures and the explorer's split switch (A19 items 8 and 13; issue #90), on the rehearsal's made-up world: a policy's line by
+# hand (A, then each distinct frozen dial that routes, strictest first), the three figures built in the tables step in files of
+# their own with nothing walked, each cross a frozen point on its line, a part the tables lack refusing before anything is drawn, and
+# the explorer built from the rehearsal's test JSONs opening on test and naming the split in every readout. No results/, no Docker,
+# no Jev or Anthropic call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_figures
 # The Jev settings builder (A15 items 4-6, 10, 12) on a synthetic benchmark and store; where results/ is present it
 # also builds from the real train data and compares a committed routers/jev_settings.json with the build.
 run_check analysis.check_jev_settings
@@ -276,6 +282,9 @@ if [ -f results/dev_matrix.sqlite ]; then
   # The dev reproduction (A19 item 13): the offline half on dev's stored matrix must give A to D's committed dev numbers, to the
   # last stored digit (about 10 s). No gate, no model.
   run_check analysis.check_final_run_dev
+  # The figure code on dev (A19 items 8 and 13): given dev's walked lines it reproduces all three committed chart v4 JSONs digit
+  # for digit, and its own frozen lines are steps of the committed ones. No gate, no model.
+  run_check analysis.check_final_figures_dev
   # The Jev gate's drift check against Stage 7's stored records (A15 item 17; A17 items 26 and 28): the noise sample, D6 and the shift
   # recomputed, and the frozen call's body hashes against the stored ones. Train only; no gate and no Jev call.
   run_check analysis.check_final_gates_real

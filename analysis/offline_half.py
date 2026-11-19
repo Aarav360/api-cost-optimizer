@@ -37,6 +37,7 @@ from typing import Any
 
 from analysis import (
     final_comparisons,
+    final_figures,
     final_gates,
     final_headline,
     final_jev,
@@ -342,6 +343,9 @@ def tables_step(run: Run) -> StepResult:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(tables, indent=2) + "\n", encoding="utf-8")
     run.say(f"tables: wrote {path.name}, {len(inputs.matrix.items)} test items")
+    # The figures (#90): the same tables drawn with chart v4's code at the frozen points, in files of their own beside the tables.
+    figures = [file.name for file in final_figures.write(final_figures.build(inputs, tables), run.world.output)]
+    run.say(f"tables: wrote the figures, {', '.join(figures)}")
     kept = {extra.name: extra.record(inputs.extras[extra.name]) for extra in EXTRAS if extra.record is not None}
     for name, facts in kept.items():
         run.say(f"tables: {name}: {json.dumps(facts)}")
@@ -359,6 +363,7 @@ def tables_step(run: Run) -> StepResult:
     headline = tables["parts"]["headline"]
     run.say(f"tables: headline, {headline['label']} at realistic 99%: {headline['headline']['reading']}")
     # The record keeps the stops too (item 10's refusals and truncations): this step is the first allowed to show them, so no
-    # earlier step's detail holds one
+    # earlier step's detail holds one. It keeps the figures' file names too (#90): the files are copied to figures/ by the results PR.
     return StepResult(detail={"file": path.name, "items": len(inputs.matrix.items), "extras": kept, "stops": stops,
-                              "target_met": counts, "headline": headline["headline"]["reading"]})  # fmt: skip
+                              "target_met": counts, "headline": headline["headline"]["reading"],
+                              "figures": figures})  # fmt: skip

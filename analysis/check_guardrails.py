@@ -30,6 +30,7 @@ HELPER = "analysis/checking.py"
 # The hook's checks CI's job can't run (it has no results/, model snapshot or Docker).
 HOOK_ONLY = {
     "analysis.check_final_run_dev": "reproduces dev's committed numbers (A to D, the policies, table v4's comparisons and the final table's rows) from the dev matrix in results/",
+    "analysis.check_final_figures_dev": "builds dev's figures from the dev matrix and stored gate records in results/, and compares them with chart v4's JSONs",
     "analysis.check_final_run_trained": "runs the rehearsal's F path with the real embedding model, from the snapshot under .cache/",
     "analysis.check_final_run_sandbox": "grades the rehearsal's made-up MBPP+ answers in the real sandbox, which needs Docker",
     "analysis.check_final_gates_sandbox": "runs the free checks' code check on made-up MBPP+ answers in the real sandbox, which needs Docker",
