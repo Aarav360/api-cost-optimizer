@@ -52,6 +52,11 @@ run_check analysis.check_final_run
 run_check analysis.check_operating_eval
 run_check analysis.check_trained_drift
 run_check analysis.check_final_routers
+# Stage 8's target met, the headline and the flip rates (A19 items 6 and 8, A17 item 24, A6 item 2; issue #88): target met at a margin of
+# zero by hand on made-up resamples, a fall back labelled and uncounted, every policy covered with no line per policy, the headline's
+# rule on made-up dev tables (test never moves it), dev's flip rates against the plan, and the tables step's reports on the rehearsal's
+# made-up world. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.
+run_check analysis.check_target_met
 # The unlock's verify list (A19 items 3 and 13; issue #81): built from the plan's freeze records and held against each
 # amendment's hashes and pins and the committed files; on a made-up root, each entry alone refusing when its file or value
 # is tampered with, and a macOS build or chip that differs reported. No results/, no Docker, no Jev or Anthropic call, nothing

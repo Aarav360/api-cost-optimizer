@@ -153,6 +153,7 @@ HAIKU_PARTS = [
     for section in (final_gates.FREE_SECTION, final_gates.JEV_SECTION)
     for k in (section, final_gates.tasks_key(section))
 ]
+LAST_PARTS = ["flip_rates", "target_met", "headline"]  # #88: the flip rates, target met over every policy, the headline
 INDICATIVE = "Only 2 test items, below the plan's minimum of a few hundred: indicative"
 
 
@@ -446,7 +447,7 @@ def tables(r: Rehearsal) -> None:
           and file["bootstrap"] == {"resamples": 2000, "seed": 2026, "interval": "percentile 95%"},
           "the tables name the split, its 8 items, the snapshot and the seeded bootstrap")  # fmt: skip
     check(
-        list(file["parts"]) == ["references", "stops", "rules", "trained", *HAIKU_PARTS],
+        list(file["parts"]) == ["references", "stops", "rules", "trained", *HAIKU_PARTS, *LAST_PARTS],
         "the tables hold the parts in the order PARTS gives",
     )
     mixes = file["parts"]["references"]["mixes"]
@@ -663,7 +664,7 @@ def extending() -> None:
         inputs = offline_half.test_inputs(state)
         extra = Part("extra", lambda i: {"items": len(i.matrix.items), "seen": sorted(i.extras)}, None)
         built = offline_half.build_tables(inputs, offline_half.PARTS + (extra,))
-        check(list(built["parts"]) == ["references", "stops", "rules", "trained", *HAIKU_PARTS, "extra"] and built["parts"]["extra"] == {"items": 8, "seen": ["gate_table", "rules_table", "trained_facts", "trained_table"]},
+        check(list(built["parts"]) == ["references", "stops", "rules", "trained", *HAIKU_PARTS, *LAST_PARTS, "extra"] and built["parts"]["extra"] == {"items": 8, "seen": ["gate_table", "rules_table", "trained_facts", "trained_table"]},
               "a part added by one line is built after the others and reads its inputs")  # fmt: skip
         extras_in = dataclasses.replace(inputs, extras={"loaded": 1})
         check(extras_in.extras == {"loaded": 1} and offline_half.stops_part(extras_in)["haiku"]["correct"] == 4,
