@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from analysis import final_routers, pareto
+from analysis import final_gates, final_routers, pareto
 from analysis.bootstrap import RESAMPLES, SEED, Bootstrap, resample
 from analysis.final_grading import matrix_path
 from analysis.final_run import Run, StepResult
@@ -91,7 +91,8 @@ EXTRAS: tuple[Extra, ...] = (
     #
     # #84: G's and G+'s router-score tables
     #
-    # #85, #86: the gate-score table
+    # #85, #86: the gate-score table (#86 adds the Sonnet gate's column in `final_gates.test_data` and `dev_data`)
+    Extra(final_gates.GATE_TABLE, final_gates.dev_data, final_gates.test_data, final_gates.gate_data_record),
 )
 
 
@@ -142,7 +143,27 @@ PARTS: tuple[Part, ...] = (
     #
     # #84: G and G+
     #
-    # #85: the free checks and the Jev gate: haiku/free and haiku/Jev
+    # #85: the free checks and the Jev gate: haiku/free and haiku/Jev (dev's per-task rows have no committed numbers)
+    Part(
+        final_gates.FREE_SECTION,
+        final_gates.cascade_part(final_gates.FREE_SECTION),
+        final_gates.committed_part(final_gates.FREE_SECTION),
+    ),  # fmt: skip
+    Part(
+        final_gates.tasks_key(final_gates.FREE_SECTION),
+        final_gates.cascade_part(final_gates.FREE_SECTION, per_task=True),
+        None,
+    ),  # fmt: skip
+    Part(
+        final_gates.JEV_SECTION,
+        final_gates.cascade_part(final_gates.JEV_SECTION),
+        final_gates.committed_part(final_gates.JEV_SECTION),
+    ),  # fmt: skip
+    Part(
+        final_gates.tasks_key(final_gates.JEV_SECTION),
+        final_gates.cascade_part(final_gates.JEV_SECTION, per_task=True),
+        None,
+    ),  # fmt: skip
     #
     # #86: the Sonnet gate: haiku/Sonnet
     #

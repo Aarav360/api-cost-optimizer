@@ -24,7 +24,7 @@ import sys
 from unittest import mock
 
 from analysis import check_final_run as ci
-from analysis import final_grading
+from analysis import final_grading, rehearsal_gates
 from analysis.backends import Backends
 from analysis.final_run import Outcome
 from analysis.made_up_world import made_up_world
@@ -47,11 +47,21 @@ def main() -> int:
     except sandbox.SandboxError as error:
         print(f"FAIL  the real sandbox isn't available: {error}")
         return 1
-    with made_up_world(content()) as made, made_up_world(content()) as stand_in_made:
+    with (
+        made_up_world(content()) as made,
+        made_up_world(content()) as stand_in_made,
+        rehearsal_gates.stand_in(made.world.results) as gates,
+        rehearsal_gates.stand_in(stand_in_made.world.results) as stand_in_gates,
+    ):
         # The same runner, a world that names no sandbox: the grader's own import of the real one stands.
-        real = ci.Rehearsal(made)
-        real.world = dataclasses.replace(real.world, backends=Backends(anthropic=real.anthropic, trained=real.embedder))
-        stand_in = ci.Rehearsal(stand_in_made)
+        real = ci.Rehearsal(made, gates)
+        real.world = dataclasses.replace(
+            real.world,
+            backends=Backends(
+                anthropic=real.anthropic, trained=real.embedder, jev_gate=gates.jev, gate_train=gates.gate_train
+            ),
+        )
+        stand_in = ci.Rehearsal(stand_in_made, stand_in_gates)
         calls = mock.Mock(wraps=sandbox.run_python)
         with mock.patch("harness.evaluators.run_python", calls):  # counts the real sandbox's runs, and calls through
             outcome, _, _ = real.go()

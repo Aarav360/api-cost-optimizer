@@ -45,7 +45,7 @@ from unittest import mock
 
 import numpy as np
 
-from analysis import final_grading, offline_half, rehearsal_trained
+from analysis import final_gates, final_grading, offline_half, rehearsal_gates, rehearsal_trained
 from analysis import rehearsal_world as rehearsal
 from analysis.backends import Backends
 from analysis.fake_anthropic import FakeAnthropic, message_dict
@@ -147,6 +147,12 @@ HAND_TASK_ENVELOPE = {
     "ifeval": {"haiku": (0.35, 0.5), "opus": (16.0, 1.0)},
     "mbppplus": {"haiku": (0.6, 0.5), "opus_low": (16.0, 1.0)},
 }
+# #85: the pure cascades haiku/free and haiku/Jev, each with its per-task rows as a part of their own
+HAIKU_PARTS = [
+    k
+    for section in (final_gates.FREE_SECTION, final_gates.JEV_SECTION)
+    for k in (section, final_gates.tasks_key(section))
+]
 INDICATIVE = "Only 2 test items, below the plan's minimum of a few hundred: indicative"
 
 
@@ -169,13 +175,21 @@ def pinned_reply(params: Mapping[str, Any]) -> dict:
 class Rehearsal:
     """A made-up world in a folder, a counting stand-in sandbox, and what a run printed."""
 
-    def __init__(self, made: MadeUp):
+    def __init__(self, made: MadeUp, gates: rehearsal_gates.GateStandIn):
         self.sandbox_calls = 0
         self.anthropic = FakeAnthropic(respond=pinned_reply)  # the liveness calls' fake: it answers as the model asked
         # F's stand-ins: a fake embedder that has not moved since dev's table was scored (`analysis/rehearsal_trained.py`)
         self.embedder = rehearsal_trained.stand_in(0.0)
+        self.gates = gates  # the Jev gate's fake server, and Stage 7's made-up passes in the world's results folder
         self.world = dataclasses.replace(
-            made.world, backends=Backends(sandbox=self.sandbox, anthropic=self.anthropic, trained=self.embedder)
+            made.world,
+            backends=Backends(
+                sandbox=self.sandbox,
+                anthropic=self.anthropic,
+                trained=self.embedder,
+                jev_gate=gates.jev,
+                gate_train=gates.gate_train,
+            ),
         )
         self.tick = clock()
 
@@ -215,8 +229,8 @@ class Rehearsal:
 
 @contextlib.contextmanager
 def rehearsed(content: Any = None):
-    with made_up_world(content or rehearsal.content()) as made:
-        yield Rehearsal(made)
+    with made_up_world(content or rehearsal.content()) as made, rehearsal_gates.stand_in(made.world.results) as gates:
+        yield Rehearsal(made, gates)
 
 
 class Spy:
@@ -266,8 +280,20 @@ def first_go() -> None:
           "the drift checks, the calls, grading, the tables, the live replay, the record")  # fmt: skip
     built = {step.name for step in STEPS if step.entry is not None}
     check(
-        built == {"unlock", "liveness", "grading", "tables", "record", "drift_trained_router", "calls_rules_trained"},
-        f"the steps built so far are the seven of #79, #82's liveness calls and #83's F drift check and E's and F's calls {built}",
+        built
+        == {
+            "unlock",
+            "liveness",
+            "drift_trained_router",
+            "calls_rules_trained",
+            "drift_jev_gate",
+            "calls_free_checks",
+            "calls_jev_gate",
+            "grading",
+            "tables",
+            "record",
+        },
+        f"the steps built so far are the ten of #79, #82, #83 and #85 {sorted(built)}",
     )
     with rehearsed() as r:
         spy = Spy()
@@ -420,7 +446,7 @@ def tables(r: Rehearsal) -> None:
           and file["bootstrap"] == {"resamples": 2000, "seed": 2026, "interval": "percentile 95%"},
           "the tables name the split, its 8 items, the snapshot and the seeded bootstrap")  # fmt: skip
     check(
-        list(file["parts"]) == ["references", "stops", "rules", "trained"],
+        list(file["parts"]) == ["references", "stops", "rules", "trained", *HAIKU_PARTS],
         "the tables hold the parts in the order PARTS gives",
     )
     mixes = file["parts"]["references"]["mixes"]
@@ -637,7 +663,7 @@ def extending() -> None:
         inputs = offline_half.test_inputs(state)
         extra = Part("extra", lambda i: {"items": len(i.matrix.items), "seen": sorted(i.extras)}, None)
         built = offline_half.build_tables(inputs, offline_half.PARTS + (extra,))
-        check(list(built["parts"]) == ["references", "stops", "rules", "trained", "extra"] and built["parts"]["extra"] == {"items": 8, "seen": ["rules_table", "trained_facts", "trained_table"]},
+        check(list(built["parts"]) == ["references", "stops", "rules", "trained", *HAIKU_PARTS, "extra"] and built["parts"]["extra"] == {"items": 8, "seen": ["gate_table", "rules_table", "trained_facts", "trained_table"]},
               "a part added by one line is built after the others and reads its inputs")  # fmt: skip
         extras_in = dataclasses.replace(inputs, extras={"loaded": 1})
         check(extras_in.extras == {"loaded": 1} and offline_half.stops_part(extras_in)["haiku"]["correct"] == 4,

@@ -8,7 +8,7 @@ A field is None while it is the real one: a ticket that adds a backend adds a fi
 reads it in its own step (`run.world.backends`).
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -37,3 +37,14 @@ class Backends:
     # can't reach the real API. The go's world names no backends at all (`World.backends` None), and gets the real client.
     anthropic: Any = None
     trained: TrainedStandIn | None = None  # F's embedder and dev side: stand-ins in a rehearsal, None for the real ones
+    # The Jev endpoint for the Jev gate's drift resends and its calls on test (`analysis/final_gates.py`): a factory of a
+    # context-managed `routers.jev.JevClient`, `with backends.jev_gate() as client:`. (G's and G+'s are `jev`, #84's.) As with the Anthropic client, None in a world
+    # that names backends is refused, so a rehearsal can't reach the real endpoint; the go's world (no backends) builds the
+    # real client from the pinned settings and the key in the environment.
+    jev_gate: Callable[[], Any] | None = None
+    # Train's answers for the Jev gate's drift resend: given the noise sample's (item, config) pairs, the `GateInput`s
+    # (request, answer, stop reason) the resend sends again. None is the real reader (`collect_gates.gate_inputs("train")`);
+    # a rehearsal gives made-up ones, since it holds no train matrix.
+    gate_train: Callable[[Sequence[tuple[str, str]]], Sequence[Any]] | None = None
+    # The sandbox image's digest a free-check record carries when `sandbox` is a stand-in (the real one is read from Docker).
+    image_digest: str | None = None

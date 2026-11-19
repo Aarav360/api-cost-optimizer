@@ -62,6 +62,13 @@ run_check analysis.check_verify_list
 # client, a model other than the pin stopping the run, and Stage 7's "no test record" guards run on a made-up results folder holding
 # Stage 8's files. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.
 run_check analysis.check_final_ledger
+# Stage 8's free checks and Jev gate on test, and the Jev gate's drift check (A19 items 2, 7 and 13; A17 items 13 and 26; A15 item 17;
+# issue #85): what the gates see (the request, the answer and its stop reason), the three drift refusals each stopping the run before
+# any test call, the free checks with a stand-in sandbox, the Jev gate's calls against a fake server with a resume sending only the
+# unstored ones, the ledger's cap, test's gate-score table refused on each of A17 item 13's conditions, and haiku/free and haiku/Jev
+# at their frozen points against hand-worked numbers. No results/, no Docker, no Jev or Anthropic call, nothing near the real store.
+# CI runs it too.
+run_check analysis.check_final_gates
 run_check analysis.check_routers
 run_check analysis.check_comparisons
 run_check analysis.check_walk
@@ -191,6 +198,9 @@ run_check analysis.check_final_run_sandbox
 # dev requests and the calls score the made-up test requests through routers.trained.score. Needs the snapshot under .cache/; about
 # ten seconds.
 run_check analysis.check_final_run_trained
+# The free checks' code check on made-up MBPP+ answers (with an assert line) in the real sandbox, and the same verdicts as the CI
+# check's stand-in (needs Docker; a few seconds).
+run_check analysis.check_final_gates_sandbox
 # The real verify list on this machine: every freeze, hash and pin of A7, A9, A11, A15 and A17 against the working tree, the
 # model snapshot, the installed libraries, the sandbox image and a run of check_benchmark (the sealed store's hash is the
 # unlock's alone). Needs .cache/ and Docker; about 30 s. No Jev or Anthropic call.
@@ -218,5 +228,8 @@ if [ -f results/dev_matrix.sqlite ]; then
   # The dev reproduction (A19 item 13): the offline half on dev's stored matrix must give A to D's committed dev numbers, to the
   # last stored digit (about 10 s). No gate, no model.
   run_check analysis.check_final_run_dev
+  # The Jev gate's drift check against Stage 7's stored records (A15 item 17; A17 items 26 and 28): the noise sample, D6 and the shift
+  # recomputed, and the frozen call's body hashes against the stored ones. Train only; no gate and no Jev call.
+  run_check analysis.check_final_gates_real
 fi
 echo "the hook passed in $((SECONDS / 60)) min $((SECONDS % 60)) s"

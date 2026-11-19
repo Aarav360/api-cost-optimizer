@@ -234,7 +234,7 @@ def liveness() -> None:
         # opus 34 bytes at $4 and 16,000 at $20 is 136 + 320,000: $0.3521394 in all.
         spend = liveness_step["detail"]["spend"]
         check(close(spend[LIVE]["projected"], 0.3521394) and spend[LIVE]["recorded"] == 0.0 and spend[LIVE]["cap"] == 10.0
-              and spend[CALLS] == {"cap": 25.0, "recorded": 0.0, "projected": 0.0},
+              and spend[CALLS]["cap"] == 25.0 and spend[CALLS]["recorded"] == 0.0 and close(spend[CALLS]["projected"], jev_gate_projection()),
               f"it holds the projection against each cap, before any call: ${spend[LIVE]['projected']:.7f} live, the worst case")  # fmt: skip
         # The fake billed 20 in and 5 out per call: haiku 2 + 2.5 and opus 80 + 100 micro-dollars.
         recorded = final_ledger.recorded_spend(r.world.results, r.world.output)
@@ -254,6 +254,15 @@ def liveness() -> None:
         check(outcome == Outcome() and close(closing[LIVE]["recorded"], 184.5e-6) and closing[LIVE]["cap"] == 10.0
               and closing[CALLS] == {"cap": 25.0, "recorded": 0.0, "projected": 0.0},
               "the record's closing step holds the spend against each cap")  # fmt: skip
+
+
+def jev_gate_projection() -> float:
+    """The Jev gate's projection on the rehearsal's world, by hand (#85): the 8 drift resends at the 1,000 tokens Stage 7 was
+    billed for each plus 512, and each of the 32 test answers' call body in bytes plus 512, at Jev's $0.042 per million."""
+    from analysis import check_final_gates as gates
+
+    bodies = [len(gates.hand_body(request, answer)) for request, answer, _ in gates.made_up_answers().values()]
+    return (8 * (1000 + 512) + sum(bodies) + 32 * 512) * gates.PRICE / 1e6
 
 
 def wrong_model(model_for: dict[str, str]):
