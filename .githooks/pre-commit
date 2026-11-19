@@ -111,6 +111,12 @@ run_check analysis.check_final_sonnet
 # rows through the parts, the file's own thresholds and cutoffs, nothing walked, each refusal, and the rehearsal's own tables
 # recomputed by a loop of the check's own. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.
 run_check analysis.check_final_routed
+# The complete record (A19 items 10 and 13; issue #92): the rehearsal's record holds every field item 10 lists, and a copy with any one
+# removed, or a finer part of one, is refused naming it; the steps before the tables hold no outcome's key; each test record file's
+# sha256 in the record equals the file's, with a changed file, a missing one, a stray one and a wrong size refused; and the tables, the
+# stored files and the record agree on counts, refusals and truncations, spend and step times, each hold failing when its number moves.
+# The same function runs on the committed record after the go (#95). No results/, no Docker, no Jev or Anthropic call. CI runs it too.
+run_check analysis.check_final_record
 run_check analysis.check_routers
 run_check analysis.check_comparisons
 run_check analysis.check_walk

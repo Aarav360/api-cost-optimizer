@@ -358,6 +358,7 @@ def tables_step(run: Run) -> StepResult:
     )
     headline = tables["parts"]["headline"]
     run.say(f"tables: headline, {headline['label']} at realistic 99%: {headline['headline']['reading']}")
-    # The stops are in the log and the tables file; the record's own fields for them are item 10's (#92).
-    return StepResult(detail={"file": path.name, "items": len(inputs.matrix.items), "extras": kept, "target_met": counts,
-                              "headline": headline["headline"]["reading"]})  # fmt: skip
+    # The record keeps the stops too (item 10's refusals and truncations): this step is the first allowed to show them, so no
+    # earlier step's detail holds one
+    return StepResult(detail={"file": path.name, "items": len(inputs.matrix.items), "extras": kept, "stops": stops,
+                              "target_met": counts, "headline": headline["headline"]["reading"]})  # fmt: skip

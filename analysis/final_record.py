@@ -8,8 +8,15 @@ per go, in order, because a resume is a new go that runs the unlock again and th
                                                                               "requests", "detail"}]}]}
 
 Before the tables step the record holds only what A19 item 5 lets be shown: times, call and request counts and spend. A
-step's `detail` is for that kind of fact only. #92 completes the record with item 10's other fields, by adding
-to what a step's result carries and to `finish` (the environment, the file hashes, the spend against each cap).
+step's `detail` is for that kind of fact only. Item 10's fields sit in the steps' details and the unlock's entry, and
+`analysis/final_record_fields.py` lists where, holds the record to the list and the tables to the record:
+
+- the unlock's entry: commit, time, hook, the environment, each check's result, the 100 replay items (`checks`, `replay_draw`);
+- the liveness step: the returned model IDs; the four drift steps: D6, D8, the shifts, the flips, F's largest difference;
+- `calls_jev_router`: the first test Jev call's server `Date`; `calls_sonnet_gate`: the test batch's ID and creation time;
+- the tables step, the first allowed to show outcomes: the stops (refusals and truncations), F's fold shares and the extras'
+  counts; the replay step: its conditions, with the first call and any reconnects apart;
+- the closing step: the spend against each cap and the sha256 of every test record file.
 
 Nothing in it is a grade, and a check searches it for the rehearsal's markers (`analysis/check_final_run.py`).
 """
@@ -68,7 +75,7 @@ class Record:
         self.save()
 
     def finish(self, now: str) -> None:
-        """The go ran every step. #92 adds item 10's closing fields here."""
+        """The go ran every step. Item 10's closing fields (the spend, the file hashes) are the closing step's own detail."""
         self.go["ended"] = now
         self.save()
 

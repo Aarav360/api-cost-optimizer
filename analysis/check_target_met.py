@@ -41,7 +41,6 @@ from analysis.bootstrap import Bootstrap
 from analysis.cascade_comparisons import GATE_COST_ORDER
 from analysis.check_final_run import rehearsed
 from analysis.final_design import TABLE_V4
-from analysis.final_record import RECORD_FILE
 from analysis.final_run import STEPS, Run, Step, StepResult
 from analysis.matrix import Matrix
 from analysis.offline_half import STOPS_LABEL
@@ -541,10 +540,17 @@ def rehearsal() -> None:
               and head["headline"]["cost_per_1k"] == parts[best]["mixes"]["realistic"]["99%"]["cost_per_1k"],
               "and it carries that point's quality and cost")  # fmt: skip
         before, after = r.log.split("tables: starts")
-        record = (r.world.output / RECORD_FILE).read_text(encoding="utf-8")
+        # The record keeps the stops from the tables step on (item 10); its earlier steps hold none
+        steps = r.record["gos"][-1]["steps"]
+        names = [step["name"] for step in steps]
+        record = json.dumps(steps[: names.index("tables")])
         check(not shown(before) and not shown(record) and not shown(err) and "target met at a margin" not in before
               and "tables: headline" not in before,
-              "refusal and truncation counts, target met and the headline appear in no output and no record before the tables step")  # fmt: skip
+              "refusal and truncation counts, target met and the headline appear in no output and in no record step before the tables step")  # fmt: skip
+        check(
+            shown(json.dumps(steps[names.index("tables")])),
+            "the tables step's own record holds the refusals and truncations",
+        )
         stops_line = next(line for line in after.splitlines() if STOPS_LABEL in line)
         check(json.loads(stops_line.split(f"{STOPS_LABEL}: ", 1)[1]) == STOPS,
               "and the tables step reports each config's refusals and truncations: the planted refusal on sonnet and the grade's stop on haiku")  # fmt: skip

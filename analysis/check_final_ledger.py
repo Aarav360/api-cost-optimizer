@@ -251,7 +251,8 @@ def liveness() -> None:
               "a second go asks again, and the fake received both again: no call is answered from a cache")  # fmt: skip
         final = r.record["gos"][1]["steps"][1]["detail"]["spend"]
         check(close(final[LIVE]["recorded"], 184.5e-6), "and its projection sees the first go's spend as recorded")
-    with rehearsal.rehearsed() as r:
+    with rehearsal.rehearsed() as r, mock.patch("analysis.final_record_fields.file_hashes", lambda results, output: {}):
+        # (the file hashes are #92's, held by `analysis/check_final_record.py`; this go has not written the files they name)
         outcome, _, _ = r.go((STEPS[0], STEPS[1], STEPS[-1]))
         closing = r.record["gos"][0]["steps"][-1]["detail"]["spend"]
         check(outcome == Outcome() and close(closing[LIVE]["recorded"], 184.5e-6) and closing[LIVE]["cap"] == 10.0

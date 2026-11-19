@@ -88,7 +88,7 @@ STEPS = (
     Step("tables", "analysis.offline_half:tables_step"),
     # #91
     Step("replay", "analysis.final_replay:replay_step"),
-    # #92 completes the record, in analysis/final_record.py and `record_step`
+    # #92 completes the record: `record_step` writes the closing fields, analysis/final_record_fields.py lists them all
     Step("record", "analysis.final_run:record_step"),
 )
 
@@ -163,10 +163,18 @@ def unlock_step(run: Run) -> StepResult:
 
 
 def record_step(run: Run) -> StepResult:
-    """The last step: the record's closing fields (#92 completes them). The go's end is written by the runner."""
+    """The last step: the record's closing fields (A19 item 10), the spend against each cap as the stored records give it and the
+    sha256 of every test record file (`analysis/final_record_fields.py`). A file that should exist and doesn't refuses. The go's
+    end is written by the runner."""
     from analysis.final_ledger import spend_report  # here, since the ledger imports this module's `StepRefusal`
+    from analysis.final_record_fields import FilesError, file_hashes
 
-    return StepResult(detail={"file": RECORD_FILE, "spend": spend_report(run.world)})
+    try:
+        files = file_hashes(run.world.results, run.world.output)
+    except FilesError as error:
+        raise StepRefusal(str(error)) from None
+    run.say(f"record: {len(files)} test record files hashed")
+    return StepResult(detail={"file": RECORD_FILE, "spend": spend_report(run.world), "files": files})
 
 
 def resolve(entry: str) -> Callable[[Run], StepResult | None]:

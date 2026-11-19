@@ -583,14 +583,23 @@ def extra_step(run: Run) -> StepResult:
 def markers(r: Rehearsal, out: str, err: str) -> None:
     print("\n-- nothing shows an outcome before the tables step; the tables hold it --")
     before = r.log.split("tables: starts")[0]
-    record = (r.world.output / RECORD_FILE).read_text(encoding="utf-8")
+    # The record keeps the stops from the tables step on (A19 item 10: the refusals and truncations), and a stop reason is the
+    # grade's marker here; every other part of the record, the tables step's own detail included, holds no marker
+    kept = r.record
+    tables_detail = next(s for s in kept["gos"][-1]["steps"] if s["name"] == "tables")["detail"]
+    stops = json.dumps(tables_detail.pop("stops"))
+    record = json.dumps(kept)
     check(
         "grading: 32 answers graded" in before and "tables: starts" in r.log,
         "the cut is after grading and before the tables",
     )
     check(not leaks(before) and not leaks(record) and not leaks(err),
           "no marker (an expected answer's, an answer's, a thinking block's or a grade's) is in what the run printed or logged "
-          "before the tables step, or in the record")  # fmt: skip
+          "before the tables step, or in the record outside the tables step's stops")  # fmt: skip
+    check(
+        leaks(stops) == [rehearsal.GRADE_MARKER],
+        "the record's stops, which the tables step keeps, hold the grade's marker as a status key",
+    )
     tables_text = (r.world.output / "tables_test.json").read_text(encoding="utf-8")
     check(rehearsal.GRADE_MARKER in tables_text, "the grade's marker is in the tables, so a search for it can find it")
     check(rehearsal.GRADE_MARKER not in tables_text.replace(f'"{rehearsal.GRADE_MARKER}"', ""),
