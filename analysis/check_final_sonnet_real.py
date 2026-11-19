@@ -43,6 +43,7 @@ def check(ok: bool, what: str) -> None:
 def main() -> int:
     results = PROJECT_ROOT / "results"
     settings = sonnet_gate.load_settings()
+    print("\n-- the noise sample and its numbers --")
     batch = collect_sonnet_gate.read_sonnet_records("train", results)
     latency = collect_sonnet_gate.read_latency_records("train", results)
     sample = [(str(r["item_id"]), str(r["config"])) for r in latency]
@@ -60,6 +61,7 @@ def main() -> int:
     check("D6 0.0266 shift +0.0006 over 77 answers (3 left out)" in plan,
           "the plan's text holds the committed 0.0266, +0.0006, 77 and 3 the recomputation is held to")  # fmt: skip
 
+    print("\n-- the frozen request and the cutoffs --")
     run = SimpleNamespace(world=SimpleNamespace(backends=None))
     inputs = final_gates.drift_inputs(run, sample)  # type: ignore[arg-type]  # a stand-in for the Run: only the world is read
     jobs = final_sonnet.drift_jobs(inputs, settings)
@@ -78,6 +80,7 @@ def main() -> int:
     flips = final_gates.gate_flips(scores, scores, labels)
     check(all(not f.items for f in flips) and len(flips) == 3, "known zero: a pass compared with itself flips nothing")
 
+    print("\n-- the projection --")
     pending_dollars = 80 * final_sonnet.dollars_per_check(batch=False)
     manifest = json.loads((PROJECT_ROOT / "data" / "benchmark_manifest.json").read_text(encoding="utf-8"))
     test_items = sum(task["splits"]["test"] for task in manifest["tasks"].values())  # counts only: no item, no answer

@@ -18,6 +18,11 @@ Allowed: the unlock; the collection module (the store's writer); and the go's en
 path. The search has to find the unlock and the collection module, so it can't pass by matching nothing, and it has to
 flag each planted module below, so it can't pass by missing a way of reading.
 
+The same parse finds who reads the handle's graded items, the one read that holds the expected answers: A19 item 4 and story
+28 give them to grading and nothing else, so `analysis/final_grading.py` is the one module that may name the read (the replay's
+grading goes through it). The checks (`check_*.py`) build their own made-up handles and may call it. The Stage 8 review found
+the live replay's projection and the table builder reading it, for token counts and source groups the fourth read gives.
+
 The field and function names come from the modules themselves (`Paths`, `World`), so this check never spells the
 path's field out of nothing. Not covered: a module that builds a `Paths` over the real results folder with
 `paths_under`; the store's file name in such a module is `harness/check_sealed.py`'s to catch.
@@ -28,6 +33,7 @@ import dataclasses
 import re
 import sys
 from collections.abc import Mapping
+from pathlib import Path
 
 from analysis import unlock
 from analysis.checking import git
@@ -36,6 +42,8 @@ from harness import collect
 from harness.client import PROJECT_ROOT
 
 GO = "analysis/final_go.py"  # the go's entry point (#79), which nothing runs before the go
+GRADED_READ = unlock.Handle.graded_items.__name__
+GRADING = "analysis/final_grading.py"  # the one module that may name the graded read
 ALLOWED = {
     "analysis/unlock.py": "the unlock opens and hashes the store",
     "harness/collect.py": "the collection module writes the store",
@@ -89,6 +97,21 @@ def readers_in(source: str) -> list[str]:
     return found
 
 
+def graded_readers_in(source: str) -> list[str]:
+    """Where `source` names the handle's graded read (an attribute access, called or not), one reason each."""
+    return [
+        f"line {node.lineno}: names the graded read" for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Attribute) and node.attr == GRADED_READ
+    ]  # fmt: skip
+
+
+def graded_readers(texts: Mapping[str, str]) -> set[str]:
+    """The files that name the graded read, leaving out the checks (`check_*.py`), which build their own made-up handles."""
+    return {
+        path for path, text in texts.items() if not Path(path).name.startswith("check_") and graded_readers_in(text)
+    }
+
+
 def readers(texts: Mapping[str, str]) -> set[str]:
     """The files whose code reads the store's path."""
     return {path for path, text in texts.items() if readers_in(text)}
@@ -134,6 +157,23 @@ def main() -> int:
     check(GO in found, "the search finds the go's entry point, which reads the collection module's path")
     missing = sorted(name for name in ALLOWED if not (PROJECT_ROOT / name).is_file())
     check(not missing, f"every allowed module exists {missing}")
+
+    print("\n-- only final grading names the graded read, the one that holds the expected answers --")
+    planted_graded = {
+        "calls.py": f"def go(handle):\n    return handle.{GRADED_READ}()\n",
+        "aliased.py": f"read = handle.{GRADED_READ}\n",
+        f"{Path(GRADING).parent}/other.py": f"for g in run.unlocked().{GRADED_READ}():\n    pass\n",
+    }
+    for name, text in planted_graded.items():
+        check(graded_readers({name: text}) == {name}, f"a planted module naming the graded read is found: {name}")
+    check(graded_readers({"check_x.py": f"handle.{GRADED_READ}()\n"}) == set(),
+          "a check that builds its own made-up handle isn't flagged")  # fmt: skip
+    check(graded_readers({"fine.py": f'"""{GRADED_READ} in a docstring."""\nx = handle.stored_results()\n'}) == set(),
+          "a docstring, or a read that holds no expected answer, isn't flagged")  # fmt: skip
+    graded = graded_readers({p: (PROJECT_ROOT / p).read_text(encoding="utf-8") for p in paths})
+    check(GRADING in graded, "the search finds final grading, its known positive")
+    others = sorted(graded - {GRADING, "analysis/unlock.py"})  # the unlock defines the read; nothing else may name it
+    check(not others, f"no other module names the graded read {others}")
 
     print("\n-- nothing runs the go's entry point before the go --")
     stem = GO.removesuffix(".py").rpartition("/")[2]  # spelled out in pieces, so this file doesn't match its own search

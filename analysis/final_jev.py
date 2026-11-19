@@ -33,9 +33,10 @@ from pathlib import Path
 from typing import Any
 
 from analysis import collect_jev, jev_train_report
+from analysis.backends import required
 from analysis.collect_jev import STAGE_8_SPLITS, Item
-from analysis.drift_rule import JEV_PIN, DriftReport, apply_rule, decision_flips, measures_of
-from analysis.final_ledger import check_projection
+from analysis.drift_rule import JEV_PIN, DriftReport, apply_rule, decision_flips, measures_of, returned_models
+from analysis.final_ledger import Meter, MeteredJev, check_projection
 from analysis.final_run import ItemFailure, Run, StepRefusal, StepResult
 from analysis.fit_jev_router import noise_difference
 from analysis.gate_spend import jev_projected_cost
@@ -71,16 +72,17 @@ class Setup:
 def setup_of(world: World) -> Setup:
     """The real settings, weights and key for the go's world, the world's own stand-in for a rehearsal's. A world that names
     backends and no stand-in is refused: only the go's world gets the real Jev."""
-    backends = world.backends
-    if backends is None:
+    stand_in = required(world.backends, "jev", "Jev stand-in", JevStepRefusal)
+    if stand_in is None:
         loaded = collect_jev.load_settings()
         return Setup(loaded, jev.read_weights(loaded.call), lambda: jev.JevClient(loaded.client), world.results)
-    stand_in = backends.jev
-    if stand_in is None:
-        raise JevStepRefusal(
-            "the world names backends but no Jev stand-in: only the go's world, which names none, gets the real Jev"
-        )
     return Setup(stand_in.loaded, stand_in.weights, stand_in.client, stand_in.train_results or world.results)
+
+
+def metered(run: Run, client: jev.JevClient, setup: Setup) -> Any:
+    """`client` with the $25 pool's meter around it: before each call the pool's recorded spend, plus what this step has been
+    billed, plus the call's projection must fit the cap (`analysis/final_ledger.py`)."""
+    return MeteredJev(client, Meter.of(run), setup.loaded.client.price_per_million_input_tokens)
 
 
 def weights_of(router: str, setup: Setup) -> jev.GPlusWeights | None:
@@ -144,10 +146,7 @@ def measure_drift(router: str, setup: Setup, world: World, items: list[Item]) ->
                              f"such as {lacking[0]}")  # fmt: skip
     resend_scores = scores_of(router, {i: resent[i] for i in requests}, requests, setup)
     resend_noise = noise_difference(first_scores, resend_scores, SCORED)
-    models: list[object] = []
-    for record in resent.values():
-        response = record["response"]
-        models += [record["model"], response.get("model") if isinstance(response, dict) else None]
+    models = returned_models(resent.values(), lambda r: r["response"])
     flips = decision_flips(first_scores, resend_scores, drift_labels(router))
     return apply_rule(check, pin=JEV_PIN, model_ids=models, measures=measures_of(noise, resend_noise), flips=flips)
 
@@ -161,13 +160,14 @@ def drift_step(run: Run) -> StepResult:
     items = collect_jev.noise_items(setup.loaded, run.world.benchmark)
     sent = stored = 0
     reports: dict[str, Any] = {}
-    with setup.client() as client:
+    with setup.client() as raw:
+        client = metered(run, raw, setup)  # each resend asks the ledger first
         for router in ROUTERS:
             current: list[str] = []
             try:
                 summary = collect_jev.collect(
                     items, router=router, split=DRIFT, loaded=setup.loaded, client=client, results_dir=run.world.results,
-                    splits=STAGE_8_SPLITS, before_call=current.append,
+                    handle=run.unlocked(), before_call=current.append,
                 )  # fmt: skip
             except Exception as error:
                 raise ItemFailure(current[-1] if current else f"{router} {DRIFT}") from error
@@ -184,7 +184,7 @@ def describe(letter: str, report: DriftReport) -> str:
     measures = "; ".join(
         f"{config} D6 {m.d6:.4f} D8 {m.d8:.4f} shift {m.shift:+.4f}" for config, m in report.measures.items()
     )
-    flipped = {f.threshold: len(f.items) for f in report.flips}
+    flipped = {f.value: len(f.items) for f in report.flips}
     return f"{DRIFT_CHECK}: {letter} on {', '.join(report.model_ids)}: {measures}; decisions that flip by threshold {flipped}"
 
 
@@ -243,13 +243,14 @@ def calls_step(run: Run) -> StepResult:
     account = check_projection(run)  # a projection over the cap refuses before the first call
     setup = setup_of(run.world)
     sent = stored = 0
-    with setup.client() as client:
+    with setup.client() as raw:
+        client = metered(run, raw, setup)  # each call asks the ledger first
         for router in ROUTERS:
             current: list[str] = []
             try:
                 summary = collect_jev.collect(
                     items, router=router, split=TEST, loaded=setup.loaded, client=client, results_dir=run.world.results,
-                    splits=STAGE_8_SPLITS, before_call=current.append,
+                    handle=run.unlocked(), before_call=current.append,
                     progress=progress_of(run, LETTER_OF[router]),
                 )  # fmt: skip
             except Exception as error:

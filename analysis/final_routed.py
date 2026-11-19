@@ -23,10 +23,11 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from analysis.final_gates import GATE_TABLE, committed_part, tasks_key
+from analysis.final_gates import GATE_TABLE
 from analysis.gate_table import GateScoreTable
-from analysis.operating_eval import FrozenPoint, FrozenPointError
+from analysis.operating_eval import FrozenPoint, at_threshold, cascade_rows, frozen_points
 from analysis.operating_points import OPERATING_POINTS_FILE
+from analysis.replay_plan import ROUTER_TABLES
 from analysis.routed_walk import routed_traces
 from analysis.router_names import GATE_LABELS, HAIKU, NAMED_ROUTERS, cascade_section, parse_cascade
 from analysis.router_table import RouterScoreTable
@@ -35,22 +36,10 @@ from analysis.simulator import Trace
 if TYPE_CHECKING:
     from analysis.offline_half import Inputs
 
-__all__ = [
-    "ROUTED",
-    "ROUTER_TABLES",
-    "FinalRoutedError",
-    "committed_part",
-    "routed_part",
-    "routed_traces_of",
-    "tasks_key",
-]
+__all__ = ["ROUTED", "ROUTER_TABLES", "FinalRoutedError", "routed_part", "routed_traces_of"]
 
 # The twelve sections, in item 8's order: E, F, G and G+, each with the free checks, the Jev gate and the Sonnet gate.
 ROUTED = tuple(cascade_section(start, gate) for start in NAMED_ROUTERS.values() for gate in GATE_LABELS)
-# The `Extra` holding each router's table (E and F: `analysis/final_routers.py`; G and G+: `analysis/final_jev.py`).
-ROUTER_TABLES = {
-    section: f"{section}_table" for section in NAMED_ROUTERS.values()
-}  # rules_table ... jev_bolstered_table
 
 
 class FinalRoutedError(ValueError):
@@ -64,14 +53,7 @@ def routed_traces_of(
     routes and holds no threshold (FrozenPointError), and what `cascade_trace` refuses (GateTableError): a cutoff on the free
     checks, a paid gate with none, a gate no amendment names, and a gate call the table has no entry for."""
 
-    def traces_of(point: FrozenPoint) -> list[Trace]:
-        if point.threshold is None:
-            raise FrozenPointError(
-                f"{point.section} {point.mix} {point.target} does not fall back but has no threshold"
-            )
-        return routed_traces(router, table, gate, point.cutoff, point.threshold)
-
-    return traces_of
+    return at_threshold(lambda point, threshold: routed_traces(router, table, gate, point.cutoff, threshold))
 
 
 def routed_part(
@@ -87,33 +69,14 @@ def routed_part(
         raise FinalRoutedError(f"{section} is not a router-started cascade ({list(ROUTED)})")
 
     def build(inputs: "Inputs") -> dict:
-        from analysis import pareto
-        from analysis.cascade_comparisons import escalation_rate
-        from analysis.operating_eval import evaluate, frozen_points, mix_rows, shared_fixed, shared_savings, task_rows
-        from analysis.simulator import load_mixes
-
         name = ROUTER_TABLES[start]
         if name not in inputs.extras or GATE_TABLE not in inputs.extras:
             raise FinalRoutedError(f"{section} reads the extras {name!r} and {GATE_TABLE!r}; the inputs hold "
                                    f"{sorted(inputs.extras)}")  # fmt: skip
         router: RouterScoreTable = inputs.extras[name]
         gates: GateScoreTable = inputs.extras[GATE_TABLE].table
-        fixed = shared_fixed(inputs.cache, inputs.matrix)
-        outcomes = evaluate(
-            inputs.matrix, fixed["opus"], frozen_points(section, path), routed_traces_of(router, gates, gate)
+        return cascade_rows(
+            inputs, frozen_points(section, path), routed_traces_of(router, gates, gate), per_task=per_task
         )
-        if per_task:
-            return {"tasks": task_rows(inputs.draws, fixed, outcomes, list(pareto.TASKS))}
-        mixes = load_mixes()
-        rows = mix_rows(inputs.draws, lambda mix: shared_savings(inputs.cache, inputs.matrix, inputs.draws, mix),
-                        fixed, outcomes, mixes)  # fmt: skip
-        for (
-            point,
-            found,
-        ) in outcomes.items():  # a cascade's row holds its cutoff (None for the free checks) and its escalation
-            row = rows[point.mix][point.target]
-            row.setdefault("cutoff", None)
-            row["escalation_rate"] = 0 if point.fell_back else escalation_rate(found, mixes[point.mix])
-        return {"mixes": rows}
 
     return build

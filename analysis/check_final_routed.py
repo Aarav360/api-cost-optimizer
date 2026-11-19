@@ -39,7 +39,7 @@ from unittest import mock
 
 import numpy as np
 
-from analysis import final_routed, offline_half, routed_walk
+from analysis import final_gates, final_routed, offline_half, routed_walk
 from analysis.bootstrap import Bootstrap
 from analysis.gate_table import GateRow, GateScoreTable, GateTableError, PaidScore
 from analysis.matrix import Matrix
@@ -488,7 +488,7 @@ def rehearsal() -> None:
         check(outcome.stopped_at is None, "the whole made-up run goes through, the tables step included")
         parts = r.tables["parts"]
         inputs = offline_half.test_inputs(unlocked_run(r))
-        check(all(s in parts and final_routed.tasks_key(s) in parts for s in final_routed.ROUTED),
+        check(all(s in parts and final_gates.tasks_key(s) in parts for s in final_routed.ROUTED),
               "the tables hold each cascade's part and its per-task part")  # fmt: skip
         for router in ROUTERS:
             for gate in CUTOFF:
@@ -530,7 +530,7 @@ def rehearsal() -> None:
 def the_lines() -> None:
     print("\n-- the twelve cascades' lines in the offline half --")
     keys = [part.key for part in offline_half.PARTS]
-    wanted = [k for section in final_routed.ROUTED for k in (section, final_routed.tasks_key(section))]
+    wanted = [k for section in final_routed.ROUTED for k in (section, final_gates.tasks_key(section))]
     expected_order = [
         cascade_section(r, g)
         for r in ("rules", "trained", "jev", BOLSTERED)
@@ -545,7 +545,7 @@ def the_lines() -> None:
           "all 24 parts are in PARTS, in order, above flip_rates, target met and the headline")  # fmt: skip
     by_key = {part.key: part for part in offline_half.PARTS}
     check(all(by_key[s].committed is not None for s in final_routed.ROUTED)
-          and all(by_key[final_routed.tasks_key(s)].committed is None for s in final_routed.ROUTED),
+          and all(by_key[final_gates.tasks_key(s)].committed is None for s in final_routed.ROUTED),
           "each cascade's part names its committed dev numbers, and its per-task part has none (dev committed none)")  # fmt: skip
     extras = {extra.name for extra in offline_half.EXTRAS}
     check(set(final_routed.ROUTER_TABLES.values()) <= extras and "gate_table" in extras,

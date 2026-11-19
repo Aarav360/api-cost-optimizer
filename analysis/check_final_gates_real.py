@@ -39,6 +39,7 @@ def check(ok: bool, what: str) -> None:
 def main() -> int:
     results = PROJECT_ROOT / "results"
     settings = jev_gate.read_settings()
+    print("\n-- the noise sample and its numbers --")
     train = collect_jev_gate.read_records("train", results)
     sample = final_gates.drift_sample(results)
     drawn = noise_lists(read_free_records("train", results), read_noise_settings())["jev"]
@@ -53,6 +54,7 @@ def main() -> int:
     plan = (PROJECT_ROOT / "PLAN_v4.md").read_text(encoding="utf-8")
     check("0.0144" in plan, "the plan's text holds the committed 0.0144 the recomputation is held to")
 
+    print("\n-- the frozen call and the cutoffs --")
     run = SimpleNamespace(world=SimpleNamespace(backends=None))
     inputs = final_gates.drift_inputs(run, sample)  # type: ignore[arg-type]  # a stand-in for the Run: only the world is read
     first = {(r["item_id"], r["config"]): r for r in train if r["pass"] == 1}
@@ -69,6 +71,7 @@ def main() -> int:
     flips = final_gates.gate_flips(scores, scores, labels)
     check(all(not f.items for f in flips) and len(flips) == 6, "known zero: a pass compared with itself flips nothing")
 
+    print("\n-- the projection --")
     price = jev.read_client_settings().price_per_million_input_tokens
     tokens = sum(collect_jev_gate.input_tokens(first[k]) + 512 for k in sample)
     check(tokens * price / 1e6 < 1.0, f"the resends are projected at ${tokens * price / 1e6:.4f}, well under a dollar")

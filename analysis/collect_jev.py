@@ -58,6 +58,7 @@ from pathlib import Path
 
 from analysis.benchmark import BenchmarkError, read_rows
 from analysis.router_names import G_PLUS, NAMED_ROUTERS, G
+from analysis.unlock import Handle, require_issued
 from harness.client import PROJECT_ROOT
 from routers import jev, jev_call
 from routers.request import Request, from_row
@@ -65,8 +66,9 @@ from routers.request import Request, from_row
 RESULTS_DIR = PROJECT_ROOT / "results"
 SPLITS = ("train", "dev", "smoke")
 # Stage 8's two labels (A19 items 9 and 13; `analysis/record_files.py`): test's calls and the drift check's resends of train
-# items. They are not in `SPLITS`, so every caller here still refuses them; only `analysis/final_jev.py`, with the unlocked
-# handle in hand, passes `splits=STAGE_8_SPLITS` and a Stage 8 call reaches Jev.
+# items. They are not in `SPLITS`, so every caller here still refuses them; `collect` writes one only given a handle the
+# unlock issued (`handle=`, A19 item 4), and `analysis/final_jev.py` is the caller that has one. Reading a stored record of
+# one (`read_records(..., splits=STAGE_8_SPLITS)`) needs none: it is a file, not a call.
 STAGE_8_SPLITS = (*SPLITS, "test", "drift")
 PASSES = (1, 2)  # 2 is the noise pass
 STORED_FIELDS = (
@@ -295,17 +297,21 @@ def collect(
     pass_number: int = 1,
     now: Callable[[], str] = now_local,
     progress: Callable[[int, int], None] | None = None,
-    splits: Sequence[str] | None = None,
+    handle: Handle | None = None,
     before_call: Callable[[str], None] | None = None,
 ) -> Summary:
     """Send every item not yet stored for this router, split and pass, storing each record as it comes.
 
     Everything that can be refused is refused before the first call. `budget_bytes` replaces the settings file's for
     this router (null there until the smoke test fills it in). A `RunStop` from the client ends the run and
-    names the request; the records stored before it stay valid. `splits` is the labels this call may use (Stage 8 passes
-    `STAGE_8_SPLITS`); `before_call(item_id)` is told which item is about to be sent, so a caller can name the item a
-    failure stopped on."""
-    if router not in ROUTERS or split not in (SPLITS if splits is None else splits) or pass_number not in PASSES:
+    names the request; the records stored before it stay valid. A Stage 8 label (`test`, `drift`) is written only with a
+    `handle` the unlock issued (A19 item 4: everything that runs on test takes it); a plain `"test"`, or a handle the unlock
+    didn't issue (`HandleError`), is refused before anything is read or sent. `before_call(item_id)` is told which item is
+    about to be sent, so a caller can name the item a failure stopped on."""
+    if handle is not None:
+        require_issued(handle)
+    splits = SPLITS if handle is None else STAGE_8_SPLITS
+    if router not in ROUTERS or split not in splits or pass_number not in PASSES:
         raise CollectError(f"unknown router {router!r}, split {split!r} or pass {pass_number!r}")
     if pass_number == 2 and split != "train":
         raise CollectError("the noise pass sends train items only")

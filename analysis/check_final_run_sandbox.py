@@ -60,8 +60,7 @@ def main() -> int:
             backends=Backends(
                 anthropic=real.anthropic,
                 trained=real.embedder,
-                jev=real.jev.stand_in,
-                jev_gate=gates.jev,
+                jev=dataclasses.replace(real.jev.stand_in, gate=gates.jev),
                 gate_train=gates.gate_train,
             ),
         )

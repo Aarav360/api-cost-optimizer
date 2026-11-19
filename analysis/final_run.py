@@ -177,7 +177,8 @@ def record_step(run: Run) -> StepResult:
     return StepResult(detail={"file": RECORD_FILE, "spend": spend_report(run.world), "files": files})
 
 
-def resolve(entry: str) -> Callable[[Run], StepResult | None]:
+def resolve(entry: str) -> Callable[[Run], Any]:
+    """The function an entry `"module:function"` names: a step `(run) -> StepResult | None`, or a projector `(run) -> dollars`."""
     module, _, function = entry.partition(":")
     return getattr(importlib.import_module(module), function)
 

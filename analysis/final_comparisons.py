@@ -29,7 +29,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from analysis import cascade_comparisons as cc
-from analysis.operating_eval import FrozenPoint
+from analysis.operating_eval import MIXES, FrozenPoint
 from analysis.references import TARGETS
 from analysis.router_names import NAMED_ROUTERS
 from analysis.same_target import SameTarget, compare_outcomes
@@ -37,8 +37,6 @@ from analysis.simulator import Outcome, load_mixes
 from analysis.table_v2 import DESCRIPTIVE
 from analysis.table_v4 import HEADLINE, QUESTIONS, TABLE_V4
 from analysis.trained_diagnostics import same_target_data
-
-MIXES = ("realistic", "uniform")
 
 # The write-up's declared questions, in its order (`WRITEUP.md`, "The declared questions"): the heading, the group of item 22
 # the pairs come from, and the pairs taken (None: all of the group's). The first two pull `haiku/Jev` against G and G+ out of

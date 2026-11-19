@@ -17,17 +17,23 @@ pool (a resume projects only requests with no stored response). The liveness ste
 (`check_projection`) and refuses (`LedgerRefusal`) when a pool's recorded spend plus its projection is over its cap, before
 anything is sent. A step that sends in batches also asks `refusal` before each submission. A spend that can't be known can't
 be under a cap, so a record without whole billed token counts, or a Stage 8 file the ledger has no price for, refuses.
+
+**Before each call** (the Stage 8 review's spec 3: "collectors consult it before they submit"): a step that calls one by one
+(G's and G+'s Jev calls, the Jev gate, the Sonnet gate's drift resends) holds a `Meter`: the pool's recorded spend read once from
+the stored records when the step starts, plus the dollars each call of the step was billed, which it counts as the call returns.
+`Meter.before(projected)` refuses (`LedgerRefusal`) a call whose projected cost would take the pool over its cap, so a run that
+costs more than its projection still stops at the cap, and `MeteredJev` puts that around a Jev client. The meter counts what the
+step itself sent; it doesn't re-read the files per call, which at about 20,000 stored records would cost more than the calls.
 """
 
-import importlib
-import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from analysis.final_run import StepRefusal
-from analysis.gate_spend import GateSpendError, billed_tokens, jev_dollars, list_dollars
+from analysis import record_files
+from analysis.final_run import StepRefusal, resolve
+from analysis.gate_spend import GateSpendError, billed_tokens, jev_dollars, jev_projected_cost, list_dollars
 from analysis.record_files import BATCH, FREE, JEV, STAGE_8_FILES, files_in, is_stage_8
 from analysis.world import World
 from harness.client import load_models
@@ -89,16 +95,55 @@ PROJECTORS = (
 )
 
 
-def _records(path: Path) -> list[object]:
-    """Each complete record of a stored file; a torn last line (no newline) is a write that did not finish."""
-    lines = path.read_bytes().decode("utf-8").split("\n")[:-1]
-    result = []
-    for number, line in enumerate(lines, start=1):
+class Meter:
+    """One step's running spend in one pool: what the stored records held when it started, and what each call it has made was
+    billed since. A running count, so not a record."""
+
+    def __init__(self, recorded: float, pool: str = CALLS):
+        self.pool, self.recorded, self.spent = pool, recorded, 0.0
+
+    @classmethod
+    def of(cls, run: "Run", pool: str = CALLS) -> "Meter":
+        """A meter started from the pool's recorded spend (a spend that can't be counted refuses, as `check_projection` does)."""
         try:
-            result.append(json.loads(line))
-        except ValueError as error:
-            raise GateSpendError(f"{path.name} line {number} is not JSON") from error
-    return result
+            return cls(recorded_spend(run.world.results, run.world.output).of(pool), pool)
+        except GateSpendError as error:
+            raise LedgerRefusal(f"the recorded spend can't be counted: {error}; nothing was sent") from error
+
+    def before(self, projected: float) -> None:
+        """Refuse (LedgerRefusal) a call whose projected cost, with what is recorded and what the step has been billed, would be
+        over the pool's cap. Call it before the call is sent."""
+        total = self.recorded + self.spent
+        words = refusal(Spend(total if self.pool == CALLS else 0.0, total if self.pool == LIVE else 0.0, 0),
+                        {self.pool: projected})  # fmt: skip
+        if words:
+            raise LedgerRefusal(words)
+
+    def paid(self, dollars: float) -> None:
+        self.spent += dollars
+
+
+class MeteredJev:
+    """A Jev client that asks its meter before each call and counts the input tokens the call was billed, at Jev's price.
+    Everything else about the client (its retries, its stop) is the inner client's."""
+
+    def __init__(self, client: Any, meter: Meter, price_per_million: float):
+        self.client, self.meter, self.price = client, meter, price_per_million
+
+    def call(self, body: bytes, sha256: str, label: str) -> Any:
+        self.meter.before(jev_projected_cost([len(body)], self.price))
+        result = self.client.call(body, sha256, label)
+        self.meter.paid(jev_dollars(billed_tokens([result.to_record()], label)[0], self.price))
+        return result
+
+
+def _records(path: Path) -> list[object]:
+    """A Stage 8 record file's complete records (`record_files.read_jsonl`); a line that isn't JSON is a spend that can't be
+    counted (GateSpendError)."""
+    try:
+        return record_files.read_jsonl(path)
+    except ValueError as error:
+        raise GateSpendError(str(error)) from error
 
 
 def recorded_spend(
@@ -187,6 +232,22 @@ def refusal(recorded: Spend, projected: Mapping[str, float]) -> str | None:
     return "; ".join(words) + "; nothing was sent" if words else None
 
 
+def cap_words(run: "Run") -> Callable[[float], str | None]:
+    """The refusal's words for a submission that would send `dollars` more in the calls pool: Stage 8's recorded spend plus
+    those dollars against the $25 cap, or None. Read from the stored records at each ask."""
+
+    def words(dollars: float) -> str | None:
+        return refusal(recorded_spend(run.world.results, run.world.output), {CALLS: dollars})
+
+    return words
+
+
+def check_cap(run: "Run", dollars: float) -> None:
+    """Refuse (LedgerRefusal) before a step's first call if Stage 8's recorded spend plus `dollars` is over the $25 cap."""
+    if words := cap_words(run)(dollars):
+        raise LedgerRefusal(words)
+
+
 def totals(projections: Sequence[Projection]) -> dict[str, float]:
     return {pool: sum(p.dollars for p in projections if p.pool == pool) for pool in CAPS}
 
@@ -210,10 +271,7 @@ def projections(run: "Run") -> list[Projection]:
     for projector in PROJECTORS:
         if projector.entry is None:
             continue
-        module, _, function = projector.entry.partition(":")
-        result.append(
-            Projection(projector.name, projector.pool, getattr(importlib.import_module(module), function)(run))
-        )
+        result.append(Projection(projector.name, projector.pool, resolve(projector.entry)(run)))
     return result
 
 

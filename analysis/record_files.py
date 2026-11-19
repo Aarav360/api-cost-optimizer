@@ -21,6 +21,7 @@ the results folder, written by `analysis/final_record.py`) shows an unlock, sinc
 
 import json
 from pathlib import Path
+from typing import Any
 
 STAGE_7_LABELS = ("train", "dev", "smoke")
 STAGE_8_LABELS = ("test", "drift")
@@ -47,6 +48,21 @@ STAGE_8_FILES: dict[str, dict[str, str]] = {
 
 RECORD_FOLDER = "final"  # under the results folder: where the go's entry point writes the record
 RECORD_NAME = "final_record.json"  # `analysis.final_record.RECORD_FILE`; a check holds the two equal
+
+
+def read_jsonl(path: Path, *, missing_ok: bool = False) -> list[Any]:
+    """A stored file's complete records, parsed, in order. A last line with no newline is a write that didn't finish and is
+    dropped, as the collectors' own readers drop it. Every Stage 8 module reads a record file through this. A line that isn't
+    JSON raises ValueError naming the file and the line; a missing file raises FileNotFoundError unless `missing_ok`."""
+    if missing_ok and not path.is_file():
+        return []
+    records = []
+    for number, line in enumerate(path.read_bytes().decode("utf-8").split("\n")[:-1], start=1):
+        try:
+            records.append(json.loads(line))
+        except ValueError as error:
+            raise ValueError(f"{path.name} line {number} is not JSON") from error
+    return records
 
 
 def is_stage_8(name: str) -> bool:

@@ -292,5 +292,9 @@ if [ -f results/dev_matrix.sqlite ]; then
   # shift recomputed (0.0266 and +0.0006 over 77), the frozen request's hashes against the stored ones, the three frozen cutoffs and
   # the projection against the cap. Train only; no gate and no Anthropic call.
   run_check analysis.check_final_sonnet_real
+  # The real go's whole-run projection (A19 items 9 and 13; the Stage 8 review's O3): every projector of the ledger on the real
+  # settings and worst-case stand-ins built from the benchmark manifest's test counts and train and dev, against the $25 and $10
+  # caps. No test item, no store, no call.
+  run_check analysis.check_final_projection
 fi
 echo "the hook passed in $((SECONDS / 60)) min $((SECONDS % 60)) s"

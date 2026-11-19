@@ -64,7 +64,7 @@ def replies(bodies: Sequence[object]) -> list[Reply]:
     return [Reply(200, body) for body in bodies]
 
 
-@dataclass
+@dataclass(frozen=True)
 class JevRehearsal:
     """The fake server and what a world needs to use it: the stand-in for `Backends.jev`, the settings and the weights."""
 

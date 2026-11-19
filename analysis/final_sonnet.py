@@ -41,7 +41,7 @@ with the tables step (`final_gates.gate_data_record`).
 import json
 import math
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -56,6 +56,7 @@ from analysis.collect_sonnet_gate import (
     STANDARD_PASS,
     CapExceeded,
     Job,
+    Stage8Files,
     build_record,
 )
 from analysis.drift import DriftRefusal
@@ -68,6 +69,7 @@ from analysis.final_gates import (
     drift_inputs,
     gate_file,
     gate_flips,
+    label,
     named,
     read_free_test,
     read_sonnet_test,
@@ -75,9 +77,10 @@ from analysis.final_gates import (
     stored_free,
     test_inputs,
 )
-from analysis.final_ledger import CALLS, LedgerRefusal, recorded_spend, refusal
-from analysis.final_liveness import client_of
+from analysis.final_ledger import LedgerRefusal, Meter, cap_words, check_cap
 from analysis.final_run import ItemFailure, Run, StepRefusal, StepResult
+from analysis.gate_spend import list_dollars
+from analysis.live_calls import client_of
 from analysis.router_names import SONNET_GATE
 from harness.client import PROJECT_ROOT, load_models
 from routers import sonnet_gate
@@ -145,22 +148,6 @@ def dollars_per_check(*, batch: bool) -> float:
     return rate * float(load_models()["batch_discount"]) if batch else rate
 
 
-def cap_words(run: Run) -> Callable[[float], str | None]:
-    """The refusal's words for a submission that would send `dollars` more: Stage 8's recorded spend plus those dollars
-    against the $25 cap (`analysis/final_ledger.py`), or None."""
-
-    def words(dollars: float) -> str | None:
-        return refusal(recorded_spend(run.world.results, run.world.output), {CALLS: dollars})
-
-    return words
-
-
-def check_cap(run: Run, dollars: float) -> None:
-    """Refuse (LedgerRefusal) before the first call if Stage 8's recorded spend plus `dollars` is over the $25 cap."""
-    if words := cap_words(run)(dollars):
-        raise LedgerRefusal(words)
-
-
 def project(run: Run) -> float:
     """The Sonnet gate's projected spend for the ledger's whole-run projection (the calls pool): the drift resends with no
     stored record at the standard API's price and a request for each gated test answer with no stored verdict at the batch's,
@@ -205,12 +192,10 @@ def scores_of(records: Sequence[Mapping[str, Any]]) -> dict[tuple[str, str], flo
 
 
 def model_ids(records: Sequence[Mapping[str, Any]]) -> list[object]:
-    """Every model ID a set of calls came back with: the stored field and the response's own."""
-    return [
-        m
-        for r in records
-        for m in (r["model"], r["result"]["message"].get("model") if isinstance(r["result"], dict) else None)
-    ]
+    """Every model ID a set of calls came back with: the stored field and the response's own (`drift_rule.returned_models`)."""
+    return drift_rule.returned_models(
+        records, lambda r: r["result"]["message"] if isinstance(r["result"], dict) else None
+    )
 
 
 def drift_report(
@@ -239,12 +224,17 @@ def send_drift(run: Run, client: Any, settings: sonnet_gate.SonnetSettings, todo
     """Send each resend through the standard API, one at a time, and store its record before the next (pass 2, split drift,
     the latency record's fields). The first call of a go is flagged, as Stage 7's latency calls are."""
     path = drift_file(run.world.results)
+    meter = Meter.of(run)
     for number, job in enumerate(todo, start=1):
         item = GateInput(job.item_id, job.config, job.request, job.answer, "end_turn")
         try:
+            meter.before(dollars_per_check(batch=False))  # the pool's cap, with what this step has been billed so far
             start = clock()
             outcome = sonnet_gate.check_answer(client, settings, job.request, job.answer)
             seconds = clock() - start
+            usage = outcome.response["usage"]
+            meter.paid(list_dollars(usage["input_tokens"], usage["output_tokens"], settings.input_per_million,
+                                    settings.output_per_million))  # fmt: skip
             result = {"type": "succeeded", "message": outcome.response}
             record = build_record(job, DRIFT, STANDARD_PASS, result, outcome.verdict, None, lambda: stamp(run))
             append_record(path, record | {"api": STANDARD, "seconds": seconds, "first_call": number == 1,
@@ -266,7 +256,7 @@ def drift_step(run: Run) -> StepResult:
     sample = [(str(r["item_id"]), str(r["config"])) for r in latency]
     jobs = drift_jobs(drift_inputs(run, sample), settings)
     first = {(str(r["item_id"]), str(r["config"])): r["request_sha256"] for r in latency}
-    if differing := [named(GateInput(j.item_id, j.config, j.request, j.answer, "")) for j in jobs
+    if differing := [label(j.item_id, j.config) for j in jobs
                      if j.sha256 != first[(j.item_id, j.config)]]:  # fmt: skip
         raise DriftRefusal(DRIFT_CHECK, f"the frozen gate request is different from the one Stage 7 stored for "
                                         f"{len(differing)} of the {len(jobs)} resent answers, e.g. {differing[0]}; "
@@ -276,11 +266,10 @@ def drift_step(run: Run) -> StepResult:
     todo = [j for j in jobs if j.custom_id not in stored]
     check_cap(run, len(todo) * dollars_per_check(batch=False))
     if todo:
-        send_drift(run, client_of(run), settings, todo)
+        send_drift(run, client_of(run, StepRefusal), settings, todo)
     resent = read_drift(results)
     report = drift_report(batch, latency, resent, settings, cutoff_labels(SONNET_GATE))
-    said = "; ".join(f"{c}: D6 {m.d6:.4f}, D8 {m.d8:.4f}, shift {m.shift:+.4f}" for c, m in report.measures.items())
-    run.say(f"{DRIFT_CHECK}: {len(jobs)} answers resent ({len(todo)} calls sent, {len(stored)} already stored); {said}; "
+    run.say(f"{DRIFT_CHECK}: {len(jobs)} answers resent ({len(todo)} calls sent, {len(stored)} already stored); {report.said()}; "
             f"decisions that flip at the frozen cutoffs {[len(f.items) for f in report.flips]}")  # fmt: skip
     unscored = {config: d.unscored for config, d in gate_train.sonnet_drift(batch, resent).items()}
     return StepResult(requests={"sent": len(todo), "stored": len(stored)},
@@ -317,16 +306,15 @@ def calls_step(run: Run) -> StepResult:
     free = read_free_test(results)
     stored_free(inputs, results)  # refuses a free-check record for an answer that isn't one of the handle's
     jobs = collect_sonnet_gate.build_jobs(inputs, free, settings)  # refuses a gated answer with no free-check record
-    records, log = test_file(results), batch_log(run)
-    client = client_of(run)
-    where: dict[str, Any] = {"records": records, "log_path": log}
+    client = client_of(run, StepRefusal)
+    stage8 = Stage8Files(run.unlocked(), test_file(results), batch_log(run), cap_words(run))
     already = len(read_sonnet_test(results))
     sent = rounds = 0
     new_batches: list[str] = []
     while True:
         collect_sonnet_gate.wait(jobs, split=TEST, client=client, results_dir=results, poll_s=POLL_S, sleep=sleep,
-                                 now=lambda: stamp(run), **where)  # fmt: skip
-        pending = collect_sonnet_gate.pending_jobs(jobs, TEST, results, **where)[0]
+                                 now=lambda: stamp(run), stage8=stage8)  # fmt: skip
+        pending = collect_sonnet_gate.pending_jobs(jobs, TEST, results, stage8=stage8)[0]
         if not pending:
             break
         if rounds == MAX_ROUNDS:
@@ -334,7 +322,7 @@ def calls_step(run: Run) -> StepResult:
         try:
             submitted = collect_sonnet_gate.submit(jobs, split=TEST, client=client, results_dir=results,
                                                    cost_per_check=dollars_per_check(batch=True), max_usd=math.inf,
-                                                   cap=cap_words(run), now=lambda: stamp(run), **BATCH_LIMITS, **where)  # fmt: skip
+                                                   now=lambda: stamp(run), stage8=stage8, **BATCH_LIMITS)  # fmt: skip
         except CapExceeded as error:
             raise LedgerRefusal(str(error)) from error
         sent += submitted.sent

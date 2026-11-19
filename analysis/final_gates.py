@@ -48,6 +48,7 @@ from pathlib import Path
 from typing import Any
 
 from analysis import collect_jev_gate, collect_sonnet_gate, drift_rule
+from analysis.backends import no_stand_in, required, stand_in_of
 from analysis.collect_gates import (
     FREE,
     FREE_RECORD_FIELDS,
@@ -59,11 +60,12 @@ from analysis.collect_gates import (
 from analysis.collect_jev import append_record, trim_torn_line
 from analysis.collect_jev_gate import STORED_FIELDS
 from analysis.drift import DriftRefusal
-from analysis.final_ledger import CALLS, LedgerRefusal, recorded_spend, refusal
+from analysis.final_ledger import Meter, MeteredJev, check_cap
 from analysis.final_run import ItemFailure, Run, StepRefusal, StepResult
 from analysis.gate_spend import JEV_OVERHEAD_TOKENS, jev_projected_cost
 from analysis.gate_table import GateScoreTable, PaidScore, build_table, pure_traces
 from analysis.gate_train import count_configs, difference, jev_noise
+from analysis.operating_eval import cascade_rows, frozen_points
 from analysis.operating_points import read_section
 from analysis.router_names import CASCADES, FREE_GATE, HAIKU, JEV_GATE, SONNET_GATE, cascade_section, parse_cascade
 from analysis.unlock import Handle
@@ -126,8 +128,13 @@ def test_inputs(handle: Handle) -> list[GateInput]:
     return inputs
 
 
+def label(item_id: str, config: str) -> str:
+    """How an answer is named in an error and a log line: its item and config, never its text or a grade."""
+    return f"{item_id} {config}"
+
+
 def named(item: GateInput) -> str:
-    return f"{item.item_id} {item.config}"
+    return label(item.item_id, item.config)
 
 
 def stamp(run: Run) -> str:
@@ -139,9 +146,9 @@ def stamp(run: Run) -> str:
 
 def sandbox_of(run: Run, settings: CodeCheckSettings) -> tuple[Runner, str]:
     """The world's sandbox and the image's digest: a stand-in and its stated digest, or the real sandbox and Docker's."""
-    backends = run.world.backends
-    if backends is not None and backends.sandbox is not None:
-        return backends.sandbox, backends.image_digest or STAND_IN_DIGEST
+    stand_in = stand_in_of(run.world.backends, "sandbox")
+    if stand_in is not None:
+        return stand_in, stand_in_of(run.world.backends, "image_digest") or STAND_IN_DIGEST
     return sandbox_runner, image_digest(settings.image)
 
 
@@ -191,14 +198,19 @@ class Pending:
 def jev_client_of(run: Run) -> AbstractContextManager[Any]:
     """The Jev client: the world's factory for a rehearsal, the real client (key from the environment, the pinned
     endpoint) for the go's world, which names no backends. A world that names backends and no Jev client is refused."""
-    backends = run.world.backends
-    if backends is None:
+    stand_in = required(run.world.backends, "jev", "Jev client", StepRefusal)
+    if stand_in is None:
         return jev.JevClient(jev.read_client_settings())
-    if backends.jev_gate is None:
-        raise StepRefusal("the world names backends but no Jev client: only the go's world, which names none, gets the "
-                          "real one")  # fmt: skip
-    client: AbstractContextManager[Any] = backends.jev_gate()
+    if stand_in.gate is None:
+        raise StepRefusal(no_stand_in("Jev client"))
+    client: AbstractContextManager[Any] = stand_in.gate()
     return client
+
+
+def metered(run: Run, client: Any) -> Any:
+    """`client` with the $25 pool's meter around it: each call asks the ledger first (`analysis/final_ledger.py`), so a run
+    that costs more than its up-front projection still stops at the cap."""
+    return MeteredJev(client, Meter.of(run), jev.read_client_settings().price_per_million_input_tokens)
 
 
 def budget_of(settings: jev_gate.JevGateSettings) -> int:
@@ -220,13 +232,6 @@ def projected_dollars(pending: Sequence[Pending]) -> float:
     """An upper bound on what the pending calls cost: each body's bytes as tokens, plus the fixed overhead, at Jev's price."""
     price = jev.read_client_settings().price_per_million_input_tokens
     return jev_projected_cost([len(p.call.body) for p in pending], price)
-
-
-def check_cap(run: Run, pending: Sequence[Pending]) -> None:
-    """Refuse (LedgerRefusal) before the first call if Stage 8's recorded spend plus these calls is over the $25 cap."""
-    words = refusal(recorded_spend(run.world.results, run.world.output), {CALLS: projected_dollars(pending)})
-    if words:
-        raise LedgerRefusal(words)
 
 
 def send_pending(run: Run, client: Any, path: Path, label: str, pending: Sequence[Pending]) -> None:
@@ -265,10 +270,10 @@ def jev_gate_step(run: Run) -> StepResult:
     stored = {(r["item_id"], r["config"]) for r in read_jev(TEST, results)}
     callable_inputs = [i for i in inputs if free[(i.item_id, i.config)]]
     pending = pending_calls(callable_inputs, stored, settings)
-    check_cap(run, pending)
+    check_cap(run, projected_dollars(pending))
     if pending:
         with jev_client_of(run) as client:
-            send_pending(run, client, path, TEST, pending)
+            send_pending(run, metered(run, client), path, TEST, pending)
     already = len(callable_inputs) - len(pending)
     run.say(f"Jev gate: {len(pending)} calls sent, {already} already stored; "
             f"${projected_dollars(pending):.4f} was projected for them")  # fmt: skip
@@ -309,9 +314,9 @@ def drift_sample(results: Path) -> list[tuple[str, str]]:
 
 def drift_inputs(run: Run, sample: Sequence[tuple[str, str]]) -> list[GateInput]:
     """The sample's train answers with their requests: the world's stand-in, or the gates' own readers on train."""
-    backends = run.world.backends
-    if backends is not None and backends.gate_train is not None:
-        found = list(backends.gate_train(sample))
+    gate_train = stand_in_of(run.world.backends, "gate_train")
+    if gate_train is not None:
+        found = list(gate_train(sample))
     else:
         wanted = set(sample)
         found = [i for i in gate_inputs("train") if (i.item_id, i.config) in wanted]
@@ -353,7 +358,8 @@ def gate_flips(
     return tuple(
         drift_rule.Flip(cutoff, tuple(labels[cutoff]),
                         tuple(f"{item} {config}" for item, config in first
-                              if accepted(config, first[item, config], cutoff) != accepted(config, resend[item, config], cutoff)))
+                              if accepted(config, first[item, config], cutoff) != accepted(config, resend[item, config], cutoff)),
+                        drift_rule.CUTOFF)
         for cutoff in sorted(labels, reverse=True)
     )  # fmt: skip
 
@@ -364,15 +370,6 @@ def scores_of(
     return {
         (str(r["item_id"]), str(r["config"])): jev_gate.read_response(r["response"], settings).score for r in records
     }
-
-
-def model_ids(records: Sequence[Mapping[str, Any]]) -> list[object]:
-    """Every model ID a resend came back with: the stored field and the response's own."""
-    return [
-        m
-        for r in records
-        for m in (r["model"], r["response"].get("model") if isinstance(r["response"], dict) else None)
-    ]
 
 
 def drift_report(
@@ -396,7 +393,7 @@ def drift_report(
         for config in d6
     }  # fmt: skip
     measures = drift_rule.measures_of(d6, d8)
-    return drift_rule.apply_rule(DRIFT_CHECK, pin=drift_rule.JEV_PIN, model_ids=model_ids(resent), measures=measures,
+    return drift_rule.apply_rule(DRIFT_CHECK, pin=drift_rule.JEV_PIN, model_ids=drift_rule.returned_models(resent, lambda r: r["response"]), measures=measures,
                                  flips=gate_flips(first, resend, labels))  # fmt: skip
 
 
@@ -422,13 +419,12 @@ def drift_step(run: Run) -> StepResult:
                                         f"{len(differing)} of the {len(calls)} noise-sample answers, e.g. {differing[0]}; "
                                         f"nothing was called on test")  # fmt: skip
     pending = [c for c in calls if (c.item.item_id, c.item.config) not in stored]
-    check_cap(run, pending)
+    check_cap(run, projected_dollars(pending))
     if pending:
         with jev_client_of(run) as client:
-            send_pending(run, client, path, DRIFT, pending)
+            send_pending(run, metered(run, client), path, DRIFT, pending)
     report = drift_report(train, read_jev(DRIFT, results), settings, cutoff_labels())
-    said = "; ".join(f"{c}: D6 {m.d6:.4f}, D8 {m.d8:.4f}, shift {m.shift:+.4f}" for c, m in report.measures.items())
-    run.say(f"{DRIFT_CHECK}: {len(calls)} answers resent ({len(pending)} calls sent, {len(stored)} already stored); {said}; "
+    run.say(f"{DRIFT_CHECK}: {len(calls)} answers resent ({len(pending)} calls sent, {len(stored)} already stored); {report.said()}; "
             f"decisions that flip at the frozen cutoffs {[len(f.items) for f in report.flips]}")  # fmt: skip
     return StepResult(requests={"sent": len(pending), "stored": len(stored)},
                       detail={**report.record(), "answers": len(calls)})  # fmt: skip
@@ -536,28 +532,10 @@ def cascade_part(section: str, *, per_task: bool = False) -> Callable[[Any], dic
         raise FinalGatesError(f"{section} is not a pure cascade")
 
     def build(inputs: Any) -> dict:
-        from analysis import pareto
-        from analysis.cascade_comparisons import escalation_rate
-        from analysis.operating_eval import evaluate, frozen_points, mix_rows, shared_fixed, shared_savings, task_rows
-        from analysis.simulator import load_mixes
-
         table: GateScoreTable = inputs.extras[GATE_TABLE].table
-        fixed = shared_fixed(inputs.cache, inputs.matrix)
-        points = frozen_points(section)
-        outcomes = evaluate(inputs.matrix, fixed["opus"], points, lambda point: pure_traces(table, gate, point.cutoff))
-        if per_task:
-            return {"tasks": task_rows(inputs.draws, fixed, outcomes, list(pareto.TASKS))}
-        mixes = load_mixes()
-        rows = mix_rows(inputs.draws, lambda mix: shared_savings(inputs.cache, inputs.matrix, inputs.draws, mix),
-                        fixed, outcomes, mixes)  # fmt: skip
-        for (
-            point,
-            found,
-        ) in outcomes.items():  # a cascade's row holds its cutoff (None if it fell back) and its escalation
-            row = rows[point.mix][point.target]
-            row.setdefault("cutoff", None)
-            row["escalation_rate"] = 0 if point.fell_back else escalation_rate(found, mixes[point.mix])
-        return {"mixes": rows}
+        return cascade_rows(
+            inputs, frozen_points(section), lambda point: pure_traces(table, gate, point.cutoff), per_task=per_task
+        )
 
     return build
 

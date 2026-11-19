@@ -277,6 +277,41 @@ def jev_gate_projection() -> float:
     return (8 * (1000 + 512) + sum(bodies) + 32 * 512) * gates.PRICE / 1e6
 
 
+def jev_router_projection(r: rehearsal.Rehearsal) -> float:
+    """G's and G+'s projection on the rehearsal's world, by hand (#84): each resend's and each test call's body in bytes plus 512
+    tokens, at Jev's price. The bodies are the ones the fake Jev server received, an independent source of their lengths."""
+    from analysis import check_final_gates as gates
+
+    return sum(len(received.body) + 512 for received in r.jev.fake.received) * gates.PRICE / 1e6
+
+
+def combined() -> None:
+    """The Stage 8 review's O2: #84 left the Jev gate's checks without G's and G+'s steps (their exact-dollar arithmetic), so this
+    holds the whole $25 pool's projection, every call step's projector, against the sum of the hand-worked parts, and against
+    what a go that makes every call then records."""
+    print(
+        "\n-- the $25 pool's projection across every call step: the parts by hand, and a bound on what is then spent --"
+    )
+    last = [s.name for s in STEPS].index("calls_sonnet_gate")
+    with rehearsal.rehearsed() as r:
+        outcome, _ = go_with(r, STEPS[: last + 1])
+        check(outcome == Outcome(), f"the made-up go makes every call step's calls {outcome}")
+        shown = r.record["gos"][0]["steps"][1]["detail"]["spend"][CALLS]
+        parts = {
+            "G and G+": jev_router_projection(r),
+            "Jev gate": jev_gate_projection(),
+            "Sonnet gate": sonnet_gate_projection(),
+        }
+        check(close(shown["projected"], sum(parts.values()), 1e-9),
+              f"the liveness step's calls-pool projection is the three parts, by hand: ${shown['projected']:.6f} = "
+              + " + ".join(f"${v:.6f} ({k})" for k, v in parts.items()))  # fmt: skip
+        spent = final_ledger.recorded_spend(r.world.results, r.world.output).calls
+        check(0 < spent < shown["projected"], f"and it bounds what the go then spent in the pool, ${spent:.6f}")
+    names = [p.name for p in final_ledger.PROJECTORS if p.pool == CALLS]
+    check(names == ["jev_router", "jev_gate", "sonnet_gate"] and all(p.entry for p in final_ledger.PROJECTORS),
+          "and the pool's projectors are the three call tickets', each built (none is left None)")  # fmt: skip
+
+
 def wrong_model(model_for: dict[str, str]):
     def respond(params):
         return message_dict("ready", usage=(20, 5), model=model_for.get(params["model"], params["model"]))
@@ -308,7 +343,7 @@ def pins() -> None:
             check(not (r.world.results / "test_matrix.sqlite").exists(), "nothing was graded")
     with rehearsal.rehearsed() as r:
         r.world = dataclasses.replace(r.world, backends=Backends(sandbox=r.sandbox, jev=r.jev.stand_in))
-        with mock.patch.object(final_liveness, "make_client", side_effect=AssertionError("the real client was built")):
+        with mock.patch.object(live_calls, "make_client", side_effect=AssertionError("the real client was built")):
             outcome, _, _ = r.go()
         check(outcome == Outcome("liveness", "LivenessRefusal", None) and r.anthropic.calls == [],
               "a rehearsal world that names no Anthropic client is refused, and no real client is built")  # fmt: skip
@@ -316,9 +351,9 @@ def pins() -> None:
     with rehearsal.rehearsed() as r:
         r.world = dataclasses.replace(r.world, backends=None)
         run = mock.Mock(world=r.world)
-        with mock.patch.object(final_liveness, "make_client", return_value=sentinel):
+        with mock.patch.object(live_calls, "make_client", return_value=sentinel):
             check(
-                final_liveness.client_of(run) is sentinel,
+                live_calls.client_of(run, final_liveness.LivenessRefusal) is sentinel,
                 "the go's world, which names no backends, gets the real client",
             )
 
@@ -443,6 +478,7 @@ def main() -> int:
     liveness()
     pins()
     projection()
+    combined()
     guards()
     print("\nall checks passed" if not problems else f"\n{len(problems)} checks failed")
     return 1 if problems else 0

@@ -1,4 +1,5 @@
-"""Check the unlock's first check and the handle's three reads (PLAN_v4.md Amendment A19, items 3 and 4; issue #78).
+"""Check the unlock's first check and the handle's four reads (PLAN_v4.md Amendment A19, items 3 and 4; issue #78; the fourth
+read is the Stage 8 review's).
 
 Run from the project root:  uv run python -m analysis.check_unlock
 
@@ -9,6 +10,8 @@ Anthropic call, and nothing near the real sealed store. Expected values are writ
 - the unlock returns a handle whose requests, answers and graded items are exactly the made-up items'; the answers read
   holds five fields, run 0 only, and a marker in the expected answers and one in the stored thinking blocks never
   reach it (the graded read, which holds both, is the known positive);
+- the stored-results read, the fourth, gives each stored result's identifiers, token counts, task and source group, worked out by
+  hand, and no marker, answer text or stop reason reaches it: the replay's projection and the table builder need no expected answer;
 - the unlock refuses a world with no store path, a missing store, a manifest that records no store or another store, a
   store the manifest doesn't record, and a store with one byte changed: each its own check, each raising before the
   store is opened as a database (`sqlite3.connect` is made to fail, and shown to bite);
@@ -27,11 +30,13 @@ from collections.abc import Callable
 from pathlib import Path
 from unittest import mock
 
+from analysis import replay_plan
 from analysis import unlock as unlock_module
 from analysis.benchmark import SealedItemError, read_rows
 from analysis.checking import refused
 from analysis.gate_answers import Answer, read_answers, requests_of
 from analysis.made_up_world import EXPECTED_MARKER, THINKING_MARKER, MadeUp, made_up_world
+from analysis.router_names import HAIKU, JEV_GATE, NAMED_ROUTERS, G, cascade_section
 from analysis.unlock import Handle, HandleError, UnlockRefusal, require_issued, unlock
 from routers.request import Request
 
@@ -73,6 +78,34 @@ EXPECTED_ANSWERS = [
     Answer("mmlu_pro:made-test-1", "opus", 0, '{"letter": "B"}', "end_turn"),
 ]
 # By hand, in item, config and run order: custom ID, run, stop reason, the item's expected answer.
+# By hand, in item, config and run order: custom ID, item, config, run, task, source group, input and output tokens.
+EXPECTED_STORED = [
+    (
+        "banking77-made-test-0_haiku_r0",
+        "banking77:made-test-0",
+        "haiku",
+        0,
+        "banking77",
+        "banking77:made-test-0",
+        11,
+        7,
+    ),
+    (
+        "banking77-made-test-0_haiku_r1",
+        "banking77:made-test-0",
+        "haiku",
+        1,
+        "banking77",
+        "banking77:made-test-0",
+        11,
+        7,
+    ),
+    ("banking77-made-test-0_opus_r0", "banking77:made-test-0", "opus", 0, "banking77", "banking77:made-test-0", 11, 7),
+    ("ifeval-made-test-2_haiku_r0", "ifeval:made-test-2", "haiku", 0, "ifeval", "ifeval:made-test-2", 11, 7),
+    ("ifeval-made-test-2_opus_r0", "ifeval:made-test-2", "opus", 0, "ifeval", "ifeval:made-test-2", 11, 7),
+    ("mmlu_pro-made-test-1_haiku_r0", "mmlu_pro:made-test-1", "haiku", 0, "mmlu_pro", "mmlu_pro:made-test-1", 11, 7),
+    ("mmlu_pro-made-test-1_opus_r0", "mmlu_pro:made-test-1", "opus", 0, "mmlu_pro", "mmlu_pro:made-test-1", 11, 7),
+]
 EXPECTED_GRADED = [
     ("banking77-made-test-0_haiku_r0", 0, "end_turn", f"card_arrival {EXPECTED_MARKER}-0"),
     ("banking77-made-test-0_haiku_r1", 1, "end_turn", f"card_arrival {EXPECTED_MARKER}-0"),
@@ -85,7 +118,7 @@ EXPECTED_GRADED = [
 
 
 def reads(made: MadeUp) -> None:
-    print("-- the unlock and the handle's three reads, on a made-up world --")
+    print("-- the unlock and the handle's four reads, on a made-up world --")
     handle = unlock(made.world)
     check(
         isinstance(handle, Handle) and handle.world is made.world, "the unlock returns a handle that carries the world"
@@ -97,6 +130,7 @@ def reads(made: MadeUp) -> None:
             "hook",
             "git_facts",
             "replay_draw",
+            "replay_plan",
             "sealed_store_path",
             "manifest_record",
             "verify_list",
@@ -119,6 +153,16 @@ def reads(made: MadeUp) -> None:
           "graded items: every stored result with its item's expected answer and its response")  # fmt: skip
     check(graded[0].model == "made-up-haiku" and graded[0].effort == "high" and graded[0].batch_id == "msgbatch_made_up"
           and graded[0].request_hash == "hash-0-haiku", "graded items: the request's model, effort, hash and batch")  # fmt: skip
+
+    print("\n-- the stored-results read gives no answer, no expected answer and no grade --")
+    stored = handle.stored_results()
+    check([dataclasses.astuple(r) for r in stored] == EXPECTED_STORED,
+          "stored results: every stored result's identifiers, task, group and billed tokens, hand-written")  # fmt: skip
+    check(EXPECTED_MARKER not in repr(stored) and THINKING_MARKER not in repr(stored)
+          and "Rain" not in repr(stored) and "max_tokens" not in repr(stored) and "end_turn" not in repr(stored),
+          "no marker, answer text or stop reason reaches the stored-results read")  # fmt: skip
+    check(unlock_module.STORED_QUERY == "SELECT custom_id, item_id, config, run, input_tokens, output_tokens FROM answers "
+          "ORDER BY item_id, config, run", "its SQL names those six columns and no answer column")  # fmt: skip
 
     print("\n-- the answers read gives no expected answer and no grade --")
     check([f.name for f in dataclasses.fields(Answer)] == ["item_id", "config", "run", "answer", "stop_reason"],
@@ -153,6 +197,21 @@ def refusals() -> None:
         with mock.patch.object(unlock_module.sqlite3, "connect", side_effect=AssertionError("the store was opened")):
             check(refused(AssertionError, lambda: unlock(made.world).answers()),
                   "the guard bites: a read of the store would have failed it")  # fmt: skip
+
+    with made_up_world() as made:
+        # The Stage 8 review's spec 4: a best cascade started by G or G+ (the replay has no live router call for them) is found
+        # here, before the store is looked at, and not in the replay step after test's calls.
+        g_started = cascade_section(NAMED_ROUTERS[G], JEV_GATE)
+        with mock.patch.object(replay_plan, "best_cascade_section", return_value=g_started):
+            check(refusal_check(made.world) == "replay_plan",
+                  "a best cascade started by G refuses at replay_plan, with the store unopened")  # fmt: skip
+        with mock.patch.object(replay_plan, "best_cascade_section", return_value=cascade_section("rules", JEV_GATE)):
+            check(
+                refusal_check(made.world) is None, "known positive: one started by E, whose live path is built, unlocks"
+            )
+        detail = next(c.detail for c in unlock(made.world).results if c.name == "replay_plan")
+        check(detail["section"] == cascade_section(HAIKU, JEV_GATE) and detail["policies"] == ["A", "haiku/Jev realistic 99%", "haiku/Jev realistic 97%"],
+              "and the real plan is haiku/Jev at its two points beside A, kept in the unlock's results")  # fmt: skip
 
     with made_up_world() as made:
         no_path = dataclasses.replace(made.world, sealed_store=None)
@@ -228,7 +287,7 @@ def handle_refusals() -> None:
         for how, fake in forged(handle).items():
             check(refused(HandleError, lambda f=fake: require_issued(f)), f"require_issued refuses a handle {how}")  # type: ignore[misc]
             if isinstance(fake, Handle):
-                for read in ("requests", "answers", "graded_items"):
+                for read in ("requests", "answers", "graded_items", "stored_results"):
                     check(refused(HandleError, getattr(fake, read)), f"{read} refuses a handle {how}")
 
     print("\n-- a stored item that is no test item refuses the read whole --")
@@ -237,7 +296,7 @@ def handle_refusals() -> None:
         kept = [r for r in rows if r["item_id"] != "ifeval:made-test-2"]
         made.world.benchmark.write_text("".join(json.dumps(r) + "\n" for r in kept))
         handle = unlock(made.world)
-        for read in ("answers", "graded_items"):
+        for read in ("answers", "graded_items", "stored_results"):
             try:
                 getattr(handle, read)()
                 check(False, f"{read} refuses a store holding an item the benchmark's test rows lack")

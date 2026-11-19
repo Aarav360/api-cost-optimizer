@@ -14,13 +14,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from statistics import NormalDist
 
+from analysis.operating_eval import MIXES
 from analysis.operating_points import OPERATING_POINTS_FILE
 from analysis.router_names import CASCADES, G_PLUS, NAMED_ROUTERS, G
+from analysis.table_v4 import TABLE_V4
 from harness.client import PROJECT_ROOT
 
 TABLE_V3 = PROJECT_ROOT / "figures" / "table_v3.json"
-TABLE_V4 = PROJECT_ROOT / "figures" / "table_v4.json"
-MIXES = ("realistic", "uniform")
 HEADLINE_MIX, HEADLINE_TARGET = "realistic", "99%"  # item 6: "on the realistic mix at the 99% target"
 NORMAL = NormalDist()
 

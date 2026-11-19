@@ -173,8 +173,8 @@ def routed_parts() -> tuple["Part", ...]:
     committed dev numbers to reproduce) and its per-task rows (dev committed none)."""
     parts = []
     for section in final_routed.ROUTED:
-        parts.append(Part(section, final_routed.routed_part(section), final_routed.committed_part(section)))
-        parts.append(Part(final_routed.tasks_key(section), final_routed.routed_part(section, per_task=True), None))
+        parts.append(Part(section, final_routed.routed_part(section), final_gates.committed_part(section)))
+        parts.append(Part(final_gates.tasks_key(section), final_routed.routed_part(section, per_task=True), None))
     return tuple(parts)
 
 
@@ -291,7 +291,7 @@ def dev_inputs() -> Inputs:
 
 def test_matrix(rows: list[dict], groups: Mapping[str, tuple[str, str]]) -> Matrix:
     """Test's matrix from its graded rows, checked as `analysis/matrix.py` checks dev's: the benchmark's source and group
-    for each item (from the handle's graded items, since the benchmark reader refuses test), the price snapshot, and
+    for each item (from the handle's stored-results read, since the benchmark reader refuses test), the price snapshot, and
     each row's cost recomputed from its tokens at list price, which must be twice the stored batch cost. Only run 0 goes in."""
     models = load_models()
     built = []
@@ -318,13 +318,13 @@ def test_matrix(rows: list[dict], groups: Mapping[str, tuple[str, str]]) -> Matr
 def test_inputs(run: Run) -> Inputs:
     """Test's matrix and statuses from test's results matrix, with each item's source group from the handle."""
     handle: Handle = run.unlocked()
-    graded = handle.graded_items()
-    groups = {g.item["item_id"]: (g.item["source"], g.item["source_group"]) for g in graded}
+    stored_results = handle.stored_results()  # identifiers, tokens and groups: no answer and no expected answer
+    groups = {r.item_id: (r.source, r.source_group) for r in stored_results}
     path = matrix_path(run.world.results)
     if not path.is_file():
         raise OfflineError("test's results matrix does not exist: grading has not run")
     rows = read_store(path)
-    stored = {g.custom_id for g in graded}
+    stored = {r.custom_id for r in stored_results}
     with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as conn:
         graded_ids = {row[0] for row in conn.execute("SELECT custom_id FROM rows")}
     if graded_ids != stored:

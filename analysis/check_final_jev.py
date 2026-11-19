@@ -11,13 +11,17 @@ are worked by hand below, from binary fractions so every float is exact.
 - the rule's three refusals, each with its own scenario, stop the run before any test call: a model other than `jev-1.14.0`,
   D8 above 3 x D6, and a uniform move that leaves D8 inside 3 x D6 and must still refuse;
 - inside the limits, D6, D8, the shifts and the flips at each frozen threshold are in the record and the log, and the run goes on;
-- a projection over the $25 cap refuses before the first call, and under it the same run goes on;
+- a projection over the $25 cap refuses before the first call, and under it the same run goes on; and a call billed far above its
+  projection still stops the run at the cap before the next call (the ledger is asked before each call);
+- a Stage 8 split (`test`, `drift`) is written by the collector only with a handle the unlock issued: a plain `"test"`, a handle
+  built by hand and the old `splits=` argument are each refused, and an issued handle is accepted (the known positive);
 - a fake that fails mid-run stops the run naming the item and the exception, and the next go sends only the requests with no
   stored response;
 - the first test call's server `Date` is in the record, and not the drift resends';
 - the calls' record says only counts: no refusal or truncation count before the tables.
 """
 
+import functools
 import json
 import sys
 from datetime import datetime, timezone
@@ -29,13 +33,14 @@ from analysis import collect_jev, final_jev, final_ledger
 from analysis import rehearsal_jev as jev_world
 from analysis import rehearsal_world as made_up
 from analysis.check_final_ledger import write_lines
+from analysis.checking import refused
 from analysis.drift_rule import JEV_PIN
 from analysis.fake_jev import Reply
 from analysis.final_record import Record
 from analysis.final_run import STEPS, Outcome, Run, Step
 from analysis.rehearsal_jev import G_PLUS_ROUTER, G_ROUTER, g_body, plus_body
 from analysis.router_names import G_PLUS
-from analysis.unlock import unlock
+from analysis.unlock import Handle, HandleError, unlock
 from routers import jev_call
 
 problems: list[str] = []
@@ -282,6 +287,56 @@ def cap() -> None:
                       "and the recorded spend it adds to is the drift record's $24.90 and the eight resends")  # fmt: skip
 
 
+def metered_cap() -> None:
+    print("\n-- a call billed far above its projection still stops at the cap, before the next call --")
+    with world_with_four() as r:
+        r.jev.fake.script = script(g_bodies(RESEND))
+        outcome, _ = go(r, (UNLOCK, DRIFT))
+        check(outcome == Outcome(), "the drift step goes first, as in the runs above")
+        r.jev.fake.input_tokens = (
+            5_000_000  # each test call is billed 5 million input tokens: $0.21 at $0.042 per million
+        )
+        recorded = final_ledger.recorded_spend(r.world.results, r.world.output).calls
+        sent_before = len(r.jev.fake.received)
+        with mock.patch.dict(final_ledger.CAPS, {final_ledger.CALLS: recorded + 0.05}):
+            outcome, out = go(r, (UNLOCK, DRIFT, CALLS))
+        stored = collect_jev.read_records(G_ROUTER, "test", r.world.results, collect_jev.STAGE_8_SPLITS)
+        check(outcome.stopped_at == "calls_jev_router" and outcome.error == "LedgerRefusal",
+              f"the whole projection fits under $0.05, and the run still stops at the calls step {outcome}")  # fmt: skip
+        check(len(stored) == 1 and len(r.jev.fake.received) == sent_before + 1,
+              "after one call: it was stored, and the next was refused before it was sent")  # fmt: skip
+        check("over Stage 8's cap" in out, "and the refusal names the cap")
+
+
+def handle_required() -> None:
+    print("\n-- a Stage 8 split is written only with a handle the unlock issued --")
+    with world_with_four() as r:
+        setup = final_jev.setup_of(r.world)
+        base: dict[str, Any] = {
+            "router": G_ROUTER,
+            "loaded": setup.loaded,
+            "client": None,
+            "results_dir": r.world.results,
+        }
+        none: list[collect_jev.Item] = []  # no item to send, so nothing is called, whatever the answer
+        for split in ("test", "drift"):
+            check(refused(collect_jev.CollectError, functools.partial(collect_jev.collect, none, split=split, **base)),
+                  f"a plain {split!r} split with no handle is refused")  # fmt: skip
+        check(refused(TypeError, lambda: collect_jev.collect(none, split="test", splits=collect_jev.STAGE_8_SPLITS, **base)),  # type: ignore[call-arg]
+              "the old `splits=` argument is gone: a caller can't name its own labels")  # fmt: skip
+        issued = unlock(r.world)
+        forged = Handle(r.world, issued.results)
+        check(refused(HandleError, lambda: collect_jev.collect(none, split="test", handle=forged, **base)),
+              "a handle built by hand is refused, whatever split it names")  # fmt: skip
+        check(refused(HandleError, lambda: collect_jev.collect(none, split="train", handle=forged, **base)),
+              "even for a Stage 7 split: a handle that is given must be an issued one")  # fmt: skip
+        summary = collect_jev.collect(none, split="test", handle=issued, **base)
+        check(summary.new == 0 and refused(collect_jev.CollectError, lambda: collect_jev.collect(none, split="test", **base)),
+              "known positive: the issued handle is accepted for the same split the plain call was refused for")  # fmt: skip
+        check(refused(collect_jev.CollectError, lambda: collect_jev.collect(none, split="nowhere", handle=issued, **base)),
+              "and an issued handle still refuses a label that is nobody's")  # fmt: skip
+
+
 # ---- a failure mid-run, and the resume -----------------------------------------------------------------------------------
 
 
@@ -442,6 +497,8 @@ def main() -> int:
         refusals()
         goes_on()
         cap()
+        metered_cap()
+        handle_required()
         failure_and_resume()
         first_date()
         says_counts_only()

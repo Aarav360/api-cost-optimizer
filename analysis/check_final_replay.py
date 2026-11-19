@@ -36,7 +36,7 @@ from unittest import mock
 
 import numpy as np
 
-from analysis import final_headline, final_ledger, final_replay, replay_plan
+from analysis import final_headline, final_ledger, final_replay, rehearsal_sonnet, replay_plan
 from analysis import rehearsal_gates as gates_module
 from analysis import rehearsal_world as rehearsal
 from analysis.check_final_run import Rehearsal, rehearsed
@@ -152,9 +152,13 @@ def delay_of(params: Mapping[str, Any]) -> float:
     return DELAY[CONFIG_OF[params["model"], params["output_config"]["effort"]]]
 
 
-PHASE = {
-    "replay": False
-}  # whether the replay step is the one asking: its Sonnet-gate calls are answered by `live_reply`
+def asks_about_train(params: Mapping[str, Any]) -> bool:
+    """Whether a Sonnet-gate request judges one of the drift check's resent train answers: the request itself says so, since the
+    drift step resends train prompts (`rehearsal_gates.train_prompt`) and the replay's gate calls hold test items' prompts."""
+    content = params["messages"][0]["content"]
+    return "<answer>\n" in content and any(
+        gates_module.train_prompt(k) in content for k in range(len(rehearsal_sonnet.BATCH))
+    )
 
 
 @contextlib.contextmanager
@@ -163,16 +167,11 @@ def prepared(
 ) -> Iterator[tuple[Rehearsal, FakeAnthropic]]:
     """A rehearsal whose Anthropic client is the delaying fake, and whose fake Jev waits before it answers."""
     with rehearsed() as r:
-        PHASE["replay"] = False
 
         def routed(params: Mapping[str, Any]) -> dict:
-            # Before the replay the Sonnet gate's own steps (#86: the drift resends and the test batch) ask the scripted model;
-            # the replay's Sonnet-gate calls are answered by `respond`, which scripts the replay's own scores.
-            if (
-                not PHASE["replay"]
-                and params["model"] == r.sonnet.model
-                and "<answer>\n" in params["messages"][0]["content"]
-            ):
+            # The Sonnet gate's drift resends (#86) ask the scripted model; the replay's Sonnet-gate calls, on test items,
+            # are answered by `respond`, which scripts the replay's own scores.
+            if params["model"] == r.sonnet.model and asks_about_train(params):
                 return r.sonnet.respond(params)
             return respond(params)
 
@@ -194,7 +193,6 @@ def through_tables(r: Rehearsal) -> None:
 
 
 def replay_go(r: Rehearsal) -> Outcome:
-    PHASE["replay"] = True
     outcome, _, _ = r.go(named("unlock", "replay"))
     return outcome
 

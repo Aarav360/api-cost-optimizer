@@ -10,17 +10,16 @@ call ticket's projection and refuses over a cap before its own first call. The c
 final evaluation's folder and count under the $10 cap with the live replay.
 
 **A resume asks again.** A liveness call isn't an outcome that a second draw would change, it asks whether the model still
-answers, so each go sends both. The cost is cents, and a model retired between two goes is found at once.
+answers, so each go sends both. The cost is cents, and a model retired between two goes is found at once. This is the researcher's
+decision (#82), and a departure from A19 item 2's "a resume calls only requests with no stored response", which holds for every
+other step; the record shows it, each go's liveness step listing its own two requests as sent (`analysis/check_final_ledger.py`).
 """
 
-import json
-import os
-from pathlib import Path
-
+from analysis.collect_jev import append_record
 from analysis.final_ledger import LIVE, check_projection
 from analysis.final_run import Run, StepRefusal, StepResult
-from analysis.live_calls import live_request, send, worst_case_dollars
-from harness.client import load_models, make_client
+from analysis.live_calls import client_of, live_request, send, worst_case_dollars
+from harness.client import load_models
 
 LIVENESS_FILE = "liveness.jsonl"
 PROMPT = "Reply with the single word: ready."  # made up: no benchmark item, no test item
@@ -36,38 +35,20 @@ def requests() -> dict[str, dict]:
     return {config: live_request(config, PROMPT, models=models) for config in CONFIGS}
 
 
-def project(run: Run) -> float:
-    """The liveness calls' projected cost, an upper bound: each request's prompt and its whole `max_tokens`."""
+def project(_run: Run) -> float:
+    """The liveness calls' projected cost, an upper bound: each request's prompt and its whole `max_tokens`. It reads nothing
+    of the run, but takes it, as every projector does (`final_ledger.PROJECTORS`: a projector is `(run) -> dollars`)."""
     return sum(worst_case_dollars(request) for request in requests().values())
-
-
-def client_of(run: Run):
-    """The real client for the go's world (no backends named), the world's own fake for a rehearsal's."""
-    backends = run.world.backends
-    if backends is None:
-        return make_client()
-    if backends.anthropic is None:
-        raise LivenessRefusal("the world names backends but no Anthropic client: only the go's world, which names none, "
-                            "gets the real one")  # fmt: skip
-    return backends.anthropic
-
-
-def append(path: Path, record: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as file:
-        file.write(json.dumps(record, ensure_ascii=False) + "\n")
-        file.flush()
-        os.fsync(file.fileno())
 
 
 def liveness_step(run: Run) -> StepResult:
     account = check_projection(run)  # a cap refuses here, before the first call
-    client = client_of(run)
+    client = client_of(run, LivenessRefusal)
     asked = requests()
     returned: dict[str, str | None] = {}
     for config, request in asked.items():
         record = send(client, request)
-        append(run.world.output / LIVENESS_FILE,
+        append_record(run.world.output / LIVENESS_FILE,
                {"go": run.record.go["go"], "config": config, **record, "usage": record["response"]["usage"]})  # fmt: skip
         returned[config] = record["response"].get("model")
         run.say(f"liveness: {config} answered in {record['latency_s']:.2f} s")

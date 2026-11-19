@@ -38,7 +38,7 @@ from typing import Any
 
 from analysis import final_record_fields as fields
 from analysis.check_final_run import Rehearsal, rehearsed
-from analysis.final_record_fields import FilesError, file_hashes, file_problems, held_problems, missing, verify
+from analysis.final_record_fields import FilesError, field_problems, file_hashes, file_problems, held_problems, verify
 from analysis.final_run import StepRefusal, record_step
 from analysis.router_names import G_PLUS
 
@@ -95,16 +95,16 @@ def named(go: dict, name: str) -> dict:
     return next(s for s in go["steps"] if s["name"] == name)
 
 
-def deleter(path: fields.Path_) -> Callable[[dict], None]:
+def deleter(path: fields.FieldPath) -> Callable[[dict], None]:
     """A damage that removes the leaf `path` names."""
     return lambda go: fields.delete_at(go, path)
 
 
 def broken(record: dict, damage: Callable[[dict], None]) -> list[str]:
-    """What `missing` reports for a copy of the record after `damage` is applied to its last go."""
+    """What `field_problems` reports for a copy of the record after `damage` is applied to its last go."""
     changed = copy.deepcopy(record)
     damage(changed["gos"][-1])
-    return missing(changed)
+    return field_problems(changed)
 
 
 # ---- the fields -------------------------------------------------------------------------------------------------------
@@ -112,7 +112,7 @@ def broken(record: dict, damage: Callable[[dict], None]) -> list[str]:
 
 def the_fields(record: dict) -> None:
     print("-- the record holds every field of item 10, and a record without any one is refused --")
-    check(missing(record) == [], f"the rehearsal's record holds every field {missing(record)}")
+    check(field_problems(record) == [], f"the rehearsal's record holds every field {field_problems(record)}")
     prefixes = {f.name.split(".")[0] for f in fields.FIELDS}
     wanted = set().union(*BULLETS.values())
     check(
@@ -172,19 +172,19 @@ def the_fields(record: dict) -> None:
         check(found == [f"go {last}: {field_name}"], f"{what} is refused as {field_name} {found}")
     bad: dict
     for what, bad in [("an empty record", {"gos": []}), ("a record with no gos", {})]:
-        check(missing(bad) == ["gos"], f"{what} is refused")
+        check(field_problems(bad) == ["gos"], f"{what} is refused")
 
     print("\n-- a resume's record keeps each go's unlock --")
     twice = copy.deepcopy(record)
     twice["gos"].insert(0, copy.deepcopy(record["gos"][0]))
-    check(missing(twice) == [], "a record of two gos holding both unlocks is whole")
+    check(field_problems(twice) == [], "a record of two gos holding both unlocks is whole")
     del twice["gos"][0]["unlock"]["commit"]
     check(
-        missing(twice) == ["go 1: unlock.commit"],
-        f"a commit gone from the first go's unlock is named by its go {missing(twice)}",
+        field_problems(twice) == ["go 1: unlock.commit"],
+        f"a commit gone from the first go's unlock is named by its go {field_problems(twice)}",
     )
     twice["gos"][0]["steps"] = []  # an earlier go stopped early: only its unlock is held
-    check(missing(twice) == ["go 1: unlock.commit"], "the earlier go's steps are not held, only its unlock")
+    check(field_problems(twice) == ["go 1: unlock.commit"], "the earlier go's steps are not held, only its unlock")
 
 
 def nothing_early(record: dict) -> None:

@@ -32,7 +32,7 @@ from analysis import unlock as unlock_module
 from analysis.freeze import closure, sha256
 from analysis.made_up_world import MadeUp, made_up_world
 from analysis.plan import PLAN, amendment_item
-from analysis.unlock import CHECKS, UnlockRefusal, unlock, verified_list
+from analysis.unlock import CHECKS, UnlockRefusal, unlock, verify_list
 from analysis.verify_list import Entry, Probes, real_list
 from harness.client import PROJECT_ROOT
 from routers.sandbox import SandboxError
@@ -302,9 +302,9 @@ def unlocking() -> None:
         check(not isinstance(empty, UnlockRefusal) and result_of(empty).detail == {"checked": {}, "reported": {}},
               "a world with an empty list unlocks and records an empty one (the other checks' made-up worlds)")  # fmt: skip
         order = [function.__name__ for function in CHECKS]
-        check(order.index("verified_list") < order.index("sealed_store_sha256"),
+        check(order.index("verify_list") < order.index("sealed_store_sha256"),
               "the list is verified before the store's hash is read")  # fmt: skip
-        check("sealed_store" not in inspect.getsource(verified_list), "the list's check never names the store")
+        check("sealed_store" not in inspect.getsource(verify_list), "the list's check never names the store")
         rules = next(e for e in entries if e.name == "file:routers/rules.py")
         tamper, restore = tamper_with(rules, root, machine)
         tamper()

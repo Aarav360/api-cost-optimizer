@@ -260,15 +260,15 @@ def drift_quiet() -> None:
         m = detail["measures"]["haiku"]
         check(close(m["d6"], 0.02) and close(m["d8"], 0.03) and close(m["shift"], 0.0),
               f"D6 0.02, D8 0.03 and shift 0 are the hand-worked ones {m}")  # fmt: skip
-        flips = {f["threshold"]: f["count"] for f in detail["flips"]}
+        flips = {f["cutoff"]: f["count"] for f in detail["flips"]}
         hand = {0.9540063295697989: 1, 0.8149190161607497: 2, 0.8097612537302109: 1, 0.7307604185714591: 2,
                 0.6333807685183769: 1, 0.5414067403925006: 0}  # fmt: skip
-        check(flips == hand and [f["threshold"] for f in detail["flips"]] == sorted(hand, reverse=True),
+        check(flips == hand and [f["cutoff"] for f in detail["flips"]] == sorted(hand, reverse=True),
               f"the decisions that flip at each frozen cutoff, highest first, are worked by hand {list(flips.values())}")  # fmt: skip
         by_hand = {0.9540063295697989: ["banking77:made-train-0 haiku"],
                    0.8149190161607497: ["banking77:made-train-1 haiku", "banking77:made-train-2 haiku"],
                    0.7307604185714591: ["banking77:made-train-3 haiku", "banking77:made-train-4 haiku"]}  # fmt: skip
-        check(all([f["items"] for f in detail["flips"] if f["threshold"] == t] == [items] for t, items in by_hand.items()),
+        check(all([f["items"] for f in detail["flips"] if f["cutoff"] == t] == [items] for t, items in by_hand.items()),
               "and name the answers: item 0 at 0.954, items 1 and 2 at 0.8149, items 3 and 4 at 0.7308")  # fmt: skip
         labelled = {p for f in detail["flips"] for p in f["points"]}
         check({"haiku/Jev realistic 99%", "G+/Jev uniform 99%", "E/Jev realistic 97%"} <= labelled and len(labelled) == 25,
@@ -557,9 +557,35 @@ def resume() -> None:
         check(outcome == Outcome() and len(final_gates.read_jev("test", r.world.results)) == 30,
               "at the cap exactly, the calls go")  # fmt: skip
 
+    print(
+        "\n-- a call billed above its projection still stops at the cap, before the next call (the ledger before each call) --"
+    )
+    with ci.rehearsed() as r:
+        r.go(steps_to("calls_free_checks"))
+        pending = final_gates.pending_calls(
+            [GateInput(k[0], k[1], *answers[k][:1], answers[k][1], answers[k][2]) for k in keys], set(), SETTINGS
+        )
+        need = final_gates.projected_dollars(pending)
+        spent = final_ledger.recorded_spend(r.world.results, r.world.output).calls
+        r.gates.fake.tokens = (
+            5_000_000  # each call is billed 5 million input tokens: $0.21 at Jev's price, far over its projection
+        )
+        calls_before = len(r.gates.fake.received)
+        with mock.patch.dict(final_ledger.CAPS, {CALLS: spent + need + 0.1}):
+            outcome, out, _ = r.go(without_liveness(steps_to("calls_jev_gate")))
+        stored = final_gates.read_jev("test", r.world.results)
+        check(need < 0.01 and outcome.stopped_at == "calls_jev_gate" and outcome.error == "LedgerRefusal",
+              f"the up-front projection (${need:.4f}) fits under the cap, and the run still stops at the Jev gate step {outcome}")  # fmt: skip
+        check(len(stored) == 1 and len(r.gates.fake.received) == calls_before + 1,
+              "after one call: it was stored, and the next was refused before it was sent")  # fmt: skip
+        check("over Stage 8's cap" in out and "nothing was sent" in out, "and the refusal names the cap")
+
     print("\n-- a world that names backends and no Jev client is refused --")
     with ci.rehearsed() as r:
-        r.world = dataclasses.replace(r.world, backends=dataclasses.replace(r.world.backends, jev_gate=None))
+        r.world = dataclasses.replace(
+            r.world,
+            backends=dataclasses.replace(r.world.backends, jev=dataclasses.replace(r.world.backends.jev, gate=None)),
+        )
         outcome, _, _ = r.go(steps_to("drift_jev_gate"))
         check(
             outcome == Outcome("drift_jev_gate", "StepRefusal", None),

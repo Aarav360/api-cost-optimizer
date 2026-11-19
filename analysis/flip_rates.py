@@ -6,10 +6,12 @@ item 2's words. If any config's rate is 5% or more, the oracle curve is describe
 sends each item to the cheapest config that succeeded once, so a lucky draw counts as savings no deployable policy could rely
 on). On dev that holds for `haiku` and `opus_low` (A6), so the test oracle is described the same way.
 
-Dev's rates are counted from dev's stored runs once, by `python -m analysis.flip_rates --write`, into
+Dev's rates are counted from dev's stored runs once, by the command below, into
 `analysis/dev_flip_rates.json`, and the offline half's `flip_rates` part reads that file on either split: nothing about test
 goes into it, and a test build needs no dev results. `committed` recounts them from dev's matrix, so the dev reproduction holds
 the file to dev's runs (hook only), and `analysis/check_target_met.py` holds the file to A6's numbers in the plan (CI).
+
+Run from the project root:  uv run python -m analysis.flip_rates --write
 """
 
 import argparse

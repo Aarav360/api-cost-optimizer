@@ -55,10 +55,12 @@ from analysis import check_final_run as ci
 from analysis import collect_sonnet_gate, final_gates, final_ledger, final_sonnet, rehearsal_gates, rehearsal_sonnet
 from analysis import rehearsal_world as rehearsal
 from analysis.collect_gates import GateCollectError
+from analysis.collect_sonnet_gate import Stage8Files
 from analysis.final_ledger import CALLS
 from analysis.final_run import STEPS, Outcome, Step
 from analysis.gate_table import GateScoreTable, GateTableError, PaidScore
 from analysis.router_names import SONNET_GATE
+from analysis.unlock import Handle, HandleError, unlock
 from harness.client import PROJECT_ROOT
 from routers import jev, sonnet_gate
 from routers.request import Request
@@ -259,10 +261,10 @@ def drift_quiet() -> None:
         hand = {0.77: ["banking77:made-train-1 haiku", "banking77:made-train-2 haiku"],
                 0.5: ["banking77:made-train-4 haiku", "banking77:made-train-5 haiku"],
                 0.3: ["banking77:made-train-3 haiku"]}  # fmt: skip
-        check([f["threshold"] for f in d["flips"]] == [0.77, 0.5, 0.3] and [f["items"] for f in d["flips"]] == list(hand.values())
+        check([f["cutoff"] for f in d["flips"]] == [0.77, 0.5, 0.3] and [f["items"] for f in d["flips"]] == list(hand.values())
               and [f["count"] for f in d["flips"]] == FIRST_PLY["quiet"],
               f"the decisions that flip at each frozen cutoff, highest first, are worked by hand {FIRST_PLY['quiet']}")  # fmt: skip
-        labelled = {f["threshold"]: f["points"] for f in d["flips"]}
+        labelled = {f["cutoff"]: f["points"] for f in d["flips"]}
         check("haiku/Sonnet realistic 97%" in labelled[0.5] and "haiku/Sonnet uniform 97%" in labelled[0.3]
               and len(labelled[0.77]) == 9 and all("Sonnet" in p for ps in labelled.values() for p in ps),
               "each cutoff names the points on it: haiku/Sonnet's two that route, and the nine of the router-started cascades")  # fmt: skip
@@ -390,6 +392,39 @@ def drift_refusals() -> None:
             resends = [p for p in r.anthropic.calls if rehearsal_sonnet.prompt_of(p).startswith("Which kind")]
             check(outcome == expect and len(resends) == (6 if expect == Outcome() else 0),
                   f"the drift step's own cap check at {label} the recorded spend plus the resends' ${need:.6f}: {outcome}")  # fmt: skip
+
+    print("\n-- a resend billed far above its projection still stops at the cap, before the next resend --")
+    with (
+        ci.rehearsed() as r,
+        mock.patch.object(rehearsal_sonnet, "USAGE", (1_000_000, 50)),
+        mock.patch.dict(final_ledger.CAPS, {CALLS: jev_recorded + need + 1e-12}),
+    ):
+        outcome, out, _ = r.go(gates.without_liveness(to("drift_sonnet_gate")))
+        resends = [p for p in r.anthropic.calls if rehearsal_sonnet.prompt_of(p).startswith("Which kind")]
+        check(outcome.stopped_at == "drift_sonnet_gate" and outcome.error == "LedgerRefusal" and len(resends) == 1,
+              f"each resend is billed 1 million input tokens, the projection fits, and the run stops after the first {outcome}")  # fmt: skip
+        check("over Stage 8's cap" in out, "and the refusal names the cap")
+
+    print("\n-- the batch collector's Stage 8 files can be named only with a handle the unlock issued --")
+    with ci.rehearsed() as r:
+        records, log = r.world.results / "gates" / "sonnet_gate_test.jsonl", r.world.output / "log.json"
+        for how, handle in (
+            ("no handle", None),
+            ("a handle built by hand", Handle(r.world, ())),
+            ("a string", "handle"),
+        ):
+            check(raises(HandleError, lambda h=handle: Stage8Files(h, records, log)),  # type: ignore[arg-type,misc]
+                  f"Stage8Files refuses {how}, before any file is read or any batch made")  # fmt: skip
+        # With the files unnamed, submit takes Stage 7's own paths (the dev split here) and no handle: the old calls are as they were.
+        plain = collect_sonnet_gate.submit(
+            [], split="dev", client=None, cost_per_check=0.0, max_usd=1.0, results_dir=r.world.results
+        )
+        check(plain.sent == 0, "a call that names no Stage 8 file asks for no handle, as Stage 7's collection does")
+        stage8 = Stage8Files(unlock(r.world), records, log)
+        summary = collect_sonnet_gate.submit(
+            [], split="test", client=None, cost_per_check=0.0, max_usd=1.0, results_dir=r.world.results, stage8=stage8
+        )
+        check(summary.sent == 0, "known positive: the issued handle's Stage8Files is accepted for the same call")
 
 
 # ---- the batch on test ----------------------------------------------------------------------------------------------

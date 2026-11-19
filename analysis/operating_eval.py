@@ -25,6 +25,7 @@ Run on dev, the rows are the numbers table v1 committed for E and F (`analysis/c
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from analysis.bootstrap import Bootstrap, Savings, TotalEstimate
 from analysis.matrix import Matrix
@@ -125,17 +126,51 @@ def shared_savings(cache: dict, matrix: Matrix, draws: Bootstrap, mix: str) -> S
     return savings
 
 
-def router_traces(table_traces: Callable[[float], list[Trace]]) -> Callable[[FrozenPoint], list[Trace]]:
-    """`traces_of` for a router: its table's traces at the point's threshold, refusing a point with none."""
+def at_threshold(build: Callable[[FrozenPoint, float], list[Trace]]) -> Callable[[FrozenPoint], list[Trace]]:
+    """`traces_of` for a policy that starts at a router: `build(point, threshold)` at the point's router threshold, refusing
+    (FrozenPointError) a point that routes and holds none."""
 
     def traces_of(point: FrozenPoint) -> list[Trace]:
         if point.threshold is None:
             raise FrozenPointError(
                 f"{point.section} {point.mix} {point.target} does not fall back but has no threshold"
             )
-        return table_traces(point.threshold)
+        return build(point, point.threshold)
 
     return traces_of
+
+
+def router_traces(table_traces: Callable[[float], list[Trace]]) -> Callable[[FrozenPoint], list[Trace]]:
+    """`traces_of` for a router: its table's traces at the point's threshold, refusing a point with none."""
+    return at_threshold(lambda point, threshold: table_traces(threshold))
+
+
+def cascade_rows(
+    inputs: Any,
+    points: tuple[FrozenPoint, ...],
+    traces_of: Callable[[FrozenPoint], list[Trace]],
+    *,
+    per_task: bool = False,
+) -> dict:
+    """A cascade's part on a split (`inputs` is the offline half's `Inputs`): its frozen `points` evaluated with `traces_of`,
+    under both mixes (table v4's rows, which dev committed: each holds its cutoff, None if it fell back, and its escalation
+    rate) or with `per_task` per task, which dev committed no numbers for. The file's `fell_back` decides each point and
+    nothing is walked. A pure cascade's part and a router-started one's share it."""
+    from analysis import pareto
+    from analysis.cascade_comparisons import escalation_rate
+
+    fixed = shared_fixed(inputs.cache, inputs.matrix)
+    outcomes = evaluate(inputs.matrix, fixed[FRONTIER], points, traces_of)
+    if per_task:
+        return {"tasks": task_rows(inputs.draws, fixed, outcomes, list(pareto.TASKS))}
+    mixes = load_mixes()
+    rows = mix_rows(inputs.draws, lambda mix: shared_savings(inputs.cache, inputs.matrix, inputs.draws, mix),
+                    fixed, outcomes, mixes)  # fmt: skip
+    for point, found in outcomes.items():
+        row = rows[point.mix][point.target]
+        row.setdefault("cutoff", None)
+        row["escalation_rate"] = 0 if point.fell_back else escalation_rate(found, mixes[point.mix])
+    return {"mixes": rows}
 
 
 def evaluate(

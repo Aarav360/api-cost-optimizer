@@ -171,7 +171,7 @@ def rehearsal() -> None:
         ok = True
         for mix in by_mix:
             for target, rows in by_mix[mix].items():
-                ok &= [row["system"] for row in rows] == ["A", "B", "D", "E", "F", "G", G_PLUS, "I"]
+                ok &= [row["policy"] for row in rows] == ["A", "B", "D", "E", "F", "G", G_PLUS, "I"]
         check(
             ok,
             "each holds §10's eight rows in its order: A, B, D, E, F, G, G+ and the best cascade (the G+ row and the best-cascade row)",
@@ -179,7 +179,7 @@ def rehearsal() -> None:
         ok, hand_ok = True, True
         for mix in by_mix:
             for target, rows in by_mix[mix].items():
-                row = {x["system"]: x for x in rows}
+                row = {x["policy"]: x for x in rows}
                 a, b, d = row["A"], row["B"], row["D"]
                 hand_ok &= close(a["latency_p50_s"], REALISTIC_A[mix]) and close(b["latency_p50_s"], REALISTIC_B[mix])
                 ok &= a["savings_vs_A"] == 0 and a["captured"] == 0 and b["captured"] is None and d["captured"] == 1.0
@@ -202,14 +202,14 @@ def rehearsal() -> None:
         ok = True
         for mix in by_mix:
             for target, rows in by_mix[mix].items():
-                for system, section in [
+                for policy, section in [
                     ("E", "rules"),
                     ("F", "trained"),
                     ("G", "jev"),
                     (G_PLUS, NAMED_ROUTERS[G_PLUS]),
                     ("I", table["best_cascade"]["section"]),
                 ]:
-                    got = next(x for x in rows if x["system"] == system)
+                    got = next(x for x in rows if x["policy"] == policy)
                     own = parts[section]["mixes"][mix][target]
                     reading = met[section][mix][target]["reading"]
                     ok &= got["section"] == section and got["fell_back"] == own["fell_back"]
@@ -268,9 +268,9 @@ def rehearsal() -> None:
         for task, body in tasks.items():
             for mix in by_mix:
                 for rows in body["mixes"][mix].values():
-                    systems = [x["system"] for x in rows]
-                    ok &= systems == ["A", "B", "E", "F", "G", G_PLUS, "I"] and all(x["reading"] is None for x in rows)
-                    got = {x["system"]: x for x in rows}
+                    letters = [x["policy"] for x in rows]
+                    ok &= letters == ["A", "B", "E", "F", "G", G_PLUS, "I"] and all(x["reading"] is None for x in rows)
+                    got = {x["policy"]: x for x in rows}
                     ok &= close(got["A"]["latency_p50_s"], TASK_A[task]) and close(
                         got["B"]["latency_p50_s"], TASK_B[task]
                     )

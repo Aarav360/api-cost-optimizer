@@ -179,7 +179,7 @@ def session_factory(fake: ScriptedJev) -> Callable[[], AbstractContextManager[je
     return session
 
 
-@dataclass
+@dataclass(frozen=True)
 class GateStandIn:
     """What a rehearsal's backends take: the fake server (running only while a step calls it) and the two stand-ins."""
 

@@ -13,8 +13,9 @@ Reads no test item and calls nothing. Two holds:
   That commit's headings must be `DECLARED`, and the file now must hold them in the same order. Sections added later
   pass, and a declared part removed, renamed or moved fails (item 11: "nothing declared is removed or reordered, and the
   run may add sections"). Before the commit exists, as when the hook runs for the commit that makes it, the working
-  tree's file stands in for it; in a clone without history (CI's checkout) the history part is skipped and the file is
-  held against `DECLARED` alone.
+  tree's file stands in for it; in a clone without history the history part is skipped and the file is held against
+  `DECLARED` alone. CI's checkout fetches the whole history (`fetch-depth: 0` in `.github/workflows/check.yml`, which
+  `ci_checkout_check` holds), so the history part runs there too: the Stage 8 review found it skipped in CI.
 - **The numbers.** Each number-bearing sentence of the skeleton is a `Fragment`, built here from the committed tables
   (`analysis/final_design.py`, `figures/*.json`, `data/benchmark_manifest.json`, `configs/task_mix.yaml`), and must stand
   in its section. After the fragments are taken out, no digit may remain outside a citation (`A19 item 6`, `§5`), a code
@@ -565,10 +566,33 @@ def show_skeleton(commit: str, repo: Path = PROJECT_ROOT) -> str | None:
     return shown.stdout.decode("utf-8") if shown.returncode == 0 else None
 
 
+CHECKOUT = re.compile(r"uses:\s*actions/checkout@\S+\s*\n\s*with:\s*\n(?:\s+[^\n]*\n)*?\s+fetch-depth:\s*0\b")
+
+
+def checks_out_history(workflow: str) -> bool:
+    """Whether the workflow's checkout step fetches the whole history (`fetch-depth: 0`), as the history part needs."""
+    return CHECKOUT.search(workflow) is not None
+
+
+def ci_checkout_check() -> None:
+    print("\n-- CI's checkout holds the history this check searches --")
+    shallow = "steps:\n      - uses: actions/checkout@v4\n      - uses: astral-sh/setup-uv@v6\n"
+    deep = "steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n      - uses: astral-sh/setup-uv@v6\n"
+    elsewhere = "steps:\n      - uses: actions/checkout@v4\n      - uses: other/step@v1\n        with:\n          fetch-depth: 0\n"
+    check(
+        not checks_out_history(shallow),
+        "known positive: a workflow whose checkout takes the default (one commit) is found",
+    )
+    check(not checks_out_history(elsewhere), "and a fetch-depth set on another step doesn't count")
+    check(checks_out_history(deep), "a checkout with fetch-depth 0 passes")
+    workflow = (PROJECT_ROOT / ".github" / "workflows" / "check.yml").read_text(encoding="utf-8")
+    check(checks_out_history(workflow), "check.yml's checkout fetches the whole history, so CI runs the history part")
+
+
 def history_checks(current: str) -> None:
     print("\n-- WRITEUP.md against the skeleton's commit --")
     if not full_history():
-        print("SKIP  this clone has no history (CI's checkout): WRITEUP.md is held against DECLARED alone")
+        print("SKIP  this clone has no history: WRITEUP.md is held against DECLARED alone")
         return
     commit = skeleton_commit()
     if commit is None:
@@ -607,6 +631,7 @@ def main() -> int:
     declared_checks()
     guard_checks()
     throwaway_checks()
+    ci_checkout_check()
     history_checks(text)
     print("\nall checks passed" if not problems else f"\n{len(problems)} checks failed")
     return 1 if problems else 0

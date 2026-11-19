@@ -26,7 +26,6 @@ written by the tables step, which is the first allowed to show them.
 """
 
 import hashlib
-import json
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -34,24 +33,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from analysis import final_grading, final_replay, final_routers, final_sonnet, record_files
+from analysis import final_grading, final_replay, final_routers, final_sonnet, record_files, unlock
+from analysis.drift_rule import CUTOFF, THRESHOLD
 from analysis.final_ledger import CAPS, LIVE_FILES, recorded_spend, report
 from analysis.final_run import STEPS
 from analysis.offline_half import NOT_STOPS, TABLES_FILE
+from analysis.record_files import read_jsonl
 from analysis.router_names import G_PLUS, NAMED_ROUTERS, G
+from routers.ladder import LADDER
 
-CONFIGS = ("haiku", "sonnet", "opus_low", "opus")  # A's ladder, in price order
+CONFIGS = LADDER  # A's ladder, in price order
 OUTPUT_FOLDER = record_files.RECORD_FOLDER  # the key prefix of the final evaluation's own files in `files`
 # The unlock's checks, in the order `analysis/unlock.py` runs them, which is the order its entry keeps them.
-UNLOCK_CHECKS = (
-    "hook",
-    "git_facts",
-    "replay_draw",
-    "sealed_store_path",
-    "manifest_record",
-    "verify_list",
-    "sealed_store_sha256",
-)
+UNLOCK_CHECKS = unlock.CHECK_NAMES
 SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
@@ -59,36 +53,36 @@ SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
 @dataclass(frozen=True)
-class Step:
+class StepNamed:
     """The step called `name` among a go's steps."""
 
     name: str
 
 
 @dataclass(frozen=True)
-class Check:
+class CheckNamed:
     """The entry called `name` in a list of unlock checks (the node before it in the path)."""
 
     name: str
 
 
-Path_ = tuple[Any, ...]  # keys, with a `Step` or `Check` where a list holds named entries
+FieldPath = tuple[Any, ...]  # keys, with a `StepNamed` or `CheckNamed` where a list holds named entries
 
 
-def resolve(go: Mapping[str, Any], path: Path_) -> Any:
+def resolve(go: Mapping[str, Any], path: FieldPath) -> Any:
     """The value `path` names in a go; raises KeyError, IndexError or TypeError where the record doesn't hold it."""
     node: Any = go
     for key in path:
-        if isinstance(key, Step):
+        if isinstance(key, StepNamed):
             node = next(s for s in node["steps"] if s["name"] == key.name)
-        elif isinstance(key, Check):
+        elif isinstance(key, CheckNamed):
             node = next(c for c in node if c["name"] == key.name)
         else:
             node = node[key]
     return node
 
 
-def delete_at(go: dict[str, Any], path: Path_) -> None:
+def delete_at(go: dict[str, Any], path: FieldPath) -> None:
     """Remove the leaf `path` names (the known positive for a field gone)."""
     del resolve(go, path[:-1])[path[-1]]
 
@@ -126,20 +120,25 @@ def measures_ok(value: Any) -> bool:
     )
 
 
-def flips_ok(value: Any) -> bool:
-    """The decisions that flip at each operating threshold or cutoff: one entry each, even if none flipped."""
-    return (
-        isinstance(value, list)
-        and bool(value)
-        and all(
-            isinstance(f, Mapping)
-            and "threshold" in f
-            and "points" in f
-            and isinstance(f.get("count"), int)
-            and "items" in f
-            for f in value
+def flips_of(dial: str) -> Callable[[Any], bool]:
+    """The decisions that flip at each operating dial, a router's `threshold` or a gate's `cutoff` (the key the entry holds it
+    under): one entry each, even if none flipped."""
+
+    def flips_ok(value: Any) -> bool:
+        return (
+            isinstance(value, list)
+            and bool(value)
+            and all(
+                isinstance(f, Mapping)
+                and dial in f
+                and "points" in f
+                and isinstance(f.get("count"), int)
+                and "items" in f
+                for f in value
+            )
         )
-    )
+
+    return flips_ok
 
 
 def steps_ok(value: Any) -> bool:
@@ -229,7 +228,7 @@ def present(value: Any) -> bool:
 @dataclass(frozen=True)
 class Field:
     name: str
-    path: Path_
+    path: FieldPath
     valid: Callable[[Any], bool] = present
     each_go: bool = False  # held for every go (the unlock's), not only the last
     damage: Callable[[dict[str, Any]], None] | None = (
@@ -241,12 +240,12 @@ def cut_ended(go: dict[str, Any]) -> None:
     del go["steps"][3]["ended"]
 
 
-TABLES, DETAIL = Step("tables"), "detail"
+TABLES, DETAIL = StepNamed("tables"), "detail"
 EXTRAS = (TABLES, DETAIL, "extras")
 UNLOCK = ("unlock",)
-JEV_ROUTERS = (Step("drift_jev_router"), DETAIL, "routers")
-LIVE_REPLAY = (Step("replay"), DETAIL)
-CLOSING = (Step("record"), DETAIL)
+JEV_ROUTERS = (StepNamed("drift_jev_router"), DETAIL, "routers")
+LIVE_REPLAY = (StepNamed("replay"), DETAIL)
+CLOSING = (StepNamed("record"), DETAIL)
 
 # One field per line, under the bullet of A19 item 10 it comes from.
 FIELDS: tuple[Field, ...] = (
@@ -257,18 +256,18 @@ FIELDS: tuple[Field, ...] = (
     Field("unlock.checks", (*UNLOCK, "checks"), check_list_ok, True),
     Field("unlock.environment", (*UNLOCK, "environment"), environment_ok, True),
     # The liveness calls' returned model IDs
-    Field("liveness.models", (Step("liveness"), DETAIL, "models"), lambda v: keyed(v, ("haiku", "opus"), text)),
+    Field("liveness.models", (StepNamed("liveness"), DETAIL, "models"), lambda v: keyed(v, ("haiku", "opus"), text)),
     # The drift checks' numbers: D6, D8 and the shifts, the decisions that flip at each operating threshold and cutoff, and F's largest difference
-    Field("drift.F.largest_difference", (Step("drift_trained_router"), DETAIL, "largest_difference"), number),
-    Field("drift.F.flips", (Step("drift_trained_router"), DETAIL, "flips"), flips_ok),
+    Field("drift.F.largest_difference", (StepNamed("drift_trained_router"), DETAIL, "largest_difference"), number),
+    Field("drift.F.flips", (StepNamed("drift_trained_router"), DETAIL, "flips"), flips_of(THRESHOLD)),
     Field("drift.G.measures", (*JEV_ROUTERS, G, "measures"), measures_ok),
-    Field("drift.G.flips", (*JEV_ROUTERS, G, "flips"), flips_ok),
+    Field("drift.G.flips", (*JEV_ROUTERS, G, "flips"), flips_of(THRESHOLD)),
     Field("drift.G+.measures", (*JEV_ROUTERS, G_PLUS, "measures"), measures_ok),
-    Field("drift.G+.flips", (*JEV_ROUTERS, G_PLUS, "flips"), flips_ok),
-    Field("drift.jev_gate.measures", (Step("drift_jev_gate"), DETAIL, "measures"), measures_ok),
-    Field("drift.jev_gate.flips", (Step("drift_jev_gate"), DETAIL, "flips"), flips_ok),
-    Field("drift.sonnet_gate.measures", (Step("drift_sonnet_gate"), DETAIL, "measures"), measures_ok),
-    Field("drift.sonnet_gate.flips", (Step("drift_sonnet_gate"), DETAIL, "flips"), flips_ok),
+    Field("drift.G+.flips", (*JEV_ROUTERS, G_PLUS, "flips"), flips_of(THRESHOLD)),
+    Field("drift.jev_gate.measures", (StepNamed("drift_jev_gate"), DETAIL, "measures"), measures_ok),
+    Field("drift.jev_gate.flips", (StepNamed("drift_jev_gate"), DETAIL, "flips"), flips_of(CUTOFF)),
+    Field("drift.sonnet_gate.measures", (StepNamed("drift_sonnet_gate"), DETAIL, "measures"), measures_ok),
+    Field("drift.sonnet_gate.flips", (StepNamed("drift_sonnet_gate"), DETAIL, "flips"), flips_of(CUTOFF)),
     # Each step's start and end and its request counts; the refusals and truncations; the spend against each cap
     Field("steps", ("steps",), steps_ok, damage=cut_ended),
     Field("stops", (*EXTRAS[:2], "stops"), stops_ok),
@@ -277,11 +276,11 @@ FIELDS: tuple[Field, ...] = (
     Field("refusals.gates", (*EXTRAS, "gate_table"), lambda v: keyed(v, CONFIGS, lambda c: keyed(c, ("rejected", "jev_refused", "jev_cut", "sonnet_refused", "sonnet_cap_stops"), lambda n: isinstance(n, int)))),
     Field("spend", (*CLOSING, "spend"), spend_ok),
     # The order evidence: the first test Jev call's server Date, and the Sonnet test batch's ID and creation time
-    Field("order.jev_date", (Step("calls_jev_router"), DETAIL, "first_test_jev_date"), text),
-    Field("order.sonnet_batches", (Step("calls_sonnet_gate"), DETAIL, "batches"), batches_ok),
+    Field("order.jev_date", (StepNamed("calls_jev_router"), DETAIL, "first_test_jev_date"), text),
+    Field("order.sonnet_batches", (StepNamed("calls_sonnet_gate"), DETAIL, "batches"), batches_ok),
     # F's fold shares on test, and the live-replay items drawn at the unlock
     Field("folds.F", (*EXTRAS, "trained_facts", "fold_shares"), shares_ok),
-    Field("replay.items", (*UNLOCK, "checks", Check("replay_draw"), DETAIL, "item_ids"), items_ok, True),
+    Field("replay.items", (*UNLOCK, "checks", CheckNamed("replay_draw"), DETAIL, "item_ids"), items_ok, True),
     # The live replay's conditions, with the first call and any reconnects apart
     Field("replay.conditions", (*LIVE_REPLAY, "conditions"), lambda v: keyed(v, ("machine", "network", "go_started", "go_ended"), text)),
     Field("replay.calls", (*LIVE_REPLAY, "results"), replay_results_ok),
@@ -294,7 +293,7 @@ def last_go(record: Mapping[str, Any]) -> Mapping[str, Any]:
     return record["gos"][-1]
 
 
-def missing(record: Mapping[str, Any]) -> list[str]:
+def field_problems(record: Mapping[str, Any]) -> list[str]:
     """The fields the record lacks or holds malformed, each named by its go: `go 2: unlock.commit`. An empty list means the
     record holds every field of A19 item 10."""
     gos = record.get("gos")
@@ -375,18 +374,13 @@ def file_problems(kept: Mapping[str, Mapping[str, Any]], results: Path, output: 
 # ---- the holds --------------------------------------------------------------------------------------------------------
 
 
-def stored(path: Path) -> list[dict[str, Any]]:
-    """A record file's complete lines, parsed."""
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").split("\n")[:-1]]
-
-
 def stamps(go: Mapping[str, Any]) -> list[str]:
     """The go's times in the order they were taken: its start, each step's start and end, its end."""
     return [go["started"], *(t for s in go["steps"] for t in (s["started"], s["ended"])), go["ended"]]
 
 
 def held_problems(record: Mapping[str, Any], tables: Mapping[str, Any], results: Path, output: Path) -> list[str]:
-    """What disagrees between the tables, the record and the stored files. The record must hold every field (`missing`)."""
+    """What disagrees between the tables, the record and the stored files. The record must hold every field (`field_problems`)."""
     go = last_go(record)
     step = {s["name"]: s for s in go["steps"]}
     detail = {name: s["detail"] for name, s in step.items()}
@@ -421,11 +415,11 @@ def held_problems(record: Mapping[str, Any], tables: Mapping[str, Any], results:
     )
     sent = {name: s["requests"]["sent"] + s["requests"]["stored"] for name, s in step.items()}
     free, jev_gate_calls = (
-        stored(results / "gates" / "free_checks_test.jsonl"),
-        stored(results / "gates" / "jev_gate_test.jsonl"),
+        read_jsonl(results / "gates" / "free_checks_test.jsonl"),
+        read_jsonl(results / "gates" / "jev_gate_test.jsonl"),
     )
-    sonnet_calls = stored(results / "gates" / "sonnet_gate_test.jsonl")
-    routers = [stored(results / "jev" / f"{name}_test.jsonl") for name in (NAMED_ROUTERS[G], NAMED_ROUTERS[G_PLUS])]
+    sonnet_calls = read_jsonl(results / "gates" / "sonnet_gate_test.jsonl")
+    routers = [read_jsonl(results / "jev" / f"{name}_test.jsonl") for name in (NAMED_ROUTERS[G], NAMED_ROUTERS[G_PLUS])]
     expect(
         sent["calls_free_checks"] == len(free) == n * len(configs),
         f"the free checks: {sent['calls_free_checks']} requests, {len(free)} stored, {n} x {len(configs)} answers",
@@ -505,7 +499,7 @@ def held_problems(record: Mapping[str, Any], tables: Mapping[str, Any], results:
 def verify(record: Mapping[str, Any], tables: Mapping[str, Any], results: Path, output: Path) -> list[str]:
     """Every problem with a record against its tables and files: the fields it lacks (then nothing else is looked at), the
     files that don't match their hashes, and what disagrees with the tables. Empty if the record is whole."""
-    lacking = missing(record)
+    lacking = field_problems(record)
     if lacking:
         return [f"the record lacks {name}" for name in lacking]
     return [*file_problems(last_go(record)["steps"][-1]["detail"]["files"], results, output),

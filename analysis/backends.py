@@ -42,6 +42,11 @@ class JevStandIn:
     # two passes from. None is the world's own results folder, where the go's real ones are; a rehearsal keeps its made-up
     # ones in a folder of their own, so a refused unlock still leaves the world's results folder uncreated.
     train_results: Any = None
+    # The Jev gate's client (`analysis/final_gates.py`, #85): a factory of a context-managed `routers.jev.JevClient`, `with
+    # backends.jev.gate() as client:`, for the gate's drift resends and its calls on test. One field for both kinds of Jev
+    # call, the Stage 8 review's O4 (#84 and #85 each added a stand-in of their own). None in a world that names a Jev
+    # stand-in is refused by the Jev gate's steps, as the Jev routers' is, so a rehearsal can't reach the real endpoint.
+    gate: Callable[[], Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -52,18 +57,34 @@ class Backends:
     # can't reach the real API. The go's world names no backends at all (`World.backends` None), and gets the real client.
     anthropic: Any = None
     trained: TrainedStandIn | None = None  # F's embedder and dev side: stand-ins in a rehearsal, None for the real ones
-    # The Jev endpoint for the Jev gate's drift resends and its calls on test (`analysis/final_gates.py`): a factory of a
-    # context-managed `routers.jev.JevClient`, `with backends.jev_gate() as client:`. (G's and G+'s are `jev`, #84's.) As with the Anthropic client, None in a world
-    # that names backends is refused, so a rehearsal can't reach the real endpoint; the go's world (no backends) builds the
-    # real client from the pinned settings and the key in the environment.
-    jev_gate: Callable[[], Any] | None = None
     # Train's answers for the Jev gate's drift resend: given the noise sample's (item, config) pairs, the `GateInput`s
     # (request, answer, stop reason) the resend sends again. None is the real reader (`collect_gates.gate_inputs("train")`);
     # a rehearsal gives made-up ones, since it holds no train matrix.
     gate_train: Callable[[Sequence[tuple[str, str]]], Sequence[Any]] | None = None
     # The sandbox image's digest a free-check record carries when `sandbox` is a stand-in (the real one is read from Docker).
     image_digest: str | None = None
-    # The Jev endpoint G's and G+'s drift resends and test calls use. As with the Anthropic client, None is not "the real
-    # one": a world that names backends and no Jev stand-in is refused by the Jev router steps, so a rehearsal can't reach
-    # the real service.
+    # The Jev endpoint every Jev call uses: G's and G+'s drift resends and test calls, and (its `gate`) the Jev gate's. As with
+    # the Anthropic client, None is not "the real one": a world that names backends and no Jev stand-in is refused by the Jev
+    # steps, so a rehearsal can't reach the real service; the go's world (no backends) builds the real client from the pinned
+    # settings and the key in the environment.
     jev: JevStandIn | None = None
+
+
+def stand_in_of(backends: Backends | None, field: str) -> Any:
+    """The stand-in a world names for `field`, or None for the real one: the go's world names no backends at all, and a
+    rehearsal leaves None a backend it doesn't fake (the sandbox, the embedder, train's answers: the real one then stands)."""
+    return None if backends is None else getattr(backends, field)
+
+
+def required(backends: Backends | None, field: str, what: str, refusal: type[Exception]) -> Any:
+    """The stand-in a world names for `field`, None for the go's world (no backends: the real one), and `refusal` for a world
+    that names backends but no `field`, so a rehearsal that forgot its fake can't reach the real service (the Anthropic client,
+    the Jev endpoint). `what` names it in the message."""
+    stand_in = stand_in_of(backends, field)
+    if backends is not None and stand_in is None:
+        raise refusal(no_stand_in(what))
+    return stand_in
+
+
+def no_stand_in(what: str) -> str:
+    return f"the world names backends but no {what}: only the go's world, which names none, gets the real one"

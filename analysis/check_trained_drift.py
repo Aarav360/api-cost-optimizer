@@ -121,7 +121,7 @@ def the_rule() -> None:
     same = drift_report(dev, table(OLD), POINTS, LIMIT)
     check(same.largest == 0.0 and all(f.items == () for f in same.flips) and same.outcomes is None,
           "identical router scores: no difference, no flip, no dev report")  # fmt: skip
-    check([f.threshold for f in same.flips] == [THRESHOLD, 0.5]
+    check([f.value for f in same.flips] == [THRESHOLD, 0.5]
           and [f.points for f in same.flips] == [("realistic 99%", "uniform 97%"), ("uniform 99%",)],
           "a flip is reported for each distinct frozen threshold, highest first, with the points that sit on it")  # fmt: skip
 

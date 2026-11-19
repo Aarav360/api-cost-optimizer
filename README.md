@@ -78,7 +78,7 @@ from jsDelivr).
   strategy is compared on exactly the same answers.
 - **References, not just baselines.** Besides always-frontier and always-cheapest, the matrix
   gives a hindsight oracle (a multiple-choice knapsack relaxed to a linear program) and the
-  envelope of random mixtures. Systems report the fraction of the oracle's savings they capture
+  envelope of random mixtures. Policies report the fraction of the oracle's savings they capture
   at the same quality target.
 - **Routers, simplest first:** a rules baseline, then a classifier trained on prompt embeddings,
   then Jev (TypeSafe's decision model, zero-shot and bolstered). Routers are compared at matched cost or matched quality,

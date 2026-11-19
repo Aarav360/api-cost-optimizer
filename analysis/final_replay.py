@@ -26,10 +26,8 @@ that call's worst case (its whole `max_tokens`) must fit, so a run that costs mo
 """
 
 import contextlib
-import json
 import re
 import statistics
-import threading
 import time
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
@@ -39,10 +37,11 @@ from typing import Any
 
 from analysis import final_gates, final_grading
 from analysis.collect_jev import append_record, trim_torn_line
-from analysis.final_grading import GradingError
 from analysis.final_ledger import CAPS, LIVE, LedgerRefusal, Spend, call_dollars, live_spend, recorded_spend, refusal
 from analysis.final_run import ItemFailure, Run, StepRefusal, StepResult
 from analysis.gate_spend import jev_projected_cost, list_dollars
+from analysis.live_calls import client_of
+from analysis.record_files import read_jsonl
 from analysis.replay_plan import (
     ROUTER_EXTRAS,
     Estimate,
@@ -58,7 +57,7 @@ from analysis.replay_plan import (
 )
 from analysis.router_names import HAIKU, JEV_GATE, SONNET_GATE
 from analysis.unlock import Handle
-from harness.client import answer_text, load_models, make_client
+from harness.client import answer_text, load_models
 from harness.collect import Job, make_row
 from routers import jev, jev_gate, rules, sonnet_gate
 from routers.cascade import configs_called, paid_gate_called
@@ -93,13 +92,6 @@ def plan_of() -> Plan:
         raise ReplayRefusal(str(error)) from error
 
 
-def read_jsonl(path: Path) -> list[dict]:
-    """A record file's complete lines (a torn last line is dropped, as the collectors do)."""
-    if not path.is_file():
-        return []
-    return [json.loads(line) for line in path.read_bytes().decode("utf-8").split("\n")[:-1]]
-
-
 def stored_state(
     output: Path, plan: Plan, items: Sequence[str]
 ) -> tuple[dict[tuple[str, str, str], dict], dict[tuple[str, str], dict]]:
@@ -108,8 +100,8 @@ def stored_state(
     keys, wanted = {p.key for p in plan.policies}, set(items)
     for name in (CALLS_FILE, REQUESTS_FILE):
         trim_torn_line(output / name)
-    calls = {(r["policy"], r["item_id"], r["role"]): r for r in read_jsonl(output / CALLS_FILE)}
-    done = {(r["policy"], r["item_id"]): r for r in read_jsonl(output / REQUESTS_FILE)}
+    calls = {(r["policy"], r["item_id"], r["role"]): r for r in read_jsonl(output / CALLS_FILE, missing_ok=True)}
+    done = {(r["policy"], r["item_id"]): r for r in read_jsonl(output / REQUESTS_FILE, missing_ok=True)}
     stray = [k for k in (*calls, *done) if k[0] not in keys or k[1] not in wanted]
     if stray:
         raise ReplayRefusal(
@@ -122,14 +114,13 @@ def stored_state(
 
 
 def stored_usage(handle: Handle) -> dict[tuple[str, str], tuple[int, int]]:
-    """The most input and output tokens any stored run of an (item, config) was billed: token counts only, read from the
-    stored responses, for the projection. Nothing about an answer is kept."""
+    """The most input and output tokens any stored run of an (item, config) was billed: token counts only, from the handle's
+    stored-results read, which holds no answer and no expected answer, for the projection."""
     found: dict[tuple[str, str], tuple[int, int]] = {}
-    for graded in handle.graded_items():
-        usage = graded.response["usage"]
-        key = (graded.item["item_id"], graded.config)
+    for stored in handle.stored_results():
+        key = (stored.item_id, stored.config)
         before = found.get(key, (0, 0))
-        found[key] = (max(before[0], usage["input_tokens"]), max(before[1], usage["output_tokens"]))
+        found[key] = (max(before[0], stored.input_tokens), max(before[1], stored.output_tokens))
     return found
 
 
@@ -186,7 +177,7 @@ def project(run: Run) -> float:
 # ---- one request ------------------------------------------------------------------------------------------------
 
 
-@dataclass
+@dataclass(frozen=True)
 class Context:
     """What the live phase of one go holds: the clients, the settings, the stored state and the go's first-call marks."""
 
@@ -357,18 +348,6 @@ def run_request(ctx: Context, policy: Policy, item_id: str, request: Request) ->
 # ---- the live phase and grading -----------------------------------------------------------------------------------
 
 
-def anthropic_client_of(run: Run) -> Any:
-    """The world's fake for a rehearsal, the real client for the go's world (which names no backends)."""
-    backends = run.world.backends
-    if backends is None:
-        return make_client()
-    if backends.anthropic is None:
-        raise ReplayRefusal(
-            "the world names backends but no Anthropic client: only the go's world, which names none, gets the real one"
-        )
-    return backends.anthropic
-
-
 def scorer_of(run: Run, plan: Plan) -> Callable[[Request], dict[str, float]] | None:
     """The local router's `score` for a cascade that starts at E or F, else None."""
     starts = {p.start for p in plan.policies if p.section is not None}
@@ -410,7 +389,7 @@ def live_phase(
     needs_jev = any(p.gate == JEV_GATE for p in plan.policies)
     with contextlib.ExitStack() as stack:
         jev_client = stack.enter_context(final_gates.jev_client_of(run)) if needs_jev else None
-        ctx = Context(run, anthropic_client_of(run), load_models(), clock, jev.read_client_settings().price_per_million_input_tokens,
+        ctx = Context(run, client_of(run, ReplayRefusal), load_models(), clock, jev.read_client_settings().price_per_million_input_tokens,
                       code, runner, digest, jev_client, jev_gate.read_settings(), sonnet_gate.load_settings(),
                       scorer_of(run, plan), calls, run.record.go["go"])  # fmt: skip
         for number, (item_id, policy) in enumerate(pending, start=1):
@@ -435,10 +414,8 @@ def grade(
     """Each finished request's final answer, graded by the collection run's own row building, one at a time on the main
     thread with nothing else running (the fake Jev server stops with its session before this). Returns `(policy, item)` to
     the row's status and success, and the item's task."""
-    if threading.current_thread() is not threading.main_thread() or threading.active_count() != 1:
-        raise GradingError("grading runs on the main thread with no other thread running")
-    wanted = set(items)
-    rows = {g.item["item_id"]: g.item for g in run.unlocked().graded_items() if g.item["item_id"] in wanted}
+    final_grading.require_alone()
+    rows = final_grading.item_rows(run.unlocked(), set(items))
     models = load_models()
     grades: dict[tuple[str, str], dict] = {}
     with final_grading.sandbox_of(run):

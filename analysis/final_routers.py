@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from analysis import pareto
+from analysis.backends import stand_in_of
 from analysis.final_run import ItemFailure, Run, StepResult
 from analysis.operating_eval import (
     evaluate,
@@ -98,7 +99,7 @@ def trained_scorer(world: World) -> tuple[Callable[[Request], dict[str, float]],
     from routers import trained
     from routers.trained import TrainedRouter
 
-    stand_in = world.backends.trained if world.backends is not None else None
+    stand_in = stand_in_of(world.backends, "trained")
     if stand_in is not None and stand_in.embedder is not None:
         router = TrainedRouter(trained.read_settings(), trained.read_fold_weights(), backend=stand_in.embedder)
         return router.score, lambda: (router.counts.truncated, router.counts.emptied)

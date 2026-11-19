@@ -13,10 +13,14 @@ The replay (#91) builds its requests with `live_request` and sends them with `se
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from harness.client import build_request, call, load_models
+from analysis.backends import required
+from harness.client import build_request, call, load_models, make_client
 from harness.store import ResponseStore
+
+if TYPE_CHECKING:
+    from analysis.final_run import Run
 
 
 class Uncached(ResponseStore):
@@ -53,3 +57,11 @@ def worst_case_dollars(request: dict, models: Mapping | None = None) -> float:
     price = models["prices"][request["model"]]
     prompt_bytes = sum(len(message["content"].encode("utf-8")) for message in request["messages"])
     return (prompt_bytes * float(price["input"]) + request["max_tokens"] * float(price["output"])) / 1e6
+
+
+def client_of(run: "Run", refusal: type[Exception]) -> Any:
+    """The Anthropic client of a Stage 8 step that calls the standard API (the liveness calls, the Sonnet gate's drift resends
+    and the live replay): the world's own for a rehearsal, the real one for the go's world, which names no backends. A world
+    that names backends and no Anthropic client raises `refusal`, so a rehearsal that forgot its fake can't reach the real API."""
+    stand_in = required(run.world.backends, "anthropic", "Anthropic client", refusal)
+    return make_client() if stand_in is None else stand_in

@@ -32,21 +32,24 @@ import numpy as np
 from analysis import final_headline
 from analysis.gate_table import GateScoreTable, pure_traces
 from analysis.latency_estimate import GateMedians, cascade_gate_calls, trace_seconds
+from analysis.matrix import Matrix
 from analysis.operating_eval import frozen_points
 from analysis.operating_points import OPERATING_POINTS_FILE
 from analysis.routed_walk import routed_traces
 from analysis.router_names import CASCADE_STARTS, CASCADES, HAIKU, LETTER_OF, NAMED_ROUTERS, parse_cascade
 from analysis.simulator import Outcome, Trace, always, simulate
-from harness.client import PROJECT_ROOT
+from analysis.table_v4 import TABLE_V4
 from routers.gates import assert_line
 from routers.ladder import FRONTIER
 
-TABLE_V4 = PROJECT_ROOT / "figures" / "table_v4.json"
 POINTS = (("realistic", "99%"), ("realistic", "97%"))  # A17 item 26.5: the realistic-mix 99% and 97% operating points
 A_KEY = "A"
+# The `Extra` holding each router's table (E and F: `analysis/final_routers.py`; G and G+: `analysis/final_jev.py`):
+# rules_table ... jev_bolstered_table. The twelve router-started cascades read them (`analysis/final_routed.py`).
+ROUTER_TABLES = {section: f"{section}_table" for section in NAMED_ROUTERS.values()}
 # A router's score tables as the offline half's extras name them (`analysis/offline_half.py`), for the routers whose live
 # path this replay has (E and F).
-ROUTER_EXTRAS = {NAMED_ROUTERS["E"]: "rules_table", NAMED_ROUTERS["F"]: "trained_table"}
+ROUTER_EXTRAS = {section: ROUTER_TABLES[section] for section in (NAMED_ROUTERS["E"], NAMED_ROUTERS["F"])}
 
 
 class ReplayPlanError(ValueError):
@@ -137,7 +140,7 @@ class Estimate:
     latency_p90_s: float
 
 
-def traces_of(policy: Policy, matrix: Any, table: GateScoreTable, routers: Mapping[str, Any]) -> list[Trace]:
+def traces_of(policy: Policy, matrix: Matrix, table: GateScoreTable, routers: Mapping[str, Any]) -> list[Trace]:
     """The policy's trace on every item of the matrix at its frozen dials: A always `opus`, a pure cascade from `haiku`, a
     router-started one from the router's pick at the threshold."""
     if policy.section is None:
@@ -151,7 +154,7 @@ def traces_of(policy: Policy, matrix: Any, table: GateScoreTable, routers: Mappi
 
 def offline_estimate(
     policy: Policy,
-    matrix: Any,
+    matrix: Matrix,
     table: GateScoreTable,
     routers: Mapping[str, Any],
     items: Sequence[str],

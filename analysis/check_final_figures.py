@@ -234,6 +234,22 @@ def rehearsal() -> None:
               and not any("on dev" in text for f in figs.values() for text in f["units"].values()),
               "the per-task warnings count test items, and no unit reads as dev's")  # fmt: skip
         check(r.tables["split"] == "test", "the tables are test's")
+        # The numbers a caption words come from committed files, not from the code that words them (CODING_STANDARDS.md,
+        # "Numbers in documents"): the targets are the operating-points file's keys, the count of cascades is table v4's.
+        file_targets = sorted(
+            read_section(NAMED_ROUTERS["E"])["realistic"], key=lambda key: -int(key.rstrip("%"))
+        )  # strictest first
+        said = f"{', '.join(file_targets[:-1])} and {file_targets[-1]}"
+        table_v4 = json.loads((PROJECT_ROOT / "figures" / "table_v4.json").read_text(encoding="utf-8"))
+        committed_cascades = len(table_v4["cascades"])
+        caption = figs["routed"]["caption"]
+        check(file_targets == ["100%", "99%", "97%"] and f"(one per quality target: {said} of A's quality" in caption,
+              "the router-started caption's quality targets are the operating-points file's own keys")  # fmt: skip
+        check(committed_cascades == 15 and f"the {committed_cascades} cascades, keyed" in figs["routed"]["units"]["cascades"],
+              "the units' count of cascades is table v4's own")  # fmt: skip
+        planted = said.replace("97%", "96%")
+        check(f"(one per quality target: {planted} of A's quality" not in caption,
+              "known positive: a caption that named other targets than the file's would not be found")  # fmt: skip
 
         print("\n-- a cross is a frozen point, a line is its dials --")
         parts = tables["parts"]

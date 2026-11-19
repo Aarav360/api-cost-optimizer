@@ -26,13 +26,14 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from analysis.backends import stand_in_of
 from analysis.drift import DriftRefusal
+from analysis.drift_rule import Flip, decision_flips
 from analysis.final_run import Run, StepResult
 from analysis.matrix import Matrix
 from analysis.operating_eval import FrozenPoint, evaluate, frozen_points, router_traces
 from analysis.router_table import LOCAL_OVERHEAD, ItemRouterScores, RouterScoreTable
 from analysis.simulator import always, load_mixes, simulate, totals
-from routers.decision import choose
 from routers.ladder import FRONTIER, SCORED
 from routers.request import Request
 
@@ -53,15 +54,6 @@ class DevSide:
 
 
 @dataclass(frozen=True)
-class Flip:
-    """The dev decisions that change at one frozen threshold, and the points that sit on it."""
-
-    threshold: float
-    points: tuple[str, ...]  # "realistic 99%", ...
-    items: tuple[str, ...]  # the dev items whose chosen config differs between the old scores and the new
-
-
-@dataclass(frozen=True)
 class DriftReport:
     largest: float  # the largest absolute difference in any router score, over every dev item and config
     limit: float
@@ -79,10 +71,7 @@ class DriftReport:
             "largest_difference": self.largest,
             "drift_limit": self.limit,
             "report_above": REPORT_ABOVE,
-            "flips": [
-                {"threshold": f.threshold, "points": list(f.points), "count": len(f.items), "items": list(f.items)}
-                for f in self.flips
-            ],  # fmt: skip
+            "flips": [f.record() for f in self.flips],
         }
         if self.outcomes is not None:
             out["dev_outcomes"] = {mix: {t: {k: dict(v) for k, v in row.items()} for t, row in by.items()}
@@ -109,15 +98,9 @@ def flips_at(
     for point in points:
         if point.threshold is not None:
             labels.setdefault(point.threshold, []).append(f"{point.mix} {point.target}")
-    flips = []
-    for threshold in sorted(labels, reverse=True):
-        items = tuple(
-            old.item_id
-            for old, new in zip(dev_table.items, rescored.items, strict=True)
-            if choose(old.router_scores, threshold) != choose(new.router_scores, threshold)
-        )
-        flips.append(Flip(threshold, tuple(labels[threshold]), items))
-    return tuple(flips)
+    old = {e.item_id: e.router_scores for e in dev_table.items}
+    new = {e.item_id: e.router_scores for e in rescored.items}
+    return decision_flips(old, new, labels)
 
 
 def dev_outcomes(
@@ -200,7 +183,7 @@ def drift_step(run: Run) -> StepResult:
     from routers import trained
     from routers.trained import TrainedRouter
 
-    stand_in = run.world.backends.trained if run.world.backends is not None else None
+    stand_in = stand_in_of(run.world.backends, "trained")
     dev = stand_in.dev() if stand_in is not None and stand_in.dev is not None else real_dev_side()
     backend = stand_in.embedder if stand_in is not None and stand_in.embedder is not None else None
     # A router of its own: a stand-in's backend, or the real model the route to test will use too, but counts apart.
@@ -210,7 +193,7 @@ def drift_step(run: Run) -> StepResult:
     )  # fmt: skip
     rescored = rescore(router, dev)
     report = drift_report(dev, rescored, frozen_points(SECTION), drift_limit())
-    flipped = {f.threshold: len(f.items) for f in report.flips}
+    flipped = {f.value: len(f.items) for f in report.flips}
     run.say(f"{CHECK}: {len(dev.requests)} dev requests embedded again; largest difference {report.largest:.3g} "
             f"(limit {report.limit:.3g}); dev decisions that flip at F's thresholds {flipped}")  # fmt: skip
     if report.outcomes is not None:

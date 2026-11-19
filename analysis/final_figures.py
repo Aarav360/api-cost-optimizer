@@ -32,10 +32,11 @@ from typing import TYPE_CHECKING, Any
 from analysis import cascade_charts, pareto, routed_figure
 from analysis.cascade_charts import Line
 from analysis.chart_routers import ROUTERS
-from analysis.final_gates import GATE_TABLE
+from analysis.final_gates import FREE_SECTION, GATE_TABLE
 from analysis.gate_walk import pure_traces
 from analysis.operating_eval import shared_fixed
-from analysis.operating_points import OPERATING_POINTS_FILE, read_section, section_hash
+from analysis.operating_points import OPERATING_POINTS_FILE, read_section, section_hash, target_key
+from analysis.references import TARGETS
 from analysis.router_names import CASCADES, FREE_GATE, GATE_LABELS, HAIKU, cascade_section
 from analysis.router_panels import config_mcnemar
 from analysis.simulator import Outcome, load_mixes, simulate, task_totals, totals
@@ -45,7 +46,6 @@ from routers.ladder import FRONTIER
 if TYPE_CHECKING:
     from analysis.offline_half import Inputs
 
-FREE_SECTION = cascade_section(HAIKU, FREE_GATE)  # the cascade with no dial, drawn as one point
 NO_DIAL = float("-inf")  # sorts a missing dial last
 
 
@@ -241,10 +241,16 @@ def task_caption(split: str, basis: str, counts: str) -> str:
             f"points here. {pareto.OVERHEAD_LINE} {pareto.GATE_COSTS_LINE}")  # fmt: skip
 
 
+def targets_words() -> str:
+    """The quality targets as a caption says them, "100%, 99% and 97%": from the references' own list, not typed."""
+    keys = [target_key(share) for share in TARGETS]
+    return f"{', '.join(keys[:-1])} and {keys[-1]}"
+
+
 def routed_caption(split: str, basis: str) -> str:
     return (f"{split.capitalize()} split, {basis}. One panel per router and mix. Each panel draws the router alone and its three "
             f"cascades (the free checks, the Jev gate, the Sonnet gate) on the router's frozen thresholds, joined by straight "
-            f"lines in linear cost from A, with a cross at each operating point (one per quality target: 100%, 99% and 97% of "
+            f"lines in linear cost from A, with a cross at each operating point (one per quality target: {targets_words()} of "
             f"A's quality, the dotted lines). {pareto.CROSSES_LINE} {FROZEN_LINE} A cascade that falls back to A has its cross at "
             f"A. Where two lines coincide the later shows: the free checks' line is drawn first, wider and fainter, and the "
             f"router's own on top. A router-started cascade's steps are its router's frozen thresholds at the gate's fixed "
@@ -291,7 +297,7 @@ def units_of(split: str) -> dict[str, dict[str, str]]:
         "mcnemar_vs_A": "the same for each fixed config against A; A's own row is null",
     }
     cascades = {
-        "cascades": "the fifteen cascades, keyed by section key: label, start (the pure cascades start at haiku, the others at a "
+        "cascades": f"the {len(CASCADES)} cascades, keyed by section key: label, start (the pure cascades start at haiku, the others at a "
         "router), gate, the operating-points file that holds the section and the sha256 of the section",
         "panel_cascades": f"a panel's `cascades`: per cascade its label, gate and steps from A, then each distinct frozen dial that "
         f"routes, strictest first, with its quality and cost_per_1k on {split}, joined by straight lines in linear cost",

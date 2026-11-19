@@ -213,8 +213,7 @@ class Rehearsal:
                 sandbox=self.sandbox,
                 anthropic=self.anthropic,
                 trained=self.embedder,
-                jev=self.jev.stand_in,
-                jev_gate=gates.jev,
+                jev=dataclasses.replace(self.jev.stand_in, gate=gates.jev),
                 gate_train=gates.gate_train,
             ),
         )
@@ -750,7 +749,73 @@ def failure_names_item() -> None:
         )
 
 
+def nothing_else_running() -> None:
+    print("\n-- grading refuses another thread that is running, and lets a parked or a finishing one by --")
+    from analysis import final_grading
+    from analysis.final_grading import GradingError, require_alone
+
+    def refused_with(grace_s: float = 0.2) -> str | None:
+        try:
+            require_alone(grace_s)
+        except GradingError as error:
+            return str(error)
+        return None
+
+    check(
+        refused_with() is None and final_grading.running_threads(0.0) == [],
+        "alone on the main thread, grading may start",
+    )
+    stop = threading.Event()
+
+    def spin() -> None:
+        while not stop.is_set():
+            sum(range(1000))  # a thread that is running, as a grader's rival for the machine would be
+
+    def parked() -> None:
+        stop.wait()  # a thread that is waiting, as a client's idle pool worker is
+
+    try:
+        busy = threading.Thread(target=spin, name="rival-spinner")
+        busy.start()
+        said = refused_with()
+        check(said is not None and "rival-spinner" in said,
+              "known positive: a thread that is running refuses, naming it (and no answer)")  # fmt: skip
+        stop.set()
+        busy.join()
+        check(refused_with() is None, "and once it has ended, grading may start")
+
+        stop.clear()
+        waiting = [threading.Thread(target=parked, daemon=daemon, name=f"idle-{daemon}") for daemon in (False, True)]
+        for thread in waiting:
+            thread.start()
+        time.sleep(0.05)
+        check(refused_with() is None, "a thread parked on an event, daemon or not, is no rival: grading may start")
+
+        stop.set()
+        for thread in waiting:
+            thread.join()
+        stop.clear()
+        finishing = threading.Thread(target=lambda: time.sleep(0.3), name="finishing")
+        finishing.start()
+        check(refused_with(2.0) is None, "a thread that finishes within the grace period doesn't refuse")
+        finishing.join()
+        slow = threading.Thread(target=lambda: sum(1 for _ in range(30_000_000)), name="too-slow")
+        slow.start()
+        check(refused_with(0.05) is not None, "and one still running when the grace is over does")
+        slow.join()
+    finally:
+        stop.set()
+
+    refused_off_main: list[str | None] = []
+    side = threading.Thread(target=lambda: refused_off_main.append(refused_with(0.0)))
+    side.start()
+    side.join()
+    check(refused_off_main != [None] and refused_off_main[0] is not None and "main thread" in refused_off_main[0],
+          "a grading off the main thread refuses")  # fmt: skip
+
+
 def main() -> int:
+    nothing_else_running()
     first_go()
     crash_and_resume()
     refusals()

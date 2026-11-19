@@ -1,6 +1,6 @@
 """The final results table on a split, and the per-policy tables (PLAN_v4.md §10; Amendment A17 item 24; A19 items 6 and 8; issue #77, #89).
 
-§10's table has one row per system and these columns: quality with its 95% interval, cost per 1k, savings against A, the share
+§10's table has one row per policy and these columns: quality with its 95% interval, cost per 1k, savings against A, the share
 of the oracle's savings captured at matched quality, and the estimated p50 latency. The rows are A (frontier only), B (cheapest
 only), D (the oracle at the target), E (rules), F (trained), G (Jev), G+ (bolstered Jev) and I (the best cascade). The G+ row is
 here because the plan's table predates A15 (A17 item 24).
@@ -31,9 +31,10 @@ from collections.abc import Collection, Mapping
 from typing import Any
 
 from analysis import final_gates, final_headline, target_met
+from analysis.final_headline import READING
 from analysis.gate_table import GateScoreTable
 from analysis.latency_estimate import GateMedians, cascade_gate_calls, trace_seconds, weighted_median
-from analysis.operating_eval import FrozenPoint, shared_fixed
+from analysis.operating_eval import MIXES, FrozenPoint, shared_fixed
 from analysis.operating_points import target_key
 from analysis.references import TARGETS
 from analysis.replay_plan import Medians, code_items_of, read_medians
@@ -41,16 +42,13 @@ from analysis.router_names import CASCADE_STARTS, CASCADES, G_PLUS, HAIKU, NAMED
 from analysis.simulator import Outcome, item_weights, load_mixes
 from routers.ladder import FRONTIER
 
-MIXES = ("realistic", "uniform")
 TARGET_KEYS = tuple(target_key(share) for share in TARGETS)
 TASKS = ("ifeval", "banking77", "mmlu_pro", "mbppplus")
 CODE_ITEMS = "code_items"  # the `Extra` holding the split's items whose request has an `assert` line
-CHEAPEST = "haiku"
 COLUMNS = ("quality", "cost_per_1k", "savings_vs_A", "captured", "latency_p50_s")
-READING = {target_met.MET: "met", target_met.MISSED: "not met", target_met.FALLS_BACK: target_met.FALLS_BACK}
 
-# The final table's rows, §10's order: the system's letter and words, and the policy's section of the operating-points file.
-SYSTEMS: tuple[tuple[str, str, str | None], ...] = (
+# The final table's rows, §10's order: the policy's letter and words, and the policy's section of the operating-points file.
+POLICIES: tuple[tuple[str, str, str | None], ...] = (
     ("A", "Frontier only", None),
     ("B", "Cheapest only", None),
     ("D", "Oracle at target", None),
@@ -100,19 +98,19 @@ def _interval(estimate: Mapping[str, Any]) -> dict[str, float | None]:
     return {"value": estimate["value"], "low": estimate["low"], "high": estimate["high"]}
 
 
-def _row(system: str, label: str, section: str | None, **fields: Any) -> dict[str, Any]:
-    return {"system": system, "label": label, "section": section, "fell_back": None, "reading": None, "threshold": None,
+def _row(policy: str, label: str, section: str | None, **fields: Any) -> dict[str, Any]:
+    return {"policy": policy, "label": label, "section": section, "fell_back": None, "reading": None, "threshold": None,
             "cutoff": None, "quality": None, "cost_per_1k": None, "savings_vs_A": None, "captured": None,
             "latency_p50_s": None, **fields}  # fmt: skip
 
 
-def policy_row(system: str, label: str, section: str, row: Mapping[str, Any], reading: str | None, latency: float,
+def policy_row(policy: str, label: str, section: str, row: Mapping[str, Any], reading: str | None, latency: float,
                frontier_cost: float | None = None) -> dict[str, Any]:  # fmt: skip
     """A policy's row from its part's row (a mix's row of table v1, or a task's, which has no savings or captured fraction:
     `frontier_cost` is A's cost there and the savings are worked from it)."""
     savings = row["savings_vs_A"]["share"] if frontier_cost is None else 1 - row["cost_per_1k"]["value"] / frontier_cost
     return _row(
-        system, label, section, fell_back=row["fell_back"], reading=reading, threshold=row["threshold"],
+        policy, label, section, fell_back=row["fell_back"], reading=reading, threshold=row["threshold"],
         cutoff=row.get("cutoff"), quality=_interval(row["quality"]), cost_per_1k=_interval(row["cost_per_1k"]),
         savings_vs_A=savings, captured=row["captured"]["value"] if "captured" in row else None, latency_p50_s=latency,
     )  # fmt: skip
@@ -126,9 +124,9 @@ def reference_rows(panel: Mapping[str, Any], target: str, latencies: Mapping[str
         _row("A", "Frontier only", None, quality=_interval(configs[FRONTIER]["quality"]),
              cost_per_1k=_interval(configs[FRONTIER]["cost_per_1k"]), savings_vs_A=0.0, captured=0.0,
              latency_p50_s=latencies[FRONTIER], fell_back=None),
-        _row("B", "Cheapest only", None, quality=_interval(configs[CHEAPEST]["quality"]),
-             cost_per_1k=_interval(configs[CHEAPEST]["cost_per_1k"]),
-             savings_vs_A=configs[CHEAPEST]["savings_vs_A"]["share"], latency_p50_s=latencies[CHEAPEST]),
+        _row("B", "Cheapest only", None, quality=_interval(configs[HAIKU]["quality"]),
+             cost_per_1k=_interval(configs[HAIKU]["cost_per_1k"]),
+             savings_vs_A=configs[HAIKU]["savings_vs_A"]["share"], latency_p50_s=latencies[HAIKU]),
         _row("D", "Oracle at target", None, quality={"value": oracle["quality"], "low": None, "high": None},
              cost_per_1k={"value": oracle["oracle"]["cost_per_1k"], "low": None, "high": None},
              savings_vs_A=oracle["oracle"]["savings_vs_A"]["share"], captured=1.0),
@@ -141,7 +139,7 @@ def sections_of_policies() -> tuple[str, ...]:
 
 
 def label_of(section: str) -> str:
-    return CASCADES.get(section) or next(f"{letter} {words}" for letter, words, found in SYSTEMS if found == section)
+    return CASCADES.get(section) or next(f"{letter} {words}" for letter, words, found in POLICIES if found == section)
 
 
 def router_of(section: str) -> str | None:
@@ -192,23 +190,23 @@ def build(inputs: Any, best: str | None = None) -> dict[str, Any]:
             gate=gate_of(section), cutoff=point.cutoff, table=table, medians=medians.gates, code_items=code_items)  # fmt: skip
 
     fixed_seconds = {c: trace_latencies(fixed[c], fell_back=False, router=0.0, gate=None, cutoff=None, table=table,
-                                        medians=medians.gates, code_items=code_items) for c in (FRONTIER, CHEAPEST)}  # fmt: skip
+                                        medians=medians.gates, code_items=code_items) for c in (FRONTIER, HAIKU)}  # fmt: skip
     seconds = {(s, m, t): seconds_of(s, m, t) for s in sections for m in MIXES for t in TARGET_KEYS}
 
     def reading(section: str, mix: str, target: str) -> str:
         return READING[met[section][mix][target]["reading"]]
 
-    def mix_row(system: str, label: str, section: str, mix: str, target: str) -> dict[str, Any]:
-        return policy_row(system, label, section, built[section]["mixes"][mix][target], reading(section, mix, target),
+    def mix_row(policy: str, label: str, section: str, mix: str, target: str) -> dict[str, Any]:
+        return policy_row(policy, label, section, built[section]["mixes"][mix][target], reading(section, mix, target),
                           median_seconds(seconds[section, mix, target], weights[mix]))  # fmt: skip
 
     def task_part(section: str, task: str, mix: str, target: str) -> Mapping[str, Any]:
         key = section if section in NAMED_ROUTERS.values() else f"{section}_tasks"
         return built[key]["tasks"][task][mix][target]  # type: ignore[no-any-return]
 
-    def task_row(system: str, label: str, section: str, task: str, mix: str, target: str) -> dict[str, Any]:
+    def task_row(policy: str, label: str, section: str, task: str, mix: str, target: str) -> dict[str, Any]:
         a_cost = built["references"]["tasks"][task]["configs"][FRONTIER]["cost_per_1k"]["value"]
-        return policy_row(system, label, section, task_part(section, task, mix, target), None,
+        return policy_row(policy, label, section, task_part(section, task, mix, target), None,
                           median_seconds(seconds[section, mix, target], task_weights[task]), a_cost)  # fmt: skip
 
     label = CASCADES[chosen]
@@ -218,7 +216,7 @@ def build(inputs: Any, best: str | None = None) -> dict[str, Any]:
         final[mix] = {}
         for target in TARGET_KEYS:
             rows = reference_rows(built["references"]["mixes"][mix], target, latencies)
-            rows += [mix_row(system, words, section, mix, target) for system, words, section in SYSTEMS if section]
+            rows += [mix_row(policy, words, section, mix, target) for policy, words, section in POLICIES if section]
             rows.append(mix_row(BEST[0], f"{BEST[1]}: {label}", chosen, mix, target))
             final[mix][target] = rows
     per_task: dict[str, Any] = {}
@@ -234,13 +232,15 @@ def build(inputs: Any, best: str | None = None) -> dict[str, Any]:
                     _row("A", "Frontier only", None, quality=_interval(task_panel["configs"][FRONTIER]["quality"]),
                          cost_per_1k=_interval(task_panel["configs"][FRONTIER]["cost_per_1k"]), savings_vs_A=0.0,
                          latency_p50_s=latencies[FRONTIER]),
-                    _row("B", "Cheapest only", None, quality=_interval(task_panel["configs"][CHEAPEST]["quality"]),
-                         cost_per_1k=_interval(task_panel["configs"][CHEAPEST]["cost_per_1k"]),
-                         savings_vs_A=1 - task_panel["configs"][CHEAPEST]["cost_per_1k"]["value"] / a_cost,
-                         latency_p50_s=latencies[CHEAPEST]),
+                    _row("B", "Cheapest only", None, quality=_interval(task_panel["configs"][HAIKU]["quality"]),
+                         cost_per_1k=_interval(task_panel["configs"][HAIKU]["cost_per_1k"]),
+                         savings_vs_A=1 - task_panel["configs"][HAIKU]["cost_per_1k"]["value"] / a_cost,
+                         latency_p50_s=latencies[HAIKU]),
                 ]  # fmt: skip
                 rows += [
-                    task_row(system, words, section, task, mix, target) for system, words, section in SYSTEMS if section
+                    task_row(policy, words, section, task, mix, target)
+                    for policy, words, section in POLICIES
+                    if section
                 ]
                 rows.append(task_row(BEST[0], f"{BEST[1]}: {label}", chosen, task, mix, target))
                 per_task[task]["mixes"][mix][target] = rows

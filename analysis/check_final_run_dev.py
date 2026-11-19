@@ -164,26 +164,26 @@ def comparisons_and_final_table(tables: dict[str, Any]) -> None:
     for mix in MIXES:
         panel = pareto[mix]
         for target in TARGET_KEYS:
-            by_system = {row["system"]: row for row in final["by_mix"][mix][target]}
-            ok &= list(by_system) == ["A", "B", "D", "E", "F", "G", G_PLUS, "I"]
-            for system, config in (("A", "opus"), ("B", "haiku")):
-                row, committed = by_system[system], panel["configs"][config]
+            by_policy = {row["policy"]: row for row in final["by_mix"][mix][target]}
+            ok &= list(by_policy) == ["A", "B", "D", "E", "F", "G", G_PLUS, "I"]
+            for policy, config in (("A", "opus"), ("B", "haiku")):
+                row, committed = by_policy[policy], panel["configs"][config]
                 ok &= (row["quality"] == {k: committed["quality"][k] for k in ("value", "low", "high")}
                        and row["cost_per_1k"]["value"] == committed["cost_per_1k"]["value"]
                        and row["savings_vs_A"] == committed["savings_vs_A"]["share"]
                        and row["latency_p50_s"] == latency["configs"][config][mix])  # fmt: skip
             oracle = panel["targets"][target]
-            row = by_system["D"]
+            row = by_policy["D"]
             ok &= (row["quality"]["value"] == oracle["quality"] and row["cost_per_1k"]["value"] == oracle["oracle"]["cost_per_1k"]
                    and row["savings_vs_A"] == oracle["oracle"]["savings_vs_A"]["share"] and row["captured"] == 1.0
                    and row["latency_p50_s"] is None)  # fmt: skip
-            best = by_system["I"]
+            best = by_policy["I"]
             ok &= best["section"] == held["best_cascade"]["best"] and best["label"].endswith(
                 held["best_cascade"]["label"]
             )
-            for system, section in [("E", "rules"), ("F", "trained"), ("G", "jev"), (G_PLUS, NAMED_ROUTERS[G_PLUS])]:
+            for policy, section in [("E", "rules"), ("F", "trained"), ("G", "jev"), (G_PLUS, NAMED_ROUTERS[G_PLUS])]:
                 committed = panel["routers"][section]["operating_points"][target]
-                ok &= same_numbers(by_system[system], committed, latency["routers"][system][mix][target])
+                ok &= same_numbers(by_policy[policy], committed, latency["routers"][policy][mix][target])
                 checked += 1
             committed = held["cascades"][best["section"]]["operating_points"][mix][target]
             ok &= same_numbers(best, committed, latency["cascades"][best["section"]][mix][target])
@@ -208,16 +208,16 @@ def comparisons_and_final_table(tables: dict[str, Any]) -> None:
         for mix in MIXES:
             for target in TARGET_KEYS:
                 a_cost = per_task[task]["configs"]["opus"]["cost_per_1k"]["value"]
-                by_system = {row["system"]: row for row in body["mixes"][mix][target]}
-                ok &= list(by_system) == ["A", "B", "E", "F", "G", G_PLUS, "I"]
-                for system, section in [
+                by_policy = {row["policy"]: row for row in body["mixes"][mix][target]}
+                ok &= list(by_policy) == ["A", "B", "E", "F", "G", G_PLUS, "I"]
+                for policy, section in [
                     ("E", "rules"),
                     ("F", "trained"),
                     ("G", "jev"),
                     (G_PLUS, NAMED_ROUTERS[G_PLUS]),
                 ]:
                     committed = per_task[task]["routers"][section]["operating_points"][mix][target]
-                    row = by_system[system]
+                    row = by_policy[policy]
                     ok &= (row["quality"]["value"] == committed["quality"]["value"]
                            and row["cost_per_1k"]["value"] == committed["cost_per_1k"]["value"]
                            and row["savings_vs_A"] == 1 - committed["cost_per_1k"]["value"] / a_cost
