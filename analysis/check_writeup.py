@@ -20,7 +20,13 @@ Reads no test item and calls nothing. Two holds:
   (`analysis/final_design.py`, `figures/*.json`, `data/benchmark_manifest.json`, `configs/task_mix.yaml`), and must stand
   in its section. After the fragments are taken out, no digit may remain outside a citation (`A19 item 6`, `§5`), a code
   span, a comment or a {placeholder}: a number no check holds fails. The results PR fills in numbers, and adds a
-  `Fragment` for each, so that this scan finds none of them unheld (item 11, "Every number").
+  `Fragment` for each, so that this scan finds none of them unheld (item 11, "Every number"). After the go (#95) these are
+  `results_fragments`: every line of every paragraph `analysis/writeup_results.py` builds from `figures/tables_test.json`
+  (test's tables), `analysis/final_record.json` (the live replay) and `figures/table_v4.json` (dev's points beside the headline),
+  plus the summary's headline and answers. The skeleton's own holds (`fragments`) stay apart, since the skeleton's commit
+  can't hold the results' lines. The recounts of those tables from their own rows are in `analysis/check_final_results.py`;
+  here are the words: the formats and the counts worked by hand on made-up cells, a digit changed in the headline, a
+  comparison cell, a policy row, a replication count and a replay figure each found, and the README quoting the headline.
 """
 
 import json
@@ -31,12 +37,14 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from analysis import writeup_results as wr
 from analysis.checking import full_history, git, git_bytes
 from analysis.final_design import HEADLINE_MIX, HEADLINE_TARGET, MIXES, expected_misses, headline
 from analysis.plan import PLAN, amendment_item
 from analysis.references import TARGETS
 from analysis.router_names import CASCADES, JEV_GATE, E, F, cascade_section
 from analysis.simulator import load_mixes
+from analysis.writeup_results import built, load
 from harness.client import PROJECT_ROOT
 
 WRITEUP = PROJECT_ROOT / "WRITEUP.md"
@@ -172,7 +180,8 @@ CITATION = re.compile(
         | \bv\d+\b                                # tables v3 and v4
         | \bStage\s+\d+\b                         # a stage's name
         | \bper\s+1k\b                            # a unit: dollars per 1k requests
-        | \bexclud\w*\s+0\b                       # the null value an interval excludes""",
+        | \bexclud\w*\s+0\b                       # the null value an interval excludes
+        | \bBanking77\b                           # a dataset's name""",
     re.X,
 )
 CODE_SPAN = re.compile(r"`[^`\n]*`")
@@ -184,9 +193,15 @@ NUMBER = re.compile(r"[$]?\d[\d,]*(?:\.\d+)?%?")
 def missing_fragments(fragments: Sequence[Fragment], text: str) -> list[str]:
     """The fragments that don't stand in their section of `text`."""
     wrong = []
+    bodies: dict[
+        Heading, str | None
+    ] = {}  # each section's tidied body, read once: the results hold about a thousand lines
     for fragment in fragments:
-        body = section_body(text, fragment.section)
-        if body is None or tidy(fragment.text) not in tidy(body):
+        if fragment.section not in bodies:
+            body = section_body(text, fragment.section)
+            bodies[fragment.section] = None if body is None else tidy(body)
+        body = bodies[fragment.section]
+        if body is None or tidy(fragment.text) not in body:
             wrong.append(f"{fragment.section[1]}: {fragment.text!r}")
     return wrong
 
@@ -294,37 +309,81 @@ def fragments() -> list[Fragment]:
     return out
 
 
+def results_fragments() -> list[Fragment]:
+    """Every number the results state, in the words it states it: each line of each paragraph `analysis/writeup_results.py`
+    builds from test's committed tables and the committed record, the headline sentence and the answers. They stand in
+    WRITEUP.md after the skeleton's commit, so the skeleton's own holds (`fragments`) leave them out."""
+    tables, record, dev = load()
+    result = built(tables, record, dev, expected_misses())
+    answers = (3, "The answers to the declared questions")
+    out = [Fragment(heading, line) for heading, line in result.lines()]
+    out.append(Fragment((3, "The headline"), result.headline))
+    out += [Fragment(answers, f"{question}: {said}") for question, said in result.answers.items()]
+    out.append(Fragment(answers, f"The replication summary: {result.replication_answer}"))
+    return out
+
+
 def number_checks(text: str, where: str) -> None:
-    held = fragments()
+    held = [*fragments(), *results_fragments()]
     wrong = missing_fragments(held, text)
     check(
         not wrong,
-        f"{where}: each of the {len(held)} number-bearing sentences stands in its section"
-        + "".join(f"\n      {w}" for w in wrong),
+        f"{where}: each of the {len(held)} number-bearing lines stands in its section"
+        + "".join(f"\n      {w}" for w in wrong[:10])
+        + (f"\n      ... and {len(wrong) - 10} more" if len(wrong) > 10 else ""),
     )
     left = unheld_numbers(held, text)
-    check(not left, f"{where}: no number is left that no fragment holds" + (f" ({left})" if left else ""))
+    check(not left, f"{where}: no number is left that no fragment holds" + (f" ({left[:10]})" if left else ""))
+
+
+def has_number(line: str) -> bool:
+    """Whether `line` states a number that is no citation: a header row or a rule holds none."""
+    return bool(NUMBER.findall(CITATION.sub(" ", CODE_SPAN.sub(" ", line))))
 
 
 def real_guards(text: str) -> None:
-    """The holds can fail on the real skeleton: a fragment taken away, a digit changed or a heading dropped."""
-    print("\n-- the guards on the real skeleton --")
-    held = fragments()
+    """The holds can fail on the real write-up: a fragment taken away, a digit changed or a heading dropped."""
+    print("\n-- the guards on the real write-up --")
+    skeleton, results = fragments(), results_fragments()
+    held = [*skeleton, *results]
+    texts = [g.text for g in held]
     # A sentence two sections share ("Comparisons: 12.") is taken out of the text wherever it stands, so its twin
     # fragment still holds it: the section check, not this scan, tells the two places apart.
-    alone = [i for i, f in enumerate(held) if [g.text for g in held].count(f.text) == 1]
-    loose = [i for i in alone if not unheld_numbers(held[:i] + held[i + 1 :], text)]
-    check(not loose and len(alone) >= len(held) // 2,
-          f"taking away any one of the {len(alone)} fragments with a sentence of its own leaves a number unheld"
+    alone = [i for i, f in enumerate(held) if texts.count(f.text) == 1 and has_number(f.text)]
+    # Taking each one away costs a scan of the whole text, so of the results' lines every 15th is taken, and the skeleton's all.
+    sampled = [i for i in alone if i >= len(skeleton)][::15]
+    tried = [i for i in alone if i < len(skeleton)] + sampled
+    loose = [held[i].text[:70] for i in tried if not unheld_numbers(held[:i] + held[i + 1 :], text)]
+    check(not loose and len(sampled) >= 20 and len(tried) >= len(skeleton) // 2 + 20,
+          f"taking away any one of {len(tried)} fragments with a sentence of its own leaves a number unheld"
           + (f" ({loose})" if loose else ""))  # fmt: skip
     slipped = text.replace("72 operating points route", "73 operating points route")
     check(
-        slipped != text and len(missing_fragments(held, slipped)) == 1,
+        slipped != text and len(missing_fragments(skeleton, slipped)) == 1,
         "a slip of one digit in the routing count is found",
     )
     dropped = text.replace("\n## Expected misses\n", "\n")
     check(dropped != text and held_in_order(DECLARED, dropped) == ["## Expected misses: missing"],
           "dropping the expected misses' heading is found")  # fmt: skip
+    answers = results[-8:]
+    check(all(a.text in text.replace("\n", " ") or tidy(a.text) in tidy(text) for a in answers) and len(answers) == 8,
+          "the headline's answers are in the write-up: seven questions and the replication summary")  # fmt: skip
+    bumps = {
+        "a headline digit": ("saves 47.3% of A's cost", "saves 47.4% of A's cost"),
+        "a cell of a comparison table": ("| haiku/Jev less G | +$0.79 [+$0.59, +$1.00]*", "| haiku/Jev less G | +$0.80 [+$0.59, +$1.00]*"),
+        "a row of the table of every policy": ("| haiku/Jev | realistic | 99% | met | 90.6% [86.8%, 94.1%]", "| haiku/Jev | realistic | 99% | met | 90.7% [86.8%, 94.1%]"),
+        "a replication count": ("| Difference in cost per 1k | 185 |", "| Difference in cost per 1k | 186 |"),
+        "a live replay figure": ("| A | 100 | 82% | 81% |", "| A | 100 | 83% | 81% |"),
+    }  # fmt: skip
+    for what, (old, new) in bumps.items():
+        slip = text.replace(old, new)
+        check(old in text and slip != text and bool(missing_fragments(held, slip)),
+              f"known positive: {what} changed is found")  # fmt: skip
+    gone = text.replace(
+        "| haiku/Jev | realistic | 99% | met | 90.6% [86.8%, 94.1%]",
+        "| haiku/Jev | realistic | 99% | met | 90.6% [86.8%, 94.1%]".replace("met", ""),
+    )
+    check(gone != text and bool(missing_fragments(held, gone)), "known positive: a changed word of a row is found")
 
 
 # --- what the fragments' words rest on ------------------------------------------------------------------------------
@@ -388,6 +447,112 @@ def source_checks(plan: str) -> None:
     check(all(name in part2 for name in ("GPQA Diamond", "Humanity's Last Exam", "SWE-bench Verified", "Terminal-Bench",
                                          "τ-bench", "LMArena", "AlpacaEval")),
           "Part 2 names the candidate benchmarks Future work lists")  # fmt: skip
+
+
+README = PROJECT_ROOT / "README.md"
+
+
+def readme_check() -> None:
+    """The README leads with test's headline: the summary's sentence, word for word (A19 item 8; "Numbers in documents")."""
+    print("\n-- the README quotes the headline --")
+    sentence = tidy(built(*load(), expected_misses()).headline)
+    readme = tidy(README.read_text(encoding="utf-8"))
+    check(sentence in readme, "the README says the headline's sentence, as the write-up's summary does")
+    check(
+        sentence.replace("47.3%", "47.4%") not in readme, "known positive: a one-digit slip in it is not in the README"
+    )
+
+
+def results_guard_checks() -> None:
+    """The words of `analysis/writeup_results.py` on made-up cells, each worked by hand: the number formats, which side of 0 an
+    interval is on, a question's counts, the missed points that share a step and the replication table."""
+    print("\n-- the results' words on made-up cells --")
+    check(wr.pct(0.4727674) == "47.3%" and wr.pct(0.89654, 2) == "89.65%" and wr.usd(3.9594849) == "$3.96",
+          "a share is one place of percent, a cost two places of dollars")  # fmt: skip
+    check(wr.points(0.006378) == "+0.64" and wr.points(-0.0000001) == "0.00" and wr.points(-0.0114) == "-1.14",
+          "a quality difference is in points to two places, signed, and a negative zero is no sign")  # fmt: skip
+    check(wr.dollars(-3.99024) == "-$3.99" and wr.dollars(0.004) == "$0.00" and wr.dollars(0.0449) == "+$0.04",
+          "a cost difference is in dollars to two places, signed")  # fmt: skip
+    check([wr.excludes(r) for r in ({"low": 0.1, "high": 0.3}, {"low": -0.3, "high": -0.1}, {"low": 0.0, "high": 0.3},
+                                    {"low": -0.1, "high": 0.0}, {"low": -0.1, "high": 0.1}, None)] == [1, -1, 0, 0, 0, 0],
+          "an interval excludes 0 only when wholly on one side, and one that touches 0 or is missing does not")  # fmt: skip
+
+    def interval(value: float, low: float, high: float) -> dict[str, float]:
+        return {"value": value, "low": low, "high": high}
+
+    both = {
+        "reading": "both fall back to A",
+        "first_fell_back": True,
+        "second_fell_back": True,
+        "cost_per_1k": None,
+        "quality": None,
+    }
+
+    def cell(cost: dict[str, float], quality: dict[str, float], first: bool = False, second: bool = False) -> dict:
+        return {
+            "reading": "",
+            "first_fell_back": first,
+            "second_fell_back": second,
+            "cost_per_1k": cost,
+            "quality": quality,
+        }
+
+    cells = {
+        ("realistic", "100%"): both,
+        ("realistic", "99%"): both,
+        ("realistic", "97%"): cell(interval(-1.0, -1.5, -0.5), interval(0.01, 0.005, 0.02)),  # lower*, higher*
+        ("uniform", "100%"): cell(interval(-0.5, -1.0, 0.2), interval(-0.01, -0.03, 0.01), first=True),  # lower, lower
+        ("uniform", "99%"): cell(interval(2.0, 1.0, 3.0), interval(0.0, -0.01, 0.01), second=True),  # higher*, equal
+        ("uniform", "97%"): cell(interval(0.0, 0.0, 0.0), interval(0.02, 0.01, 0.03)),  # equal, higher*
+    }
+    pairs = {"x less y": {mix: {t: cells[(mix, t)] for m, t in cells if m == mix} for mix in ("realistic", "uniform")}}
+    check(wr.reading(pairs) == "over 6 cells, 2 with both points at A and so no difference; in the other 4, the first policy's "
+          "cost per 1k was lower in 2 (1 with an interval excluding 0), higher in 1 (1) and equal in 1, and its quality was "
+          "lower in 1 (0 with an interval excluding 0), higher in 2 (2) and equal in 1.",
+          "a question's cells are counted by hand: both at A, then lower, higher and equal, and those excluding 0")  # fmt: skip
+    check(wr.cell_words(cells[("uniform", "97%")], "quality") == "+2.00 [+1.00, +3.00]*"
+          and wr.cell_words(cells[("uniform", "100%")], "cost_per_1k") == "-$0.50 [-$1.00, +$0.20]\u2020"
+          and wr.cell_words(cells[("uniform", "99%")], "cost_per_1k") == "+$2.00 [+$1.00, +$3.00]\u2021*"
+          and wr.cell_words(both, "quality") == "both at A",
+          "a cell says its difference with its interval, a dagger for a side at A, a star for an interval excluding 0")  # fmt: skip
+
+    def row(step: float | None, cutoff: float | None) -> dict:
+        return {"threshold": step, "cutoff": cutoff}
+
+    toy = {"parts": {
+        "final_table": {"per_policy": {"p": {"label": "P"}, "q": {"label": "Q"}}},
+        "target_met": {"points": {
+            "p": {"realistic": {"99%": {"reading": "missed", "difference": {"value": -0.01}, "met_share": 0.25},
+                                "97%": {"reading": "met", "difference": {"value": 0.02}, "met_share": 0.9}},
+                  "uniform": {"99%": {"reading": "missed", "difference": {"value": -0.02}, "met_share": 0.2},
+                              "97%": {"reading": "falls back to A", "difference": None, "met_share": None}}},
+            "q": {"realistic": {"99%": {"reading": "missed", "difference": {"value": -0.03}, "met_share": 0.1}}},
+        }},
+        "p": {"mixes": {"realistic": {"99%": row(0.9, None), "97%": row(0.8, None)},
+                        "uniform": {"99%": row(0.9, None), "97%": row(None, None)}}},
+        "q": {"mixes": {"realistic": {"99%": row(0.9, None)}}},
+    }}  # fmt: skip
+    found = wr.misses(toy)
+    check([(m["label"], m["mix"], m["target"], m["shares"]) for m in found]
+          == [("P", "realistic", "99%", ["uniform 99%"]), ("P", "uniform", "99%", ["realistic 99%"]), ("Q", "realistic", "99%", [])],
+          "missed points share a step only with a missed point of the same policy on the same threshold and cutoff")  # fmt: skip
+    block, answer = wr.replication_blocks(
+        {
+            "parts": {
+                "replication": {
+                    "counts": {
+                        "cost_per_1k": {"dev_excluded": 5, "same_sign": 4, "same_sign_excluding_zero": 3},
+                        "quality": {"dev_excluded": 2, "same_sign": 2, "same_sign_excluding_zero": 1},
+                    }
+                }
+            }
+        }
+    )
+    check("| Difference in cost per 1k | 5 | 4 | 3 |" in block[(3, "The replication summary")][0]
+          and "| Difference in quality | 2 | 2 | 1 |" in block[(3, "The replication summary")][0]
+          and answer.startswith("for cost per 1k, 4 of the 5 dev intervals that excluded 0 have the same sign on test and 3 of them")
+          and answer.endswith("for quality, 2 of 2 and 1 of 2."),
+          "the replication table and its answer take the counts as they stand")  # fmt: skip
 
 
 def declared_checks() -> None:
@@ -628,8 +793,10 @@ def main() -> int:
     number_checks(text, "WRITEUP.md")
     real_guards(text)
     source_checks(plan)
+    readme_check()
     declared_checks()
     guard_checks()
+    results_guard_checks()
     throwaway_checks()
     ci_checkout_check()
     history_checks(text)
