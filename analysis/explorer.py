@@ -3,12 +3,19 @@ Amendment A17, item 23).
 
 Run from the project root:  uv run python -m analysis.explorer
 
-Reads figures/pareto.json, figures/pareto_tasks.json and figures/pareto_routed.json, keeps what the page draws, and writes
-figures/pareto_explorer.html: `analysis/explorer_template.html` with those numbers embedded, so the page opens from the
-file with no server. It loads Plotly from jsDelivr, so it needs a network connection to draw.
+Reads figures/pareto.json, figures/pareto_tasks.json and figures/pareto_routed.json (dev's) and, where they exist, test's
+(`figures/pareto_test.json`, `pareto_tasks_test.json`, `pareto_routed_test.json`, `analysis/final_figures.py`), keeps what the
+page draws, and writes figures/pareto_explorer.html: `analysis/explorer_template.html` with those numbers embedded, so the page
+opens from the file with no server. It loads Plotly from jsDelivr, so it needs a network connection to draw.
+
+**The split switch** (A19 item 8): the page holds one set of views for each split it is given and a switch between them. It opens
+on test, and names the split in its title, its heading, its sub-title, its plot, its caption, its table headings, its footer and
+every hover, since the two splits' numbers are close and easy to mix up. Until test's figures are committed (the results PR) the
+page holds dev alone, the switch shows test as not run, and the page opens on dev, since a page can't open on numbers it
+doesn't hold; the build opens on test as soon as test's files exist, and `analysis/check_explorer.py` holds that.
 
 The page is a view of chart v4, not a figure of record: the PNGs and their JSONs are. Every number it shows is one the
-JSONs hold, and the realistic mix's note is the headline figure's (`realistic_note`). Each of the four routers and each of
+JSONs hold, and the realistic mix's note is the headline figure's (`realistic_note`, worded for the split). Each of the four routers and each of
 the fifteen cascades is a series to switch on and off: the routers and the three pure cascades are on at first, and the
 twelve router-started cascades (whose lines are in the router-started figure's JSON) are off. A task view holds the routers
 and the pure cascades only, which is what the per-task figure draws. Nothing reads the results matrix,
@@ -28,6 +35,7 @@ import sys
 from pathlib import Path
 
 from analysis.chart_routers import CASCADE_STYLES, ROUTERS, LineStyle
+from analysis.final_figures import names_of
 from analysis.pareto import FIGURE_DATA, FIGURES, LABELS, PANELS, TASK_FIGURE_DATA, TASKS, realistic_note
 from analysis.routed_figure import ROUTED_FIGURE_DATA
 from analysis.router_names import (
@@ -48,6 +56,12 @@ from harness.client import PROJECT_ROOT
 TEMPLATE = Path(__file__).with_name("explorer_template.html")
 EXPLORER = FIGURES / "pareto_explorer.html"
 PLACEHOLDER = "/*DATA*/null"  # the template's `const DATA = ...;`, valid JavaScript before the build fills it
+SPLIT_NAME, SPLIT_CAP = (
+    "{{SPLIT}}",
+    "{{SPLIT_CAP}}",
+)  # the opening split's name in the title, heading, sub-title and footer
+ORDER = ("test", "dev")  # the switch's order; the page opens on the first it holds
+Figures = tuple[dict, dict, dict]  # one split's headline, per-task and router-started figure JSONs
 
 
 # Plotly's names for the chart's matplotlib markers.
@@ -173,42 +187,81 @@ def panel(source: dict, mix: bool, routed: dict | None = None) -> dict:
     return out
 
 
-def page_data(head: dict, tasks: dict, routed: dict, mixes: dict[str, dict[str, float]]) -> dict:
-    """What the page embeds: the run's facts, the routers' labels, the fifteen cascades and the presets, and one view per
-    mix and per task."""
+def figure_paths(split: str) -> tuple[Path, Path, Path]:
+    """The three figure JSONs of `split`: dev's are chart v4's, test's sit beside them with the split in the name."""
+    if split == "dev":
+        return FIGURE_DATA, TASK_FIGURE_DATA, ROUTED_FIGURE_DATA
+    names = names_of(split)
+    return tuple(FIGURES / names[kind][1] for kind in ("headline", "tasks", "routed"))  # type: ignore[return-value]
+
+
+def load_figures() -> dict[str, Figures]:
+    """Each split's committed figure JSONs that exist, in the switch's order. A split with some of its three files and not all
+    is refused, since a page built from part of a split would show it half drawn."""
+    found: dict[str, Figures] = {}
+    for split in ORDER:
+        paths = figure_paths(split)
+        have = [path.exists() for path in paths]
+        if any(have) and not all(have):
+            raise FileNotFoundError(f"{split}'s figure files are only partly there: "
+                                    f"{[path.name for path, ok in zip(paths, have) if ok]}")  # fmt: skip
+        if all(have):
+            found[split] = tuple(json.loads(path.read_text(encoding="utf-8")) for path in paths)  # type: ignore[assignment]
+    return found
+
+
+def split_data(head: dict, tasks: dict, routed: dict, mixes: dict[str, dict[str, float]]) -> dict:
+    """One split's facts and views: one view per mix and per task."""
     views = {
         mix: {"title": f"{mix.capitalize()} mix", "kind": "mix",
               **panel(head["panels"][mix], mix=True, routed=routed["panels"][mix]), "note": None}
         for mix in PANELS
     }  # fmt: skip
-    views["realistic"]["note"] = realistic_note(mixes["realistic"], tasks["panels"]["mbppplus"]["items"])
+    views["realistic"]["note"] = realistic_note(mixes["realistic"], tasks["panels"]["mbppplus"]["items"]).replace(
+        " dev items", f" {head['split']} items"
+    )
     for task, title in TASKS.items():
         source = tasks["panels"][task]
         views[task] = {"title": title, "kind": "task", "items": source["items"], "note": source["warning"],
                        **panel(source, mix=False)}  # fmt: skip
+    meta = {"split": head["split"], "n": head["n"], "prices": head["price_snapshot"],
+            "resamples": head["bootstrap"]["resamples"]}  # fmt: skip
+    return {"meta": meta, "views": views}
+
+
+def page_data(figures: dict[str, Figures], mixes: dict[str, dict[str, float]]) -> dict:
+    """What the page embeds: the split it opens on (test if it holds test), the switch's order, the routers' labels, the fifteen
+    cascades and the presets, and each held split's facts and views."""
+    if not figures:
+        raise ValueError("the page needs at least one split's figures")
+    held = {split: split_data(*figures[split], mixes) for split in ORDER if split in figures}
+    opening = next(iter(held))
     cascades = cascade_series()
     return {
-        "meta": {"n": head["n"], "prices": head["price_snapshot"], "resamples": head["bootstrap"]["resamples"]},
-        "labels": {router.name: head["routers"][router.name]["label"] for router in ROUTERS},
+        "open": opening,
+        "order": list(ORDER),
+        "labels": {router.name: figures[opening][0]["routers"][router.name]["label"] for router in ROUTERS},
         "cascades": cascades,
         "presets": presets(cascades),
-        "views": views,
+        "splits": held,
     }
 
 
-def page(head: dict, tasks: dict, routed: dict, mixes: dict[str, dict[str, float]]) -> str:
-    """The page: the template with the data in place of its placeholder."""
+def page(figures: dict[str, Figures], mixes: dict[str, dict[str, float]]) -> str:
+    """The page: the template with the data in place of its placeholder, and the opening split named in its title, heading,
+    sub-title and footer (the script renames them when the switch moves)."""
+    data = page_data(figures, mixes)
     # "</" escaped, so no string in the data can close the page's <script> element.
-    blob = json.dumps(page_data(head, tasks, routed, mixes), separators=(",", ":")).replace("</", "<\\/")
-    return TEMPLATE.read_text(encoding="utf-8").replace(PLACEHOLDER, blob, 1)
+    blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
+    html = TEMPLATE.read_text(encoding="utf-8").replace(PLACEHOLDER, blob, 1)
+    return html.replace(SPLIT_CAP, data["open"].capitalize()).replace(SPLIT_NAME, data["open"])
 
 
 def main() -> int:
-    head, tasks, routed = (json.loads(path.read_text(encoding="utf-8"))
-                           for path in (FIGURE_DATA, TASK_FIGURE_DATA, ROUTED_FIGURE_DATA))  # fmt: skip
-    html = page(head, tasks, routed, load_mixes())
+    figures = load_figures()
+    html = page(figures, load_mixes())
     EXPLORER.write_text(html, encoding="utf-8")
-    print(f"wrote {EXPLORER.relative_to(PROJECT_ROOT)}: {len(html):,} characters")
+    print(f"wrote {EXPLORER.relative_to(PROJECT_ROOT)}: {len(html):,} characters, splits {', '.join(figures)}")
     return 0
 
 

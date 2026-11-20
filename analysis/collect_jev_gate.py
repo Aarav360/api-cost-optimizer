@@ -29,7 +29,7 @@ refusal from the response, the overhead from the stored input tokens at Jev's pr
 import argparse
 import json
 import sys
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -171,26 +171,36 @@ def paid_score(
     return PaidScore(read.score, jev.overhead_dollars(input_tokens(record), client), read.refused)
 
 
+def column(
+    passed: Collection[tuple[str, str]],
+    records: Sequence[Mapping[str, object]],
+    settings: jev_gate.JevGateSettings,
+    client: jev.ClientSettings,
+) -> dict[tuple[str, str], PaidScore]:
+    """The Jev column of a split from its stored records, keyed by (item, config): pass 1's records only (the noise pass
+    never enters). `passed` holds the split's answers that passed the free checks. Refused whole (GateCollectError)
+    unless every one of them has its call and no other answer has one. A17 item 13's refusals, for test as for dev."""
+    scores = {(str(r["item_id"]), str(r["config"])): paid_score(r, settings, client) for r in records if r["pass"] == 1}
+    if missing := sorted(set(passed) - set(scores)):
+        raise GateCollectError(
+            f"{len(missing)} answers that passed the free checks have no Jev call, e.g. {missing[0]}"
+        )
+    if stray := sorted(set(scores) - set(passed)):
+        raise GateCollectError(
+            f"{len(stray)} Jev calls are on answers that did not pass the free checks, e.g. {stray[0]}"
+        )
+    return scores
+
+
 def paid_scores(
     split: str,
     settings: jev_gate.JevGateSettings,
     client: jev.ClientSettings,
     results_dir: Path = RESULTS_DIR,
 ) -> dict[tuple[str, str], PaidScore]:
-    """The Jev column of a split: pass 1's records only (the noise pass never enters), keyed by (item, config). Refused
-    whole unless every answer whose free checks passed has its call, and no other answer has one."""
+    """The Jev column of train's or dev's split (`column`) from its stored records."""
     passed = {(r["item_id"], r["config"]) for r in read_free_records(split, results_dir) if r["passed"]}
-    scores = {(r["item_id"], r["config"]): paid_score(r, settings, client)
-              for r in read_records(split, results_dir) if r["pass"] == 1}  # fmt: skip
-    if missing := sorted(passed - set(scores)):
-        raise GateCollectError(
-            f"{len(missing)} answers that passed the free checks have no Jev call, e.g. {missing[0]}"
-        )
-    if stray := sorted(set(scores) - passed):
-        raise GateCollectError(
-            f"{len(stray)} Jev calls are on answers that did not pass the free checks, e.g. {stray[0]}"
-        )
-    return scores
+    return column(passed, read_records(split, results_dir), settings, client)
 
 
 # ---- the command line -------------------------------------------------------------------------------------------

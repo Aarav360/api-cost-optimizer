@@ -1,247 +1,191 @@
 # Write Up
 
-<!-- The final write-up goes here. -->
+<!-- skeleton: the declared parts of the write-up, committed before the go (PLAN_v4.md, Amendment A19, item 11). The
+headings below are the declared parts, in their order, and so are the sentences that carry a number: `analysis/check_writeup.py`
+holds each number against the committed tables and holds the headings against this file's skeleton commit. After the
+run nothing declared is removed or reordered, and sections may be added. Text in {braces} is filled in after the run:
+an agent fills in the numbers, and the discussion is the researcher's. The dated notes this draws on are in NOTES.md. -->
 
-## Notes
+## Summary
 
-Topics to come back to for the write-up, newest last. Details are in PLAN_v4.md's amendments.
+### The headline
 
-### 2026-10-16 · Measurement validity
-- Only objective graders, no LLM judge. Each was checked against every reference answer in its candidate dataset (over 90,000 answers and variants).
-- A format failure is counted separately from a wrong answer.
-- Known item noise is kept rather than corrected: ambiguous Banking77 labels, some wrong MMLU-Pro answer keys, quirky MBPP+ tests.
-- Talking point: accuracy ceilings below 100% partly reflect data noise, which lowers every config alike.
+On the realistic mix at the 99% target, {policy}, the best cascade by A17 item 24's rule, saves {savings} of A's cost
+[{low}, {high}] at a quality of {quality}, {margin} [{low}, {high}] from the target's share of A's quality on the same
+items (target {met | not met | falls back to A}), and meets that target in {share} of test's resamples.
 
-### 2026-10-16 · Free-text answers understate cheap models (Amendment A3)
-- Four tasks ran in free text and as JSON (structured outputs) on the same items. JSON was right where free text was wrong 13 times, and the reverse twice. Format failures fell from 10 to 0.
-- All six of Haiku's MATH "failures" had the right answer, just without `\boxed{}`, so its score went from 14/20 to 20/20.
-- Talking point: format slips can look like a quality gap and push routing toward expensive models.
-- Caveat: there is no "reasoning" field in the schema, because one can trigger safety refusals.
+The headline is a rule, declared before test was read, not a policy: the best cascade by A17 item 24's rule, against A,
+on the realistic mix at the 99% target. On dev that is haiku/Jev, and on dev that point saved 37.6% of A's cost and met
+its target in 89.65% of dev's resamples. If a refusal path re-selects the cascades, the headline follows the rule and no
+new choice is made. The uniform mix and the 97% target are reported beside it, never in its place. If it misses on test,
+the headline says not met, with its quality and cost, and moves to no other target or policy. A policy that does better
+on test is reported as a finding, under the heading below that says it was found after test was seen.
 
-### 2026-10-16 · Saturated tasks dropped (Amendment A3)
-- Every config scored 20/20 on CRUXEval and on MATH, including 20 Level 5 MATH items tested under a rule fixed before the run.
-- Talking point: a saturated task gives a router nothing to decide. But easy traffic is where real savings come from, so treat this as a limitation and note that the headline depends on the task mix.
+The realistic mix is two-thirds MBPP+ (65%), the smallest test split, so the headline leans on it and its interval is
+wider than the uniform mix's (A7 item 2).
 
-### 2026-10-16 · Cheap model, long thinking (Amendment A4)
-- On hard items, Haiku at high effort wrote about 3× as many output tokens as Opus, sometimes more than 30,000. Its output cap went up to 64,000, because hitting the cap counts as a failure.
-- Talking point: a low price per token doesn't settle cost. Haiku was still about 13× cheaper per item here, but cost has to be measured per task.
+### The answers to the declared questions
 
-### 2026-10-16 · "Newer" benchmarks weren't uncontaminated (negative result, Amendment A4)
-- IFBench and LiveCodeBench v5–v6 were tested as extra items for the two small tasks, and not added.
-- LiveCodeBench's 2024–25 contest problems were saturated: 20/20 for Sonnet and both Opus configs.
-- IFBench didn't separate the configs: all scored 35–50%, with Haiku highest.
-- Talking point: a benchmark's release date doesn't guarantee it postdates a model's training data.
+One line for each question under Results, in that order, each in the form {answer}, with the six cells' differences in
+cost and in quality and their intervals in Results, not here.
 
-### 2026-10-16 · Safety-classifier refusals on benign prompts
-- 8 of 80 IFBench responses were refused under "bio", for example a question on particle concentrations for biosensors. Opus refused 4 of 20.
-- Talking point: refusals are a real cost for routing and cascades in production. The study counts them as failures and turns refusal fallbacks off, so every answer comes from its own config.
+1. haiku/Jev against G: {answer}
+2. haiku/Jev against G+: {answer}
+3. The other cascades against the routers: {answer}
+4. What the gate adds to a router: {answer}
+5. What the router adds to a cascade: {answer}
+6. What a paid gate adds over the free checks: {answer}
+7. The Jev gate against the Sonnet gate: {answer}
 
-### 2026-10-16 · Cross-fitting for the trained router (Stage 1 decision, applied in Stage 5)
-- IFEval (521 items) and MBPP+ (357) are small. Shrinking dev or test widens the error bars; shrinking train handicaps the trained router on exactly those tasks.
-- Kept the standard 40/30/30 split everywhere. The trained router learns from train plus all but one fold of dev, predicts that held-out fold, and rotates through the folds. Thresholds are set on those out-of-fold predictions, and test stays sealed.
-- Considered: 20/40/40 and 30/35/35. Their error bars differed by only about ±1 point.
-- Talking point: a learned router gets enough training data without loosening the sealed test.
+The replication summary: {answer}
 
-### 2026-10-16 · Choosing the "realistic" task mix (Amendment A5)
-- Headline savings depend heavily on the task mix, so both mixes were fixed before any results: uniform 25% each, and realistic MBPP+ 65 / Banking77 20 / IFEval 10 / MMLU-Pro 5, taken from Anthropic Economic Index API traffic shares.
-- Cost combines as weighted dollars, then savings. Averaging per-task savings percentages would distort them, because tasks cost different amounts per request and cheap tasks are a small part of the bill.
-- Caveat: the realistic mix is two-thirds coding, but MBPP+ is easier than real coding traffic, so that headline likely overstates savings.
-- Talking point: predeclared weights from a published source rule out choosing them after seeing the numbers.
+## Design
 
-### 2026-10-18 · Run-to-run noise and the oracle (Amendment A6)
-- These models reject `temperature`, so each stored answer is one draw. 75 dev items run three times through every config to measure how often an item's right/wrong result flips.
-- The oracle is the most exposed: it sends each item to the cheapest config that happened to succeed, so a lucky draw counts as savings no router could rely on.
-- Rule fixed before any data: flip rates are reported next to the CIs, and if any config flips on 5% or more of items, the oracle curve is called an optimistic upper bound.
-- Talking point: a hindsight ceiling built from single samples overstates what's achievable when outputs are nondeterministic.
+A is always-frontier, the reference every cost and quality is measured against. The policies are the routers E (rules),
+F (trained), G (Jev) and G+ (bolstered Jev), and the cascades that end on the frontier, each started at `haiku` or at a
+router's pick and gated by the free checks, the Jev gate or the Sonnet gate (PLAN_v4.md §8 and Amendment A17). Each
+policy runs at the operating points its walk selected on dev, for the uniform and the realistic task mix and for quality
+targets of 100%, 99% and 97% of A's quality; the frozen operating points are in `routers/operating_points.json`. The
+final evaluation runs test once, in the order Amendment A19 item 2 fixes. {anything else the study's design needs said}
 
-### 2026-10-18 · The collection run (Amendment A6)
-- 9,521 requests through the Batches API in about 10 minutes, all succeeded first time, for $29.37 (projected $32.03). Test answers sealed with their hash recorded.
-- Haiku and Opus-low flip on 5% or more of the noise items (6.7%, 5.3%), so the oracle is reported as an optimistic upper bound, as fixed beforehand.
-- Both Opus configs refused a benign virology question ("where do Lassa and Ebola come from?") on every run, while Haiku and Sonnet answered it correctly.
-- Talking point: here the cheapest model can answer what the frontier model won't, and a refusal costs a router the same as a wrong answer.
+## Expected misses
 
-### 2026-10-19 · Opus at low effort matches Opus at medium on dev (Amendment A8)
-- On dev, `opus_low` scored the same as `opus` (89.7% vs 89.5% uniform, 87.8% vs 86.7% realistic) for about 80% of the cost. The gap is likely noise.
-- Kept `opus` as the frontier anyway: swapping it after seeing dev would be a post-hoc choice. The random-mixture envelope already credits the savings, so any router has to beat always-`opus_low`.
-- Talking point: the effort setting is a cost lever in its own right. Medium effort bought no measurable quality on these tasks.
+A quality target is a bar, and the safety margin keeps a policy's dev quality one standard error above it, so a policy
+that cleared its target on dev can still miss it on test. Several misses are expected, and some are the margin working
+as designed, not a failure of the policy.
 
-### 2026-10-19 · Which "standard error" sets the safety margin (Amendment A8)
-- Thresholds must clear their quality target by one standard error, but the plan didn't say which. On the realistic mix a score's own standard error is about 2.4 points, while its gap from Opus on the same items has 1.2–1.8.
-- The unpaired one would have put the realistic targets almost out of reach (above every model's dev quality at 100% and 99%). The paired one is right, because targets are relative to Opus on the same items.
-- Caught in the Stage 3 design review, before any router existed.
-- Talking point: in paired comparisons the luck of the item draw cancels out, and ignoring that throws away savings for no protection.
+- 72 operating points route: 54 of the cascades' 90 and 18 of the routers' 24 (E 4, F 3, G 6, G+ 5). The rest fall back
+  to A, which meets every target trivially and is never counted as met.
+- Over the 65 that tables v3 and v4 cover (the cascades', G's and G+'s), dev's own resamples give about 3 expected
+  misses. Allowing for test's own sampling noise gives about 6, since a point that cleared by exactly the margin misses
+  15.9% of dev's resamples but about 24% of fresh draws of test's items.
+- Choosing on dev pushes the count higher still, and E's and F's 7 points aren't counted.
+- The misses will come in clusters, since points share items and some are the same step (G/Jev's 99% and 97%, for one).
 
-### 2026-10-19 · Sonnet loses to a weighted coin flip between Haiku and Opus-low (Amendment A8)
-- On dev the random-mixture envelope is one straight line from `haiku` to `opus_low` under both mixes. Picking between those two at fixed odds, without reading the prompt, beats `sonnet` at its own cost: 85.8% vs 84.5% realistic, 87.6% vs 86.1% uniform.
-- So `sonnet` adds nothing as a fixed choice, and any router that uses it has to earn its place on routing alone.
-- Talking point: a mid-priced model can sit below a blend of the cheapest and a top config, so the reference to beat isn't always-cheapest but this envelope.
+## Results
 
-### 2026-10-20 · The hindsight oracle meets every target near Haiku's cost (Amendment A8)
-- On dev the oracle starts at always-`haiku` and climbs to 91.5% realistic and 93.6% uniform, above `opus`, because 28 items are ones `opus` gets wrong and a cheaper config gets right.
-- The 100/99/97% quality targets cost $0.40/$0.37/$0.31 per 1k realistic and $0.65/$0.59/$0.51 uniform, against $0.29 and $0.43 for always-`haiku`. A perfect router would need little more than Haiku's bill.
-- Decision: an item's weight scales its cost as well as its score, because policies are scored on mix-weighted cost. Weighting only the score would reorder upgrades between tasks, and a brute-force check on random matrices shows that order misses the LP's optimum.
-- Talking point: the oracle is an optimistic ceiling (single samples, with lucky draws counted as savings), so the gap between it and any real router is the price of not knowing in advance which items are easy.
+### The headline in full
 
-### 2026-10-20 · Paired intervals on dev (Amendment A8, items 8 and 9)
-- Each config's own 95% interval on the realistic mix spans about ±4.5 points, so every cross overlaps. Paired against `opus` on the same resamples, the picture sharpens: `haiku` is 3.4 points behind (−7.0 to −0.1), and `opus_low` is 1.0 ahead (−1.3 to +3.6), an interval that contains 0.
-- Safety margins (one paired standard error) are 1.24–1.79 points realistic and 0.71–1.26 uniform, about half of each config's own standard error (2.2–2.5 realistic).
-- The bootstrap's seed (2026) was fixed before any interval was seen, and not changed afterwards. A8 item 9's unpaired bars came out within 0.08 points of the design review's.
-- Talking point: overlapping error bars don't mean "no difference". The paired interval is the one that answers "is this config worse than the frontier?".
+{the headline's point on test under both mixes and all three targets: quality, cost per 1k, savings against A, whether
+the target is met, and the share of resamples meeting it, beside dev's}
 
-### 2026-10-20 · Keeping the one-standard-error safety margin (Amendment A8, item 9)
-- A router tuned to clear its quality target by one paired standard error still misses the target in about one resample in six. Its captured-fraction interval therefore usually reads "n/a to X", because a lower bound needs fewer than 2.5% of resamples to miss.
-- Considered moving the margin to 1.5 or 2 standard errors. At 1.5 about one resample in 15 still misses, so the "n/a" stays, yet the 99% target already asks for more than any single config scores on dev. Only about 2 gives a numeric lower bound, at the cost of a lower operating point's savings and of operating points altogether at the 99% and 100% targets for weaker routers.
-- Decision: keep one standard error, and report "met the target in X% of resamples" in a column of its own beside every captured fraction. Recorded under A8 item 9 before any router exists.
-- Talking point: a wider safety margin doesn't make a router better. It hides its chance of missing behind a more cautious, more expensive operating point. Reporting the chance is more honest than buying it away.
+### Misses against the expectation
 
-### 2026-10-20 · Chart v0's per-task picture (Amendment A8, items 10 and 12)
-- IFEval separates the configs most: `haiku` 83.4% against `opus` 93.6% on dev, and its own oracle reaches 98.1%. That's where a router has the most to do, though IFEval's 157 dev items make it indicative only (A7).
-- On MMLU-Pro `haiku` is within 2.5 points of `opus` and above `sonnet` (86.7% vs 85.0%). On Banking77 it trails `opus` by 5.4 points.
-- On MBPP+, 65% of the realistic mix, `opus_low` scores above `opus` (86.0% vs 84.1%). That's the source of the headline `opus_low` finding, on 107 items.
-- Talking point: a mix's average hides where routing matters, which is why per-task results are always shown, even though claims rest on the mixes and on the two larger tasks.
+{how many of the operating points that route missed their target on test, against the expectation above, and which share
+a step}
 
-### 2026-10-20 · Rules settled in the Stage 3 branch review (Amendment A8, items 4 and 7)
-- Matched cost: the oracle's curve ends at its costliest corner, little more than Haiku's bill on dev, so any real router would have had no oracle quality to compare with at its cost. A cost past a reference's top corner now reaches its maximum quality, since a bigger budget needn't be spent.
-- Traces: a policy must climb the config ladder (skipping is fine). Stepping down would pay for a dearer config and return a cheaper one's answer. A negative or non-finite overhead is refused too, since it would make a policy look cheaper.
-- The checks on A8's numbers now read the plan itself, not copies typed into the check script, and they catch the old $6.56 → $6.57 slip.
-- Talking point: rules the plan only described became refusals before any router existed, so no Stage 4–7 result can lean on a malformed trace.
+### The declared questions
 
-### 2026-10-20 · Picking a router's threshold without fooling ourselves (Amendment A9, items 9 and 10)
-- Every threshold is its own policy. Taking the cheapest one that clears its target on dev picks the luckiest of many, so on test it would miss more often than the one in six the safety margin allows.
-- Decision: walk down from always-`opus` in a fixed order and stop at the first threshold that doesn't clear by the margin (fixed-sequence testing, as in Learn-then-Test). The steps are the points where some item's config changes, fixed from router scores before any outcome is looked up. Where nothing cheaper clears, the router falls back to always-`opus` and is reported as saving nothing.
-- Rejected a fixed 0.05 grid. Dev's per-task success rates bunch between 0.82 and 0.94, so the rules router would get four policies, and four tasks would change config at once at t = 0.85.
-- Talking point: trying many thresholds costs nothing only if their order is fixed in advance. The walk keeps the safety margin's promise however many steps it takes.
+The same-target comparisons are 51 in all (A17 item 22). They are descriptive, with no multiplicity correction: about
+one interval in twenty excludes 0 by chance. Each is read in the six mix-and-target cells, for the difference in cost per
+1k and in quality, with its paired interval. The write-up leads with these questions in this order, not with whichever
+intervals came out significant.
 
-### 2026-10-20 · The rules router learns from train, not dev (Amendment A9, items 4, 5 and 13)
-- The plan's sketch had hand-set numbers. Instead, each bucket scores each config by its success rate on train. Hand-set numbers come from looking somewhere, and if that's dev, dev sets both the numbers and the thresholds, and test misses more often.
-- The rules router learns from train labels only. (This note first said the trained router would learn from the same labels. It doesn't: cross-fitting also gives it four-fifths of dev's. Amendment A11 item 1 corrects A9 item 4, and F-train makes the like-for-like comparison; see the 2026-10-21 note below.)
-- The rules freeze by hash, in a commit made before any rules-router number on dev exists, so anyone can check the order in the git log.
-- Talking point: on this benchmark the rules will spot the task almost every time, because the prompts are templated. That says nothing about real traffic, and the write-up says so.
+#### haiku/Jev against G
 
-### 2026-10-20 · The rules router on dev: real savings, but no better than mixing configs at the same spend (Amendment A9, item 18)
-- At the 100% target the walk certifies nothing cheaper than always-`opus`, so E falls back to A under both mixes. At 99% it saves 21% (realistic) and 23% (uniform). At 97% it saves 73% realistic, at 85.7% quality for $2.16 per 1k against A's $8.04.
-- At matched cost, E's paired difference from the random-mixture envelope has an interval that includes 0 in every cell. The best is +1.0 points at 97% realistic (−1.4 to +3.0). Reading the prompt hasn't yet beaten ignoring it at the same spend.
-- The one-standard-error margin behaves as designed. At 97% realistic only 84% of resamples meet the target, which is roughly the one-in-six miss rate A8 item 9 accepts.
-- Talking point: a router that saves money can still fail to beat a coin-flip mix of configs at the same cost. The envelope comparison is what tells them apart, and it sets the bar for the trained and Jev routers.
+Comparisons: 1. {the six cells' differences, with intervals}
 
-### 2026-10-21 · Embedding the part of the prompt that differs (Amendment A11, item 5)
-- Every Banking77 prompt is the same 77-label list plus a one-line query. Embedded whole, they all come out nearly the same, so the trained router could only recognise the task there, which the rules router already does. A longer token window doesn't help.
-- Decision: remove "template lines", any line found verbatim in at least 2% of train prompts, before embedding. The list is learned from train prompts, not written by hand, so a deployed router would learn its own traffic's templates the same way. On train the result doesn't depend on the exact cut.
-- Risks to name: the removed lines were themselves a cue to the task, and in real traffic a recurring instruction line can be a difficulty cue.
-- Talking point: an embedding router can quietly turn into a task classifier when prompts share long templates. Checking where the query sits in the tokens caught it before any score existed.
+#### haiku/Jev against G+
 
-### 2026-10-21 · Are the rules router and the trained router on equal labels? No: F-train (Amendment A11, items 1 and 12)
-- A9 claimed both routers learn from the same train labels. With cross-fitting, the trained router also learns from four-fifths of dev's labels, so a win over the rules router could come from better features or from more labels.
-- Decision, made before any trained-router number exists: also fit F-train on train alone, with the same settings, and walk it on dev as a diagnostic. Rules against F-train compares cues with embeddings on equal labels. F-train against F shows what the extra labels buy.
-- Talking point: deciding after the results whether to split the two effects would be a forking path. Declaring it beforehand makes it just another reported number.
+Comparisons: 1. {the six cells' differences, with intervals}
 
-### 2026-10-21 · Test is scored by the model whose scores chose the thresholds (Amendment A11, item 9)
-- Cross-fitting gives every dev item a router score from one of five fold models that never saw it, so the thresholds are certified for that five-model policy, not for any single model.
-- The usual choices for test, a refit on all the data or the average of the fold models, are models no dev number describes. Instead, a hash of each test request picks one fold model, so test runs exactly the policy dev certified.
-- Talking point: the safety margin's "misses about one time in six" is a promise about a specific policy. Swapping in a better-looking model at test time quietly voids it.
+#### The other cascades against the routers
 
-### 2026-10-22 · Pinned libraries don't pin the numbers (Amendment A11, items 4 and 17)
-- On this Mac PyTorch does its matrix math in Apple's Accelerate, which ships with macOS. An OS update could shift every embedding's last bits with every library pinned, and Stage 8 re-checks dev's router scores against dev's table.
-- A probe found that changing the thread count changes no bit, so it can't size that risk. The float32 router is compared with float64 instead, and the drift limit is 100× that gap. Stage 8 reports drift above 1e-6 and refuses only above the limit, so an OS update can't block it.
-- Automatic macOS updates stay off until Stage 8.
-- Talking point: reproducing a model's outputs means recording the OS's math library as well as the Python lockfile.
+Comparisons: 10. {the six cells' differences, with intervals}
 
-### 2026-10-22 · The trained router on dev costs more than the rules router at the same targets (Amendment A11, items 9 and 13)
-- F falls back to A at 100% under both mixes, and also at 99% uniform, where E saves 23%. Where both route, F costs more for the same target: +$2.67 per 1k at 97% realistic (+2.20 to +3.18) and +$0.84 at 97% uniform (+0.25 to +1.39). Every quality difference's interval includes 0.
-- F-train, fitted on train alone, is cheaper than F at every target where both route, by $1.16 to $1.94 per 1k. It's also cheaper than E at 99% realistic (−$0.88) and 97% uniform (−$1.09). The extra dev labels made the certified policy more expensive, not cheaper.
-- F doesn't clear the bar E missed either. At matched cost, its difference from the random-mixture envelope is −0.2 to −1.0 points at every operating point, and every interval includes 0. These comparisons are descriptive, with no multiplicity correction, so about one interval in twenty excludes 0 by chance.
-- Talking point: the router with the most labels and the richest features lost on cost to hand-written cues. Open question: does pooling the five fold models' router scores cost F steps on the walk? The pooling is deliberate, so that test runs the certified policy (A11 item 9). Table v2's per-fold quantiles are where to look.
+#### What the gate adds to a router
 
-### 2026-10-22 · What the trained router knows beyond the task (Amendment A11, item 12)
-- Within-task concordance on dev is 0.57 for `haiku` and `sonnet` and 0.50 for `opus_low`. Only `haiku`'s lead over the task-rates diagnostic clears 0 (+0.07, 0.003 to 0.136), and F's log loss can't be told apart from the task rates' for any config.
-- F-train's concordance matches F's (every difference's interval includes 0), and the learning curve is flat. Going from 75% to 100% of the labels improves log loss by about 0.003, and concordance by an amount whose interval includes 0. More labels of this kind aren't what F lacks.
-- Counted within task and fold, as declared, the task-rates diagnostic sits at exactly 0.5. Pooled across folds, the same rates fall to 0.37–0.40, so counting within folds was necessary.
-- Talking point: on train the signal check looked weak but present (0.57–0.62), and on dev most of it is gone. The embeddings mostly recognise the task, which E already does.
+Comparisons: 12. {the six cells' differences, with intervals}
 
-### 2026-10-27 · One Jev call per request, not three (Amendment A15, item 10)
-- Jev isn't repeatable. Its answers are rounded to two decimals, and the same request's answers move by about ±0.01–0.03 (measured on made-up text).
-- Averaging three calls would cut that noise, but overhead is charged on every request. It would take the bolstered Jev router from about $0.32 to $0.95 per 1,000 requests, against always-`haiku`'s whole $0.29 on the realistic mix.
-- So the noise is part of the policy. Each dev item gets its own draw, the item bootstrap covers the variance, and test gets fresh draws from the same policy.
-- Talking point: for a router, the price that counts is the overhead per request, not what the experiment costs in total.
+#### What the router adds to a cascade
 
-### 2026-10-27 · Giving Jev our labels without letting dev choose (Amendment A15, items 1 and 5–7)
-- Two Jev routers. G asks Jev zero-shot. G+ names our models and their train success rates, shows 16 past train requests with their outcomes, and turns 18 answers into router scores with a logistic regression fitted on train alone.
-- G+ against G measures what our labels add to an off-the-shelf model. G+ against E and F-train compares three readers on equal labels.
-- The order is provable. Every question's wording is frozen before any Jev call on a benchmark request, and G+'s weights before any dev call. Nothing is tuned on dev.
-- Talking point: helping a general model with your own labels is a fair comparison only if the help is fixed before the evaluation data is seen.
+Comparisons: 12. {the six cells' differences, with intervals}
 
-### 2026-10-27 · Checking a remote model that isn't repeatable (Amendment A15, item 17)
-- F's Stage 8 check re-embeds dev and expects matches to 1e-6. Jev can't pass that, since its answers move between calls.
-- Instead, 100 train requests are sent twice in Stage 6 to measure the noise, and once more in Stage 8. Stage 8 refuses if the gap is over 3× Stage 6's, or if scores shift one way by more than Stage 6's noise.
-- The shift check matters most. A uniform move barely changes the average gap, yet it pushes items across every threshold in the same direction.
-- Talking point: with a model behind someone else's API, "same version" isn't proof of the same behaviour, so you have to measure it.
+#### What a paid gate adds over the free checks
 
-### 2026-10-27 · Jev zero-shot ranks requests, but its raw scores are worse than the base rate (Amendment A15, item 19)
-- On train, G's raw scores order successes above failures within a task about 0.68 to 0.71 of the time (a coin is 0.50). Yet their clipped log loss is worse than predicting the base rate: haiku 0.3995 against 0.3954, sonnet 0.3964 against 0.3781.
-- G+ keeps that ordering (0.68 to 0.75) and fixes the calibration: log loss 0.3539 against 0.3954 for haiku, and 0.2786 against 0.2967 for opus_low.
-- Talking point: ranking and calibration are different jobs. A threshold policy needs the first, a cost estimate needs the second, and a train calibration is what turned one into the other.
+Comparisons: 10. {the six cells' differences, with intervals}
 
-### 2026-10-27 · On dev, G+ is the first router to beat the random-mixture envelope at matched cost (Amendment A15, item 20; table v3)
-- At the uniform mix and 97% target, G+ is +2.0 points above the envelope (+0.7 to +3.3). No interval for E or F ever excluded 0. It's 1 of G's and G+'s 12 intervals, and descriptive, so one in twenty could exclude 0 by chance.
-- Within-task concordance on dev: G 0.69–0.70, G+ 0.74–0.76, against F's 0.57. G+ − G is +0.05 to +0.06, and the interval excludes 0 for all three configs. An off-the-shelf decision model knows something beyond the task, and our labels add to it.
-- E still wins at 97% realistic (73.1% savings against G+'s 65.1%). G+ wins at 99% on both mixes and at 97% uniform.
-- Talking point: Stage 8's noise check decides whether this survives. Jev answers from someone else's API, so its edge is only as good as the version staying put.
+#### The Jev gate against the Sonnet gate
 
-### 2026-11-10 · A free test that could take a paid gate's credit (Amendment A17, items 4 and 8)
-- Every MBPP+ prompt carries one example `assert`, and the code check runs it for free. MBPP+ is 65% of the realistic mix.
-- So every cascade also runs with free checks only (`haiku/free`, `E/free`, …). Without that baseline, a Jev cascade's gain on the realistic mix could just be the example test.
-- A pass isn't the hidden tests passing. The example's input is among the hidden inputs for 140 of 143 train items (by exact match of the literal arguments; A17 item 4), but the hidden tests check many more inputs.
-- Talking point: before crediting an expensive component, measure the free thing it comes bundled with.
+Comparisons: 5. {the six cells' differences, with intervals}
 
-### 2026-11-10 · Fixing a gate's cutoff on train without the frontier's answers (Amendment A17, item 12)
-- Router-started cascades have two dials. Walking both on dev would pick the luckiest of about 400 pairs, so the gate's cutoff is fixed first and only the router's steps are walked.
-- The cutoff comes from train by Youden's J: the share of wrong answers caught minus the share of right answers rejected. That needs no `opus` outcome, which train doesn't have, so A1's "gate cutoffs need the frontier, so dev only" no longer binds.
-- Its weakness: it weighs both mistakes equally. A poor cutoff costs efficiency, not validity, since the walk's guarantee holds for any fixed cutoff.
-- Talking point: fix one dial on data the evaluation never touches, then certify the other on dev.
+### The replication summary
 
-### 2026-11-10 · A verifier that costs as much as the answer (Amendment A17, item 6)
-- On Banking77, the Sonnet gate's input alone is about 2,000 tokens, about $0.004. That's what `sonnet` charges to answer the question itself.
-- Thinking makes it worse: 1,000 thinking tokens cost $0.01, more than `opus` charges to answer an MMLU-Pro item. So it runs at low effort, and it's still expected to lose on cost.
-- It stays as the comparison that gives the Jev gate's result meaning (A1).
-- Talking point: a gate's price per request has to be small next to the escalation it prevents.
+For each dev comparison whose interval excluded 0, whether test's interval has the same sign and also excludes 0. Cost
+and quality are counted apart, and a comparison counts once for each mix-and-target cell where its dev interval
+excluded 0.
 
-### 2026-11-10 · Straight to `opus`, not up the ladder (Amendment A17, item 9)
-- A gated middle step saves money only while its gate rejects fewer of that config's answers than 1 − (its cost ÷ `opus`'s): about 52% for `sonnet` and 20% for `opus_low` on the uniform mix.
-- On train, of the 139 items `haiku` fails, `sonnet` gets 36% right and `opus_low` 50%. A gate that works would reject more of their answers than either limit allows.
-- So a rejected answer goes straight to `opus`: one escalation, one cutoff, and latency capped at two model calls.
-- Talking point: a longer cascade isn't more careful if its middle steps can't pay for themselves.
+| | Dev intervals excluding 0 | Same sign on test | Same sign, and excluding 0 on test |
+|---|---|---|---|
+| Difference in cost per 1k | {n} | {n} | {n} |
+| Difference in quality | {n} | {n} | {n} |
 
-### 2026-11-10 · Checking the amendment's own numbers (Amendment A17, items 3, 4 and 20.1)
-- Before any gate ran, a hook check recomputed every fact A17 states about the data from the stored files.
-- It found three numbers that were wrong in A17's text: the number of run-0 train and dev rows (5,949), the number of MBPP+ train items whose example `assert` input is among the hidden test inputs (140 of 143), and how much longer Banking77's prompts are than MMLU-Pro's (about 3.4× in mean input tokens). They were corrected before the settings commit, so the frozen design and its premises agree.
-- Talking point: a pre-registered plan can be wrong about its own data. Check its stated facts by machine before freezing.
+### Every policy at its operating points
 
-### 2026-11-10 · The free checks caught nothing (Amendment A17, items 21 and 28)
-- On train, the free checks rejected 0 of 2,973 answers. All 429 code checks passed, including 17 of `haiku`'s MBPP+ answers that the grader fails: real answers pass the prompt's example `assert` and fail only the hidden tests.
-- So the code check's train concordance is exactly 0.5, and each `/free` cascade equals its router alone on train. The paid gates do carry signal: concordance 0.77–0.82 for the Jev gate and 0.81–0.86 for the Sonnet gate.
-- The checks were frozen before any real answer was seen, so they stay as they are. Loosening them now would tune on train.
-- Talking point: a check that a made-up wrong answer fails can still miss every real mistake, because real mistakes are subtler than made-up ones.
+Every frozen policy at its dev-selected operating points, under both mixes and per task: {table}. IFEval's and MBPP+'s
+per-task results carry their warning wherever they appear, and the write-up draws no per-task conclusion from them (A7
+item 2). IFEval: Only 156 test items, below the plan's minimum of a few hundred: indicative. MBPP+: Only 107 test items,
+below the plan's minimum of a few hundred: indicative.
 
-### 2026-11-11 · Jev as a gate, not a router (Amendment A17, items 22 and 24)
-- The best cascade on dev, by A17 item 24's rule, is `haiku/Jev`. It saves an average of 36.8% of A's cost over its six operating points, against 34.5% for `G+/free` and 30.2% for `G/free`. On the realistic mix it costs $7.95 / $5.02 / $2.57 per 1k at the 100 / 99 / 97% targets, against A's $8.04.
-- Against G, the Jev router: $0.76 cheaper per 1k at 99% [0.30, 1.24] and $1.05 cheaper at 97% [0.47, 1.69], but $0.67 dearer at 100%. Against G+ the cost differences are small, and most intervals include 0. The quality intervals include 0 in both comparisons. This is descriptive, with no multiplicity correction.
-- The Sonnet gate mostly costs more than it saves. `haiku/Jev` is $3.0–5.8 per 1k cheaper than `haiku/Sonnet` at 99% and 97%, and 36 of the 90 cascade operating points fall back to A.
-- Talking point: §9 asked whether "Jev may fit better as a gate than as a router". On dev, used as a gate on `haiku`, it is cheaper than G at the 99% and 97% targets and about level with G+. Neither Jev router beats it on the realistic mix's looser targets.
+### The hindsight oracle and the random-mixture envelope
 
-## Part 2
+{the oracle and the envelope on test, and the captured fraction at each operating point}, built from the test matrix as
+on dev (A8 item 4). Test has no repeat runs, so dev's flip rates carry over, and the oracle curve is an optimistic upper
+bound (A6 item 2).
 
-Ideas for a follow-up study after Stage 8, newest last.
+### The live replay
 
-### 2026-10-24 · A benchmark where the models are further apart
-- **Why:** on this benchmark `haiku` sits close to `opus`. On dev, `haiku` is 83.3% against `opus`'s 86.7% on the realistic mix and 84.5% against 89.5% on the uniform mix. Per task, `haiku` trails the best config by 10.2 points on IFEval, 5.4 on Banking77, 2.5 on MMLU-Pro and 3.8 on MBPP+. That leaves a router little to gain, and neither router beat the random-mixture envelope. Stage 0 already tried harder single-turn tasks and found them saturated or not separating the configs: MATH Level 5, LiveCodeBench, CRUXEval and IFBench (Amendments A3 and A4).
-- **Candidates:**
+{the live replay's answers, graded with the same graders and shown beside the offline estimate with their n}. They are
+shown, not judged (A17 item 26.5), and its first call and any reconnects are reported apart from the rest.
 
-  | Kind | Examples | Why it separates models | Cost for this design |
-  |---|---|---|---|
-  | Very hard questions | GPQA Diamond, Humanity's Last Exam | expert-level science and reasoning | small sets (GPQA Diamond is about 200 questions); some are so hard every model fails |
-  | Agentic coding | SWE-bench Verified, Terminal-Bench | real bug fixes in real repos, many steps | long multi-turn runs in a Docker sandbox, possibly dollars per item per model |
-  | Tool use | τ-bench | long conversations with tools and a simulated user | needs a simulated user and multi-turn grading |
-  | Human preference | LMArena, AlpacaEval | open-ended quality | no fixed answer: human votes or a model judge |
+## Found after test was seen
 
-- **The gap must be uneven and predictable, not just big.** A router helps only when some requests are fine on `haiku`, others need `opus`, and the prompt reveals which. If `opus` were better on every request by the same margin, no router could beat random mixing. So aim for a mix of easy and hard requests, like real traffic, and choose benchmarks for realism, not because routers win on them.
-- **How it could run:** short-list two or three candidates, then pilot 20 items per config as Stage 0 did, under a rule fixed in advance for what counts as separating the models (about $10). Reuse this project's pipeline unchanged: router-score tables, the walk, the envelope, the oracle and the freeze all work on any table of item × config outcomes. Freeze the new benchmark under its own amendment before any router sees it. Every config runs on every item, so each item has to cost cents per model, not dollars.
+Anything outside the headline, the 51 comparisons and the replication summary appears only under this heading, and each
+entry says it was found after test was seen: a per-task pattern, a new metric, a ranking by test savings, a policy that
+does better on test than the headline's. {none yet}
+
+## Discussion
+
+{the researcher's discussion}
+
+## Limitations
+
+### Selection on dev
+
+Every policy's thresholds and cutoffs, the operating points and the headline's cascade itself (the best of 15 by A17
+item 24's rule) were chosen on dev. Test's numbers for them are fresh; dev's are the record of how they were chosen, not
+an estimate of how they perform. Choosing on dev also pushes the expected misses higher than the count above.
+
+### IFEval and MBPP+ are only indicative
+
+Test holds 156 IFEval items and 107 MBPP+ items, below the plan's minimum of a few hundred per task (§5), so their
+per-task results are indicative and no per-task conclusion rests on them. Headline claims are made on the two mixes.
+
+### One run of test
+
+Test was run once: each item has one answer from each config, with no repeat runs, and a crash or a refusal stops the
+final evaluation. Each answer is one draw, so a lucky or unlucky draw looks the same as a real strength or weakness
+(A6 item 2).
+
+### The oracle is an optimistic upper bound
+
+The hindsight oracle sends each item to the cheapest config that succeeded on its one run, so a lucky draw counts as
+savings no deployable policy could rely on. Its curve is an optimistic upper bound, as A6 item 2 says.
+
+## Future work
+
+### A benchmark where the configs are further apart
+
+On this benchmark `haiku` sits close to the frontier: on dev it scores 83.3% against the frontier's 86.7% on the
+realistic mix and 84.5% against 89.5% on the uniform mix, which leaves a router little to gain. Stage 0 had already tried
+harder single-turn tasks and found them saturated or not separating the configs: MATH at its hardest level,
+LiveCodeBench, CRUXEval and IFBench (A3 and A4). The next study would look further afield: expert-level problems (GPQA
+Diamond, Humanity's Last Exam), agentic coding (SWE-bench Verified, Terminal-Bench), tool use (τ-bench) and human
+preference (LMArena, AlpacaEval), each at a cost per item the design can afford, since every config runs on every item.
+
+The gap has to be uneven and predictable, not just big. A router helps only when some requests are fine on `haiku`,
+others need the frontier, and the prompt reveals which; if the frontier were better on every request by the same margin,
+no router could beat random mixing. So the study would choose for realism, not for where routers win. It would reuse this
+pipeline unchanged, since router-score tables, the walk, the envelope, the oracle and the freeze work on any table of
+item by config outcomes; it would run a small pilot under a rule fixed in advance for what counts as separating the
+configs, and freeze the new benchmark under its own amendment before any router sees it.

@@ -2,13 +2,13 @@
 A6 item 6).
 
 It lives in analysis/, outside the routers' import closure, beside `analysis/fake_jev.py`. It stands in for an
-`anthropic.Anthropic` client: `client.messages.create(**params)` and `client.messages.batches.create`, `.retrieve` and
+`anthropic.Anthropic` client: `client.messages.create(**params)`, `client.messages.stream(**params)` (for `harness.client.call`) and `client.messages.batches.create`, `.retrieve` and
 `.results`, answering with the SDK's own types (`Message`, `MessageBatchIndividualResponse`), so the code under test
 reads what it would read from the API. Checks built on `harness/check_collect.FakeBatches` could not import it: that
 file needs Docker and the results folder as a whole.
 
 What it does:
-- Every request that reached it is kept, whole, in `calls` (Messages) and `created` (Batches), so a check asserts what
+- Every request that reached it is kept, whole, in `calls` (Messages, `create` and `stream` alike) and `created` (Batches), so a check asserts what
   was sent, not what the code meant to send. A batch request the real API would refuse (a request ID outside
   `^[A-Za-z0-9_-]{1,64}$`, two with the same ID, or one without `params`) raises here too.
 - What the gate "thinks" comes from `respond`, which reads the request's content and returns a Message as a dict. The
@@ -21,6 +21,10 @@ What it does:
   many `retrieve`s. `tamper` may rewrite a batch's results once built (an unrequested ID, a repeated ID).
 - Results arrive shuffled, and the same on a second read.
 - `message_errors` maps a call number of `messages.create` (from 1) to the exception raised on it.
+- `delay_s` (a number of seconds, or a function of the request's params) makes each `create` and `stream` call wait that long
+  before answering, and `intervals` keeps each call's (start, end) on `time.perf_counter`, so a check can show that the calls
+  came one at a time and that a latency it measures is the delay it injected. Production code has no such delay: it is the
+  fake's.
 
 Run as a library only:  from analysis.fake_anthropic import FakeAnthropic
 """
@@ -28,6 +32,7 @@ Run as a library only:  from analysis.fake_anthropic import FakeAnthropic
 import json
 import random
 import re
+import time
 from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -118,8 +123,24 @@ class FakeBatches:
         return iter(self._outcomes[batch_id])
 
 
+class FakeStream:
+    """What `client.messages.stream(**params)` returns: a context manager that gives the final message, as the SDK's does."""
+
+    def __init__(self, message: Message, request_id: str):
+        self.message, self.request_id = message, request_id
+
+    def __enter__(self) -> "FakeStream":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+    def get_final_message(self) -> Message:
+        return self.message
+
+
 class FakeMessages:
-    """`client.messages`: `create`, and `batches`."""
+    """`client.messages`: `create`, `stream` and `batches`."""
 
     def __init__(self, owner: "FakeAnthropic"):
         self.owner = owner
@@ -130,7 +151,18 @@ class FakeMessages:
         error = self.owner.message_errors.get(len(self.owner.calls))
         if error is not None:
             raise error
+        self.owner.wait(params)
         return Message.model_validate(self.owner.respond(params))
+
+    def stream(self, **params):
+        """The streaming call `harness.client.call` makes. It is logged in `calls` with `create`'s, and `message_errors`
+        counts both together, so one list shows every request that reached the fake."""
+        self.owner.calls.append(json.loads(json.dumps(params)))
+        error = self.owner.message_errors.get(len(self.owner.calls))
+        if error is not None:
+            raise error
+        self.owner.wait(params)
+        return FakeStream(Message.model_validate(self.owner.respond(params)), f"req_fake{len(self.owner.calls)}")
 
 
 class FakeAnthropic:
@@ -143,6 +175,7 @@ class FakeAnthropic:
         polls_before_end: int = 0,
         tamper: Callable[[str, list[dict]], list[dict]] | None = None,
         message_errors: Mapping[int, Exception] | None = None,
+        delay_s: float | Callable[[Mapping[str, Any]], float] = 0.0,
     ):
         self.respond = respond
         self.batch_failures = dict(batch_failures or {})
@@ -151,7 +184,16 @@ class FakeAnthropic:
         self.tamper = tamper
         self.message_errors = dict(message_errors or {})
         self.calls: list[dict] = []  # every messages.create(**params) received
+        self.delay_s = delay_s
+        self.intervals: list[tuple[float, float]] = []  # each answered call's (start, end) on `time.perf_counter`
         self.messages = FakeMessages(self)
+
+    def wait(self, params: Mapping[str, Any]) -> None:
+        """The injected delay, kept as an interval."""
+        seconds = self.delay_s(params) if callable(self.delay_s) else self.delay_s
+        started = time.perf_counter()
+        time.sleep(seconds)
+        self.intervals.append((started, time.perf_counter()))
 
     @property
     def created(self) -> dict[str, list[dict]]:

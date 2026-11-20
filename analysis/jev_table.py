@@ -43,8 +43,10 @@ def build_table(
     item_ids: Sequence[str],
     loaded: collect_jev.Loaded,
     weights: jev.GPlusWeights | None = None,
+    split: str = "dev",
 ) -> RouterScoreTable:
-    """The table over `item_ids`, in that order, from `router`'s stored dev records, or a refusal.
+    """The table over `item_ids`, in that order, from `router`'s stored records of `split` (dev's; Stage 8's test table
+    passes "test"), or a refusal.
 
     Refused whole: an unknown router, a record that isn't `router`'s dev pass 1 record, an item stored twice or not at
     all, a stored refusal flag that disagrees with the response, and whatever the table itself refuses."""
@@ -52,7 +54,7 @@ def build_table(
         raise JevTableError(f"unknown router {router!r}")
     by_item: dict[str, Mapping[str, object]] = {}
     for record in records:
-        if record["router"] != router or record["split"] != "dev" or record["pass"] != 1:
+        if record["router"] != router or record["split"] != split or record["pass"] != 1:
             raise JevTableError(
                 f"{record['item_id']} is a {record['router']} {record['split']} pass {record['pass']} record"
             )
@@ -61,9 +63,9 @@ def build_table(
             raise JevTableError(f"{item} is stored twice")
         by_item[item] = record
     if missing := [item for item in item_ids if item not in by_item]:
-        raise JevTableError(f"{len(missing)} dev items have no stored {router} record, e.g. {missing[0]}")
+        raise JevTableError(f"{len(missing)} {split} items have no stored {router} record, e.g. {missing[0]}")
     if extra := sorted(set(by_item) - set(item_ids)):
-        raise JevTableError(f"{router} has records for items that are not dev's, e.g. {extra[0]}")
+        raise JevTableError(f"{router} has records for items that are not {split}'s, e.g. {extra[0]}")
     entries = []
     for item in item_ids:
         record = by_item[item]

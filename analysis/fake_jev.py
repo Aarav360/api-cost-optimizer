@@ -77,22 +77,49 @@ class FakeJev:
         self.date = "Wed, 28 Oct 2026 00:01:57 GMT"
         self.request_ids = 0
         self.input_tokens = 300
-        self._server = _Server(("127.0.0.1", 0), _handler_for(self))
+        self.model = MODEL  # what an unscripted reply says it is: a Stage 8 rehearsal sets it to the pin
+        # Stage 8's rehearsal needs no thread of the fake's alive while the final evaluation grades (`join_threads`), and
+        # starts and stops the server between steps: the port is kept, so the settings' address stays right.
+        self.join_threads = False
+        self._handlers: list[threading.Thread] = []
+        self._server: _Server | None = _Server(("127.0.0.1", 0), _handler_for(self))
+        self._port: int = self._server.server_address[1]
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
 
     @property
     def url(self) -> str:
-        return f"http://127.0.0.1:{self._server.server_address[1]}{PATH}"
+        if (
+            self._server is not None
+        ):  # a subclass may bind its own server on entering: the live one's port is the address
+            self._port = self._server.server_address[1]
+        return f"http://127.0.0.1:{self._port}{PATH}"
 
     def __enter__(self) -> Self:
+        if self._server is None:  # a server stopped by an earlier exit comes back on the same port
+            self._server = _Server(("127.0.0.1", self._port), _handler_for(self))
+            self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
         return self
 
     def __exit__(
         self, error: type[BaseException] | None, value: BaseException | None, traceback: TracebackType | None
     ) -> None:
-        self._server.shutdown()
+        self.stop()
+
+    def stop(self) -> None:
+        """Stop serving (the port stays reserved for a later `with`). With `join_threads`, wait for the server's thread and
+        its connections' handlers to end, so that no thread of the fake is left alive."""
+        if self._server is None:
+            return
+        if self._thread.is_alive():
+            self._server.shutdown()
         self._server.server_close()
+        self._server = None
+        if self.join_threads:
+            self._thread.join(5)
+            for handler in self._handlers:
+                handler.join(5)
+            self._handlers.clear()
 
     def reply_to(self, body: bytes) -> Reply:
         """The next scripted reply, else the answers to the questions the body asks, else a loud 422."""
@@ -104,7 +131,7 @@ class FakeJev:
         except (ValueError, KeyError, TypeError) as error:
             self.unexpected.append(f"{error!r}: {body[:200]!r}")
             return Reply(422, {"detail": [{"type": "missing", "msg": "the fake has no answer for this body"}]})
-        return Reply(200, response_body(answers, input_tokens=self.input_tokens))
+        return Reply(200, response_body(answers, model=self.model, input_tokens=self.input_tokens))
 
 
 class _Server(ThreadingHTTPServer):
@@ -124,6 +151,7 @@ def _handler_for(fake: FakeJev) -> type[BaseHTTPRequestHandler]:
             super().setup()
             fake.connections += 1
             self.number = fake.connections
+            fake._handlers.append(threading.current_thread())
 
         def do_POST(self) -> None:
             body = self.rfile.read(int(self.headers.get("Content-Length", "0")))

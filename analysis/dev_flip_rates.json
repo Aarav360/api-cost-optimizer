@@ -1,0 +1,115 @@
+{
+  "purpose": "Dev's flip rates (A6 item 2), counted from dev's noise subset; test's references carry them over.",
+  "built_by": "analysis/flip_rates.py",
+  "limit": 0.05,
+  "configs": {
+    "haiku": {
+      "flips": 5,
+      "pairs": 75,
+      "rate": 0.06666666666666667,
+      "tasks": {
+        "banking77": {
+          "flips": 2,
+          "pairs": 24,
+          "rate": 0.08333333333333333
+        },
+        "ifeval": {
+          "flips": 2,
+          "pairs": 16,
+          "rate": 0.125
+        },
+        "mbppplus": {
+          "flips": 1,
+          "pairs": 11,
+          "rate": 0.09090909090909091
+        },
+        "mmlu_pro": {
+          "flips": 0,
+          "pairs": 24,
+          "rate": 0.0
+        }
+      }
+    },
+    "sonnet": {
+      "flips": 3,
+      "pairs": 75,
+      "rate": 0.04,
+      "tasks": {
+        "banking77": {
+          "flips": 0,
+          "pairs": 24,
+          "rate": 0.0
+        },
+        "ifeval": {
+          "flips": 1,
+          "pairs": 16,
+          "rate": 0.0625
+        },
+        "mbppplus": {
+          "flips": 1,
+          "pairs": 11,
+          "rate": 0.09090909090909091
+        },
+        "mmlu_pro": {
+          "flips": 1,
+          "pairs": 24,
+          "rate": 0.041666666666666664
+        }
+      }
+    },
+    "opus_low": {
+      "flips": 4,
+      "pairs": 75,
+      "rate": 0.05333333333333334,
+      "tasks": {
+        "banking77": {
+          "flips": 1,
+          "pairs": 24,
+          "rate": 0.041666666666666664
+        },
+        "ifeval": {
+          "flips": 2,
+          "pairs": 16,
+          "rate": 0.125
+        },
+        "mbppplus": {
+          "flips": 0,
+          "pairs": 11,
+          "rate": 0.0
+        },
+        "mmlu_pro": {
+          "flips": 1,
+          "pairs": 24,
+          "rate": 0.041666666666666664
+        }
+      }
+    },
+    "opus": {
+      "flips": 3,
+      "pairs": 75,
+      "rate": 0.04,
+      "tasks": {
+        "banking77": {
+          "flips": 1,
+          "pairs": 24,
+          "rate": 0.041666666666666664
+        },
+        "ifeval": {
+          "flips": 2,
+          "pairs": 16,
+          "rate": 0.125
+        },
+        "mbppplus": {
+          "flips": 0,
+          "pairs": 11,
+          "rate": 0.0
+        },
+        "mmlu_pro": {
+          "flips": 0,
+          "pairs": 24,
+          "rate": 0.0
+        }
+      }
+    }
+  }
+}

@@ -50,6 +50,7 @@ from analysis.gate_cutoff import youden_cutoff
 from analysis.gate_spend import GateSpendError
 from analysis.gate_table import PAID_GATES
 from analysis.plan import PLAN, amendment_item
+from analysis.record_files import stage_7_files, unopened
 from harness.client import PROJECT_ROOT
 from routers import jev, jev_gate, sonnet_gate
 from routers.request import from_row
@@ -489,11 +490,14 @@ def stored(item: str) -> None:
     check(sha256_of(sample + b" ") != recorded.get(next(iter(report.STORED))),
           "known positive: a stored file with one byte added no longer hashes as recorded")  # fmt: skip
 
-    # Every gate record, smoke included, names a train or dev item; no test file exists before Stage 8's unlock.
+    # Every Stage 7 gate record, smoke included, names a train or dev item; no Stage 8 file (test's or a drift check's) exists
+    # before its unlock, which a resume's hook and every later commit's have passed (analysis/record_files.py).
     allowed = {r["item_id"] for split in ("train", "dev") for r in read_rows(split=split)}
-    check(all(items_in(path) <= allowed for path in sorted(folder.glob("*.jsonl"))),
-          "every gate record names an item of the benchmark reader's train or dev split")  # fmt: skip
-    check(not list(folder.glob("*_test.jsonl")), "no test gate record exists")
+    check(all(items_in(path) <= allowed for path in stage_7_files(folder)),
+          "every Stage 7 gate record names an item of the benchmark reader's train or dev split")  # fmt: skip
+    check(
+        unopened(PROJECT_ROOT / "results") == [], "no Stage 8 record file exists without an unlock in the final record"
+    )
 
     free = read_free_records("train")
     jev_records = read_jev_records("train")

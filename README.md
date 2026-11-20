@@ -78,7 +78,7 @@ from jsDelivr).
   strategy is compared on exactly the same answers.
 - **References, not just baselines.** Besides always-frontier and always-cheapest, the matrix
   gives a hindsight oracle (a multiple-choice knapsack relaxed to a linear program) and the
-  envelope of random mixtures. Systems report the fraction of the oracle's savings they capture
+  envelope of random mixtures. Policies report the fraction of the oracle's savings they capture
   at the same quality target.
 - **Routers, simplest first:** a rules baseline, then a classifier trained on prompt embeddings,
   then Jev (TypeSafe's decision model, zero-shot and bolstered). Routers are compared at matched cost or matched quality,
@@ -271,7 +271,8 @@ system, none of your files, an unprivileged user, and caps on memory, processes,
 PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A17)
 GLOSSARY.md          the study's vocabulary from Stage 3 on: policy, trace, config ladder, reference, request,
                      router score, threshold, walk, operating point, ...
-WRITEUP.md           the final write-up (to come) and running notes for it
+WRITEUP.md           the final write-up (to come)
+NOTES.md             the dated notes behind it: process decisions and talking points, and ideas for after Stage 8
 CODING_STANDARDS.md  the judgement calls code review applies; ruff and mypy (pyproject.toml) cover the rest
 .githooks/pre-commit the checks, run before every commit; CI runs those that need neither results/ nor Docker (.github/workflows/)
 configs/models.yaml  pinned model configs, output caps and price snapshot

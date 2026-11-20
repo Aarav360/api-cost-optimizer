@@ -8,10 +8,11 @@ twenty excludes 0 by chance. Reading one router's quality at the other's cost of
 curve can double back (A9 item 14), so one cost can have several qualities.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from analysis.bootstrap import Bootstrap, Estimate, percentile_estimate
-from analysis.simulator import totals
+from analysis.simulator import Outcome, totals
 from analysis.walk import Walk
 
 
@@ -50,16 +51,26 @@ def compare_same_target(draws: Bootstrap, mix: dict[str, float], first: Walk, se
                               f"of A's quality")  # fmt: skip
     if not (first.steps and second.steps):
         raise SameTargetError("a walk with no steps has no operating point, not even A")
-    if first.fell_back and second.fell_back:
+    return compare_outcomes(draws, mix, first.operating.outcomes, first.fell_back, second.operating.outcomes,
+                            second.fell_back)  # fmt: skip
+
+
+def compare_outcomes(
+    draws: Bootstrap, mix: dict[str, float], first: Sequence[Outcome], first_fell_back: bool,
+    second: Sequence[Outcome], second_fell_back: bool,
+) -> SameTarget:  # fmt: skip
+    """The same comparison from two operating points' outcomes and whether each fell back, which is all it reads of a walk.
+    Test has no walks, only the points the operating-points file froze (`analysis/operating_eval.py`), so the final evaluation
+    compares outcomes. Where both fell back the result holds no difference; a side that fell back is A, so its outcomes are A's.
+    Refuses (BootstrapError) outcomes that don't cover the resampled items exactly."""
+    if first_fell_back and second_fell_back:
         return SameTarget(True, True, None, None)
-    first_quality, first_cost = draws.resampled(list(first.operating.outcomes), mix)
-    second_quality, second_cost = draws.resampled(list(second.operating.outcomes), mix)
-    first_total, second_total = (
-        totals(list(first.operating.outcomes), mix),
-        totals(list(second.operating.outcomes), mix),
-    )
+    first_outcomes, second_outcomes = list(first), list(second)
+    first_quality, first_cost = draws.resampled(first_outcomes, mix)
+    second_quality, second_cost = draws.resampled(second_outcomes, mix)
+    first_total, second_total = totals(first_outcomes, mix), totals(second_outcomes, mix)
     return SameTarget(
-        first.fell_back, second.fell_back,
+        first_fell_back, second_fell_back,
         percentile_estimate(first_total.cost_per_1k - second_total.cost_per_1k, first_cost - second_cost),
         percentile_estimate(first_total.quality - second_total.quality, first_quality - second_quality),
     )  # fmt: skip

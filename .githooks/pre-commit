@@ -30,6 +30,93 @@ uv run ruff format --check
 uv run mypy
 run_check harness.check_sealed
 run_check analysis.check_guardrails
+# Stage 8's first slice (A19 items 3 and 4; issue #78): the unlock's sealed-store checks and the handle's three reads on a
+# made-up world and store, each refusal at its own check, and the read-path check that only the unlock reads the store's
+# path. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs both too.
+run_check analysis.check_unlock
+run_check analysis.check_read_path
+# Stage 8's unlock hook (A19 items 3 and 10; A17 item 26.5; issue #80): the hook run first, the git facts, the record's commit, time,
+# hook result and environment, and the live replay's draw, on made-up worlds with stand-in hooks, and the real hook runner and git
+# facts on throwaway folders and repositories. No results/, no Docker, no Jev or Anthropic call, nothing near the real store, and
+# not the real hook. CI runs it too.
+run_check analysis.check_unlock_hook
+# Stage 8's tracer bullet (A19 items 2, 5, 8 and 13; issue #79): the runner, grading and the offline half's A to D on a made-up
+# world with a stand-in sandbox, against hand-worked numbers; the markers shown in nothing before the tables step; a crash
+# and a resume. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_run
+# Stage 8's E and F on test (A9 item 7, A11 items 9 and 17, A19 items 2, 6 and 8; issue #83): a policy evaluated at its frozen operating
+# points with no walk, on a hand-worked table and the file's own points; F's drift check under A11 item 17's limits (the rule by hand, and
+# the rehearsal with a fake embedder moved nothing, slightly, then a lot); E's and F's tables on test through the handle, the fold
+# shares and the truncation count, a resume, and F-train and the diagnostics shown unable to run on test. No results/, no model
+# snapshot, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs all three.
+run_check analysis.check_operating_eval
+run_check analysis.check_trained_drift
+run_check analysis.check_final_routers
+# Stage 8's target met, the headline and the flip rates (A19 items 6 and 8, A17 item 24, A6 item 2; issue #88): target met at a margin of
+# zero by hand on made-up resamples, a fall back labelled and uncounted, every policy covered with no line per policy, the headline's
+# rule on made-up dev tables (test never moves it), dev's flip rates against the plan, and the tables step's reports on the rehearsal's
+# made-up world. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.
+run_check analysis.check_target_met
+# Stage 8's 51 comparisons and replication summary (A19 item 8, A17 item 22; issue #89): every pair's six cells against the hand-worked
+# differences on a four-item matrix, item 22's order against table v4's and the write-up's declared order against WRITEUP.md's headings
+# and counts, and the replication summary on made-up dev and test cells (a sign flip, a test interval that includes 0). No results/, no
+# Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_comparisons
+# The final results table and the per-policy tables (PLAN_v4.md section 10, A17 items 16 and 24; issue #89): the estimated latency by hand
+# on a made-up gate-score table, then on the rehearsal's made-up world the eight rows under each mix and target, the G+ and best-cascade
+# rows, all nineteen policies, IFEval and MBPP+ marked indicative, the comparisons' cells against the policies' own rows and the
+# replication summary against a count made apart. No results/, no Docker, no call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_table
+# The unlock's verify list (A19 items 3 and 13; issue #81): built from the plan's freeze records and held against each
+# amendment's hashes and pins and the committed files; on a made-up root, each entry alone refusing when its file or value
+# is tampered with, and a macOS build or chip that differs reported. No results/, no Docker, no Jev or Anthropic call, nothing
+# near the real store. CI runs it too.
+run_check analysis.check_verify_list
+# Stage 8's ledger and the liveness calls (A19 items 2.2 and 9; issue #82): the two caps and the projection that refuses before the
+# first call, a made-up Stage 8 test or drift record counted and Stage 7's not, the liveness calls as hand-written JSON against a fake
+# client, a model other than the pin stopping the run, and Stage 7's "no test record" guards run on a made-up results folder holding
+# Stage 8's files. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_ledger
+# Stage 8's free checks and Jev gate on test, and the Jev gate's drift check (A19 items 2, 7 and 13; A17 items 13 and 26; A15 item 17;
+# issue #85): what the gates see (the request, the answer and its stop reason), the three drift refusals each stopping the run before
+# any test call, the free checks with a stand-in sandbox, the Jev gate's calls against a fake server with a resume sending only the
+# unstored ones, the ledger's cap, test's gate-score table refused on each of A17 item 13's conditions, and haiku/free and haiku/Jev
+# at their frozen points against hand-worked numbers. No results/, no Docker, no Jev or Anthropic call, nothing near the real store.
+# CI runs it too.
+run_check analysis.check_final_gates
+# The Jev routers on test (A15 item 17; A19 items 2, 5, 9, 10 and 13; issue #84): the shared drift rule's three refusals with the
+# shift rule's known positive, then G's and G+'s drift resends, test calls, cap, mid-run failure and resume, and the first test call's
+# Date, on a made-up world and a fake Jev on a loopback port. No results/, no Docker, no Jev or Anthropic call, no key, nothing near
+# the real store. CI runs both too.
+run_check analysis.check_drift_rule
+run_check analysis.check_final_jev
+# Stage 8's live replay (A17 items 24 and 26.5; A19 items 2.7, 8, 9 and 10; issue #91): the best cascade by item 24's rule and its
+# realistic 99% and 97% points, a point that falls back to A skipped, the configs called on each item against the deployable cascade
+# decision for a Jev-gated, a Sonnet-gated and a router-started cascade, calls one at a time and the latency figures against the
+# fakes' injected delays with the first call and a reconnect apart, cost per request, escalation rate and graded quality beside the
+# offline estimate, the projection and the call guard against the $10 cap, a crash and the next go sending only what is unstored.
+# A made-up world, a fake Anthropic client, a fake Jev server and a stand-in sandbox: no results/, no Docker, no Jev or Anthropic
+# call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_replay
+# The Sonnet gate on test and its drift check (A15 item 17; A17 items 14 and 26; A19 items 2, 7, 9 and 13; issue #86), on the same
+# made-up world and a scripted fake Anthropic client: what the gate sees, the drift check's hand-worked D6, D8, shift and flips and its
+# three refusals (a model that isn't the pin, D8 above 3 x D6, a uniform move) before any test call, the floor, the test batch's
+# requests against hand-written JSON and the batch's ID and creation time in the record, the four batch safeguards (IDs saved on
+# creation, only errored or expired requests resent, a cap refusal at its boundary, results keyed by request ID), refusals and cap
+# stops as rejections charged their tokens, the Sonnet column refused on A17 item 13's cases, and haiku/Sonnet at its frozen points
+# against hand-worked numbers. No results/, no Docker, no Anthropic call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_sonnet
+# The twelve router-started cascades on test (A17 items 8, 10 and 26.4; A19 items 6, 8 and 13; issue #87): E, F, G and G+ with the
+# free checks, the Jev gate and the Sonnet gate, their traces against hand-worked ones on made-up tables (overheads included), their
+# rows through the parts, the file's own thresholds and cutoffs, nothing walked, each refusal, and the rehearsal's own tables
+# recomputed by a loop of the check's own. No results/, no Docker, no Jev or Anthropic call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_routed
+# The complete record (A19 items 10 and 13; issue #92): the rehearsal's record holds every field item 10 lists, and a copy with any one
+# removed, or a finer part of one, is refused naming it; the steps before the tables hold no outcome's key; each test record file's
+# sha256 in the record equals the file's, with a changed file, a missing one, a stray one and a wrong size refused; and the tables, the
+# stored files and the record agree on counts, refusals and truncations, spend and step times, each hold failing when its number moves.
+# The same function runs on the committed record after the go (#95). No results/, no Docker, no Jev or Anthropic call. CI runs it too.
+run_check analysis.check_final_record
 run_check analysis.check_routers
 run_check analysis.check_comparisons
 run_check analysis.check_walk
@@ -57,6 +144,12 @@ run_check analysis.check_stage6
 # The interactive explorer (figures/pareto_explorer.html) against chart v4's JSONs: the committed page is their build,
 # and its numbers and words are theirs. Rerun analysis.explorer after analysis.pareto.
 run_check analysis.check_explorer
+# Test's figures and the explorer's split switch (A19 items 8 and 13; issue #90), on the rehearsal's made-up world: a policy's line by
+# hand (A, then each distinct frozen dial that routes, strictest first), the three figures built in the tables step in files of
+# their own with nothing walked, each cross a frozen point on its line, a part the tables lack refusing before anything is drawn, and
+# the explorer built from the rehearsal's test JSONs opening on test and naming the split in every readout. No results/, no Docker,
+# no Jev or Anthropic call, nothing near the real store. CI runs it too.
+run_check analysis.check_final_figures
 # The Jev settings builder (A15 items 4-6, 10, 12) on a synthetic benchmark and store; where results/ is present it
 # also builds from the real train data and compares a committed routers/jev_settings.json with the build.
 run_check analysis.check_jev_settings
@@ -138,12 +231,34 @@ run_check analysis.check_stage7
 # prefactor's merge and the two commits it names (where the history is present), and its numbers against their sources.
 # No results/ needed; CI runs it too.
 run_check analysis.check_gates_review
+# Amendment A19's numbers (the Stage 8 design interview): the headline's dev numbers, the routing points and the
+# expected misses from the committed tables, the caps and the Sonnet gate's dev cost, and, where results/ holds the
+# stored Jev and gate records, the spend so far. No test item, no call.
+run_check analysis.check_final_design
+# The write-up's skeleton (A19 item 11): WRITEUP.md's declared parts against the commit that first added its skeleton marker
+# (the working file stands in until that commit exists; a clone without history skips it), every number in it against the
+# committed tables, and each hold failing on made-up texts and a throwaway repository. No results/ needed; no test item, no call.
+run_check analysis.check_writeup
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
 run_check analysis.check_gates_sandbox
 # The grader's sandbox since its move to routers/sandbox.py (A17 items 19 and 27): the escape checks and every MBPP+
 # reference solution at the grader's limits (needs Docker and the pinned image, like the line above; a minute or two).
 # It prints no closing count, so its summary line is what shows; a failure exits 1 and stops the hook.
 run_check harness.check_sandbox 'FAIL|MBPP\+ references:'
+# The same rehearsal with no stand-in: the grader runs the made-up MBPP+ answers in the real sandbox, and the tables must equal
+# the CI rehearsal's (needs Docker; a few seconds).
+run_check analysis.check_final_run_sandbox
+# The rehearsal's F path with the real embedding model on made-up requests (A19 item 13; issue #83): F's drift check re-embeds made-up
+# dev requests and the calls score the made-up test requests through routers.trained.score. Needs the snapshot under .cache/; about
+# ten seconds.
+run_check analysis.check_final_run_trained
+# The free checks' code check on made-up MBPP+ answers (with an assert line) in the real sandbox, and the same verdicts as the CI
+# check's stand-in (needs Docker; a few seconds).
+run_check analysis.check_final_gates_sandbox
+# The real verify list on this machine: every freeze, hash and pin of A7, A9, A11, A15 and A17 against the working tree, the
+# model snapshot, the installed libraries, the sandbox image and a run of check_benchmark (the sealed store's hash is the
+# unlock's alone). Needs .cache/ and Docker; about 30 s. No Jev or Anthropic call.
+run_check analysis.check_verify_real
 if [ -f results/dev_matrix.sqlite ]; then
   # G's and G+'s dev tables, quantiles and walks (A15 items 13, 14): the pieces anywhere, and with results/jev's dev
   # responses and the freeze commit the stored records, the tables rebuilt, the sections reproduced (about 60 s). No Jev call.
@@ -164,5 +279,22 @@ if [ -f results/dev_matrix.sqlite ]; then
   # sandbox's run times, the provenance claim) recomputed from the stored train and dev rows, train's hidden tests and
   # chart v0, against the plan's text. No gate, no model.
   run_check analysis.check_gates_design
+  # The dev reproduction (A19 item 13): the offline half on dev's stored matrix must give A to D's committed dev numbers, to the
+  # last stored digit (about 10 s). No gate, no model.
+  run_check analysis.check_final_run_dev
+  # The figure code on dev (A19 items 8 and 13): given dev's walked lines it reproduces all three committed chart v4 JSONs digit
+  # for digit, and its own frozen lines are steps of the committed ones. No gate, no model.
+  run_check analysis.check_final_figures_dev
+  # The Jev gate's drift check against Stage 7's stored records (A15 item 17; A17 items 26 and 28): the noise sample, D6 and the shift
+  # recomputed, and the frozen call's body hashes against the stored ones. Train only; no gate and no Jev call.
+  run_check analysis.check_final_gates_real
+  # The Sonnet gate's drift check against Stage 7's stored records (A15 item 17; A17 items 26 and 28): the 80-answer sample, D6 and the
+  # shift recomputed (0.0266 and +0.0006 over 77), the frozen request's hashes against the stored ones, the three frozen cutoffs and
+  # the projection against the cap. Train only; no gate and no Anthropic call.
+  run_check analysis.check_final_sonnet_real
+  # The real go's whole-run projection (A19 items 9 and 13; the Stage 8 review's O3): every projector of the ledger on the real
+  # settings and worst-case stand-ins built from the benchmark manifest's test counts and train and dev, against the $25 and $10
+  # caps. No test item, no store, no call.
+  run_check analysis.check_final_projection
 fi
 echo "the hook passed in $((SECONDS / 60)) min $((SECONDS % 60)) s"
