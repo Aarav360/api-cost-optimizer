@@ -8,9 +8,38 @@ model per request) and cascades (which try a cheap model first and escalate when
 fails) against two references: a hindsight oracle that shows the most any strategy could save,
 and random mixtures that show what you get with no routing intelligence at all.
 
-**Status:** Stages 0–7 are done. The pilot chose four tasks ([Amendment A3](PLAN_v4.md)), the
+## Results on test
+
+Stage 8 ran every frozen policy once on the test split, at the operating points dev chose, after the user's go
+([Amendment A19](PLAN_v4.md)). The headline, a rule declared before test was read, is the best cascade against A on the
+realistic mix at the 99% target. On the realistic mix at the 99% target, haiku/Jev, the best cascade by A17 item 24's rule, saves 47.3% of A's cost, at $3.96 per 1k [$3.43, $4.57] against A's $7.51, at a quality of 90.6% [86.8%, 94.1%], +0.64 points [-1.14, +2.35] from the target's share of A's quality on the same items (target met), and meets that target in 77.8% of test's resamples.
+
+The headline figure, the per-task figure and the router-started figure on test, with a cross at each frozen operating point
+(a line joins A to the frozen dials that route, evaluated once and not walked, so test's lines are shorter than dev's):
+
+![Pareto chart on test: the four fixed configs with their intervals, the random-mixture envelope, the hindsight oracle, a cross at each frozen operating point of the routers E, F, G and G+ and the pure cascades, under the realistic and uniform task mixes](figures/pareto_test.png)
+
+![The router-started cascades on test: for each router and mix, the router alone and its free-checks, Jev-gated and Sonnet-gated cascades on the same frozen steps, with a cross at each operating point](figures/pareto_routed_test.png)
+
+![The per-task figure on test: each task on its own, with its own envelope and oracle, IFEval and MBPP+ marked indicative](figures/pareto_tasks_test.png)
+
+For the same numbers as an interactive page, with the routers, the fifteen cascades and the references to toggle, zoom and
+a readout for every point, open [`figures/pareto_explorer.html`](figures/pareto_explorer.html) in a browser (it loads
+Plotly from jsDelivr). It opens on test, and a switch shows dev's figures beside it; the split is named in its title and in
+every readout.
+
+[WRITEUP.md](WRITEUP.md) holds the rest: the 51 comparisons, the replication summary, every policy at its operating points, the
+oracle and the envelope, and the live replay. The tables are `figures/tables_test.json` and the final evaluation's record,
+with the sha256 of every test record file, is `analysis/final_record.json`.
+
+## How the policies were chosen (dev)
+
+Dev's figures and tables are the record of how the policies and their operating points were chosen. Nothing test showed
+changed a threshold, a cutoff, an operating point or a policy.
+
+**Status:** Stages 0–8 are done. The pilot chose four tasks ([Amendment A3](PLAN_v4.md)), the
 benchmark of 2,478 items is split and frozen ([Amendment A5](PLAN_v4.md)), and the collection run
-has answered every item through every config for $29.37: train and dev are scored, and test is
+has answered every item through every config for $29.37: train and dev are scored, and test stayed
 sealed until Stage 8 ([Amendment A6](PLAN_v4.md)). Stage 3 built the offline simulator, the four
 references and a paired bootstrap, and drew Pareto chart v0 on dev ([Amendment A8](PLAN_v4.md),
 whose item 12 records its headline numbers). Stage 4 built the routers' shared parts (the request a
@@ -58,8 +87,7 @@ before any dev gate verdict, and dev's calls came after both (items 20 and 28). 
 cascades to the headline and per-task figures, a router-started figure with four lines per router, a calibration
 figure for each paid gate, the gate metrics, 51 descriptive comparisons and estimated latency, and item 29 records
 the fifteen cascades' operating points on dev with the hash of each section and of the whole operating-points file.
-By Amendment A17 item 24's rule the best cascade on dev is haiku/Jev, with mean savings against A of 36.8% over its six operating points. At the 97% target on the realistic mix haiku/Jev costs $2.57 per 1,000 requests against A's $8.04, and E/free costs less there. 36 of the 90 operating points fall back to A. Stage 8, the final evaluation on the sealed test split, is next.
-Every result so far is on dev, with the test split still sealed.
+By Amendment A17 item 24's rule the best cascade on dev is haiku/Jev, with mean savings against A of 36.8% over its six operating points. At the 97% target on the realistic mix haiku/Jev costs $2.57 per 1,000 requests against A's $8.04, and E/free costs less there. 36 of the 90 operating points fall back to A. Stage 8, the final evaluation on the test split, ran once after those and is above; every number in this section is dev's.
 
 ![Pareto chart v4 on dev: the four fixed configs with their intervals, the random-mixture envelope, the hindsight oracle, a cross at each operating point of the rules router E, the trained router F, the Jev router G and the bolstered Jev router G+, and the pure cascades (the free-checks-only cascade as a point, the Jev-gated and Sonnet-gated ones as step curves with crosses), under the realistic and uniform task mixes](figures/pareto.png)
 
@@ -67,9 +95,7 @@ Every result so far is on dev, with the test split still sealed.
 
 ![Calibration of the Jev gate and the Sonnet gate on dev, with train as hollow markers: gate score against success rate in about ten equal-count bins with 95% intervals](figures/calibration.png)
 
-For the same numbers as an interactive page, with the routers, the fifteen cascades and the references to toggle, zoom and a readout for
-every point, open [`figures/pareto_explorer.html`](figures/pareto_explorer.html) in a browser (it loads Plotly
-from jsDelivr).
+Dev's numbers are in the explorer too, behind its split switch.
 
 ## Approach
 
@@ -271,7 +297,7 @@ system, none of your files, an unprivileged user, and caps on memory, processes,
 PLAN_v4.md           study design (frozen before Stage 0, with amendments A1–A17)
 GLOSSARY.md          the study's vocabulary from Stage 3 on: policy, trace, config ladder, reference, request,
                      router score, threshold, walk, operating point, ...
-WRITEUP.md           the final write-up (to come)
+WRITEUP.md           the write-up: the headline, the declared questions, the replication summary, every policy on test
 NOTES.md             the dated notes behind it: process decisions and talking points, and ideas for after Stage 8
 CODING_STANDARDS.md  the judgement calls code review applies; ruff and mypy (pyproject.toml) cover the rest
 .githooks/pre-commit the checks, run before every commit; CI runs those that need neither results/ nor Docker (.github/workflows/)
@@ -307,7 +333,8 @@ routers/             the deployable routers (imports nothing from analysis or ha
                      gates (A17 item 19): gates.py (the free checks), jev_gate.py, sonnet_gate.py, cascade.py
                      (one cascade decision), sandbox.py (the grader's sandbox, moved from harness/),
                      gate_settings.json and gate_cutoffs.json (the fixed cutoffs, from train)
-figures/             chart v4 on dev: the headline, per-task and router-started figures, each a PNG with a JSON
+figures/             chart v4 on dev, and the same three figures on test (`*_test`), each a PNG with a JSON; the explorer; test's tables
+                     (`tables_test.json`)
                      of every number it plots, tables v0 and v1 included, E's, F's, G's and G+'s rows alike and
                      the cascades'; calibration.png and .json, the paid gates' calibration; table_v2.json, the
                      same-target comparisons and the diagnostics; learning_curve.png and .json; table_v3.json,
@@ -362,7 +389,8 @@ docs/history/        earlier versions of the plan
       frozen before any gate call on a benchmark answer and the fixed cutoffs before any dev verdict (A17 items 20
       and 28); the fifteen cascades walked on dev; the 51 comparisons, gate metrics, calibration and estimated
       latency; chart and table v4, the calibration figure and the explorer; A17's record of the cascades (item 29)
-- [ ] Stage 8: final evaluation on the sealed test split
+- [x] Stage 8: the final evaluation on the test split, run once after the go; the record, test's tables and figures,
+      the explorer's split switch, and the write-up
 
 ## License
 

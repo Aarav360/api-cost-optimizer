@@ -28,6 +28,9 @@ ALLOWED = {"harness/collect.py", "data/collection_manifest.json"}  # and every M
 BENCHMARK_ALLOWED = {
     "harness/build_benchmark.py", "harness/check_benchmark.py", "harness/collect.py", "harness/review_collection.py",
     "analysis/benchmark.py", "data/benchmark_manifest.json",
+    # The go's committed record (A19 item 10): its unlock's verify list names the benchmark file beside its hash, as the
+    # manifest does. The record is the go's output byte for byte, so it can't be edited to leave the name out.
+    "analysis/final_record.json",
 }  # fmt: skip  # and every Markdown file
 # The constant's name and the file's, both taken from the module so this check never spells either out:
 # a path written out by hand is caught as surely as the constant.

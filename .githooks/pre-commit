@@ -237,8 +237,20 @@ run_check analysis.check_gates_review
 run_check analysis.check_final_design
 # The write-up's skeleton (A19 item 11): WRITEUP.md's declared parts against the commit that first added its skeleton marker
 # (the working file stands in until that commit exists; a clone without history skips it), every number in it against the
-# committed tables, and each hold failing on made-up texts and a throwaway repository. No results/ needed; no test item, no call.
+# committed tables, and each hold failing on made-up texts and a throwaway repository. After the go (#95) every number the results
+# state is a line `analysis/writeup_results.py` builds from figures/tables_test.json and analysis/final_record.json, held in its
+# section, with no number left that no line holds, the words worked by hand on made-up cells, and a changed digit found in a
+# headline, a comparison cell, a policy row, a replication count and a replay figure; the README quotes the headline. No results/
+# needed; no test item, no call.
 run_check analysis.check_writeup
+# The committed results of the final evaluation (A19 items 8, 10 and 13; issue #95): analysis/final_record.json holds every field of
+# item 10 and the hash of the committed figures/tables_test.json, the skeleton came before the unlock's commit, which is an ancestor of
+# this one; test's tables are recounted from their own rows (the headline, the met and missed counts, each of the 306 comparison cells
+# against its two policies' rows, the replication counts against dev's table v4); the six test figures hold the tables' rows and
+# references, and the explorer opens on test. Where results/ is present the record is held whole (`verify`: every test record file against
+# its sha256 and the tables against the stored files) and the committed files are the go's outputs byte for byte. No test item read here,
+# no store, no call. CI runs the part that needs no results/.
+run_check analysis.check_final_results
 # The code check in the real sandbox on made-up code (needs Docker; about 30 s, one case runs to the 20 s limit). Hook only.
 run_check analysis.check_gates_sandbox
 # The grader's sandbox since its move to routers/sandbox.py (A17 items 19 and 27): the escape checks and every MBPP+

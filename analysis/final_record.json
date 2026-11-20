@@ -1,0 +1,1318 @@
+{
+  "record": "final evaluation",
+  "gos": [
+    {
+      "go": 1,
+      "started": "2026-11-20T04:47:04+00:00",
+      "ended": "2026-11-20T06:10:52+00:00",
+      "unlock": {
+        "time": "2026-11-20T05:16:41+00:00",
+        "commit": "4482da1c88f180b71e35e98e51f0c34f5b7dd8d3",
+        "hook": {
+          "passed": true,
+          "exit_code": 0,
+          "seconds": 1771.6,
+          "last_line": "W1119 21:16:31.924000 51752 .venv/lib/python3.13/site-packages/torch/distributed/elastic/multiprocessing/redirects.py:35] NOTE: Redirects are currently not supported in MacOs."
+        },
+        "environment": {
+          "os": "macOS 27.0.1 (build 26A434)",
+          "chip": "Apple M5 Pro",
+          "math library": "BLAS_INFO=accelerate, LAPACK_INFO=accelerate",
+          "python": "3.13.13",
+          "libraries": {
+            "torch": "2.14.1",
+            "transformers": "5.20.2",
+            "tokenizers": "0.23.3",
+            "numpy": "2.5.4",
+            "scikit-learn": "1.9.1"
+          }
+        },
+        "checks": [
+          {
+            "name": "hook",
+            "detail": {
+              "passed": true,
+              "exit_code": 0,
+              "seconds": 1771.6,
+              "last_line": "W1119 21:16:31.924000 51752 .venv/lib/python3.13/site-packages/torch/distributed/elastic/multiprocessing/redirects.py:35] NOTE: Redirects are currently not supported in MacOs."
+            }
+          },
+          {
+            "name": "git_facts",
+            "detail": {
+              "clean": true,
+              "head": "4482da1c88f180b71e35e98e51f0c34f5b7dd8d3",
+              "origin_main": "4482da1c88f180b71e35e98e51f0c34f5b7dd8d3"
+            }
+          },
+          {
+            "name": "replay_draw",
+            "detail": {
+              "per_task": 25,
+              "item_ids": [
+                "banking77:test-0193",
+                "banking77:test-2781",
+                "banking77:test-1031",
+                "banking77:test-0377",
+                "banking77:test-0263",
+                "banking77:test-3059",
+                "banking77:test-1934",
+                "banking77:test-2730",
+                "banking77:test-0802",
+                "banking77:test-2653",
+                "banking77:test-2397",
+                "banking77:test-0039",
+                "banking77:test-2646",
+                "banking77:test-0916",
+                "banking77:test-1337",
+                "banking77:test-1755",
+                "banking77:test-1356",
+                "banking77:test-1110",
+                "banking77:test-1239",
+                "banking77:test-2261",
+                "banking77:test-1635",
+                "banking77:test-1075",
+                "banking77:test-0872",
+                "banking77:test-0401",
+                "banking77:test-1736",
+                "ifeval:2225",
+                "ifeval:1561",
+                "ifeval:1132",
+                "ifeval:3428",
+                "ifeval:1361",
+                "ifeval:3327",
+                "ifeval:3191",
+                "ifeval:1730",
+                "ifeval:1883",
+                "ifeval:1122",
+                "ifeval:3256",
+                "ifeval:2457",
+                "ifeval:3749",
+                "ifeval:3703",
+                "ifeval:2829",
+                "ifeval:1377",
+                "ifeval:1659",
+                "ifeval:1307",
+                "ifeval:3718",
+                "ifeval:3536",
+                "ifeval:181",
+                "ifeval:1498",
+                "ifeval:3442",
+                "ifeval:340",
+                "ifeval:2828",
+                "mbppplus:232",
+                "mbppplus:268",
+                "mbppplus:129",
+                "mbppplus:451",
+                "mbppplus:90",
+                "mbppplus:226",
+                "mbppplus:632",
+                "mbppplus:172",
+                "mbppplus:126",
+                "mbppplus:223",
+                "mbppplus:133",
+                "mbppplus:312",
+                "mbppplus:418",
+                "mbppplus:227",
+                "mbppplus:459",
+                "mbppplus:782",
+                "mbppplus:796",
+                "mbppplus:445",
+                "mbppplus:606",
+                "mbppplus:762",
+                "mbppplus:308",
+                "mbppplus:261",
+                "mbppplus:737",
+                "mbppplus:562",
+                "mbppplus:162",
+                "mmlu_pro:12086",
+                "mmlu_pro:10353",
+                "mmlu_pro:5930",
+                "mmlu_pro:2401",
+                "mmlu_pro:5557",
+                "mmlu_pro:2323",
+                "mmlu_pro:8379",
+                "mmlu_pro:2380",
+                "mmlu_pro:2413",
+                "mmlu_pro:2995",
+                "mmlu_pro:9328",
+                "mmlu_pro:274",
+                "mmlu_pro:7352",
+                "mmlu_pro:1541",
+                "mmlu_pro:7216",
+                "mmlu_pro:4919",
+                "mmlu_pro:9757",
+                "mmlu_pro:11109",
+                "mmlu_pro:3679",
+                "mmlu_pro:10674",
+                "mmlu_pro:10872",
+                "mmlu_pro:4268",
+                "mmlu_pro:240",
+                "mmlu_pro:12190",
+                "mmlu_pro:10354"
+              ]
+            }
+          },
+          {
+            "name": "replay_plan",
+            "detail": {
+              "section": "cascade_haiku_jev",
+              "policies": [
+                "A",
+                "haiku/Jev realistic 99%",
+                "haiku/Jev realistic 97%"
+              ],
+              "skipped": []
+            }
+          },
+          {
+            "name": "sealed_store_path",
+            "detail": {}
+          },
+          {
+            "name": "manifest_record",
+            "detail": {
+              "sha256": "2ea23b7e20a847d2f18a8efa2b1d19c4205b10145ddd52e69f84b405fa2d2d58"
+            }
+          },
+          {
+            "name": "verify_list",
+            "detail": {
+              "checked": {
+                "file:data/benchmark.jsonl": "7b2ab45dca7efae470b541e4e08cc680fdd672ef6555d39b61a72cb0455cf0d2",
+                "file:data/benchmark_manifest.json": "c67caa9493c9344aab40d4fcbab99f1a982f62e2e57780280e43bab94db77921",
+                "file:routers/__init__.py": "1c93dfb7989a0b24c0989368c751cc0b6fdab3d17a280ff68a1c31cb84136bf3",
+                "file:routers/ladder.py": "35448ba6ccf6b6d9a504d56127d40ad5e2f3b18c3ee0a562ad3b5bdbd299818d",
+                "file:routers/request.py": "15c809b5d422074f2c6a526d5ce2b542d0e8155930269a9b5763eb62463472e2",
+                "file:routers/rules.py": "231db1b7e9fc3f52ec1233f335242efc3ab41c85c8695d65972cab515d021216",
+                "file:routers/rules_rates.json": "4210dfa7b543d6702b5664650210ae57f92aee5e14764ec6b44f008138d065fd",
+                "file:routers/decision.py": "48ae591021293820be7d871c4c40a523fc4468fb9181d0ae046201c1dfe4aaeb",
+                "file:routers/trained.py": "6b61dcb0f09d5ac4cc37f3b8a5dab87779f67b0e4683fbcd1f2f38954870ccb0",
+                "file:analysis/fit_trained_router.py": "7a80b33a886ecca574bd99ddedbc791a6f05db7eb9f5b2fec98b428054ec9e66",
+                "file:analysis/folds.py": "6e165a1f49149ef1c16d33ed487fccbed90f4dbf67698065e04976a9e321623e",
+                "file:routers/trained_settings.json": "5631a1f343a8e3ff9b9b870e760ea6c19d467b243691adef2678aa3441d73eb1",
+                "file:routers/trained_f_train_weights.json": "186257cfc8fb1adfab5e877952a8e4c20b69698b81db702182b9a211abd6f1a0",
+                "file:data/dev_folds.json": "57204e5a7788c1fac17aa050252e6aab050bffc5600d9202eb9fa5829476cae5",
+                "file:data/train_folds.json": "e8e8fb38b40914cb8a1527251bc190ca7133040b5cd8f80ff3c0c900009a5ded",
+                "file:routers/trained_fold_weights.json": "6ae030ba37c2194f615ab76b171d2c303d5c9136a389a5ebe04a1fea2336953c",
+                "file:analysis/build_jev_settings.py": "b69cfb3ca765aef4fc029bd52d1219de963cff9dde44a3bc3bce6a5959606191",
+                "file:analysis/fit_jev_router.py": "0e23746c26c48e4df74f1426e42eaa1d2ffdece1666c0092d3ddf28740eecee9",
+                "file:routers/jev.py": "a5df8af7d2d5a653e3b91ee331cb5096f79c85bef2e8eeb849a0649fd4749956",
+                "file:routers/jev_call.py": "ae51d3e2c4412a296f13e8c195380e7d8ca170b2bb770e5f991e462a2ae9942c",
+                "file:routers/jev_settings.json": "781fc9351431d0c7bdb69eb059e91f5942d74a8971a92b5bf68bfea7176bbf71",
+                "file:routers/jev_weights.json": "7842dbda3bc83d38d52202b307c6a84b4e070eea5aba6ded3a6d271a53214dfb",
+                "file:analysis/gate_cutoff.py": "ea2dfe3454d1f5f2185701af74eb2422235e7f764ada40b89e10c4fecc4f518c",
+                "file:analysis/gates_smoke_answers.json": "03814a0459bca42c51400f5e1a3920388408b880364935b46b8c1b7e59ab6146",
+                "file:analysis/gates_smoke_record.json": "5d6937f38027f4ded1d71ed9c5c9a24700efe630897b1798794ab293ae87e841",
+                "file:analysis/noise_samples.py": "07a32c5320f2462450fd63a7e1400a18fabf0500eff9fbaa22c0ea2eb1fa10b9",
+                "file:analysis/smoke_gates.py": "9a984d645c41e1de0f372e0c09c4a96af217f62c77ca3ba1938eaf8371ffdf51",
+                "file:routers/cascade.py": "a872b576d97cf1a85f64b3ecac3c265fb5af98955a5974cf975f2ae2e2cccc11",
+                "file:routers/gate_settings.json": "0a188f8095f4842fc30ce566dc48dceb5691a8a9f7ed27eb8e31ab0638b036ab",
+                "file:routers/gates.py": "b46afd3f5ea2c79be1cb8eb27a6f1b55014577eb495ef38174233be18e5d5b5e",
+                "file:routers/jev_gate.py": "b375548166fac07de71f5f0b139ca3648f17bdfb76959a06b1eacd63dec5e550",
+                "file:routers/sandbox.py": "4d33bb815d96fc4d977134fab3eec4c30c930fb23b451ff0234f5afba367f6fa",
+                "file:routers/sonnet_gate.py": "65ff97bc52162dc55cee979f6e5dde381a73ff12b4abafa8ccd9ed13079f8708",
+                "file:sandbox/Dockerfile": "4c1663494718a76f8639e84e8128b3714975c1df3326f71dc822813abf032ab3",
+                "file:routers/gate_cutoffs.json": "fb9970eba4decb4e60b93c2171fe6fcac9a5cf6306d0f031790a7a89926e7678",
+                "file:routers/operating_points.json": "d183dd1c0ef55b12d2487dcff8275fff2a08339849d3ff9cbb42799436e47c09",
+                "model_file:config.json": "8ba54dc3d35d7194f5178a4194b649f146753e02dabd22bdca5c5cbac15069ed",
+                "model_file:model.safetensors": "3e85899d5728cb7de79781c0c3acfb91ccef9f875f1f7e0b3c9f3dd4b6a724ba",
+                "model_file:special_tokens_map.json": "ea97ecdbcc73713039d8d64dbb05e3689495c96657fbd9a18f5bed381be81049",
+                "model_file:tokenizer.json": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30",
+                "model_file:tokenizer_config.json": "9654072f7c873161814043cf08cb5ed72f71d0b935abcd4e267935cb34352c21",
+                "jev_model_id": "jev-1.14.0",
+                "library:numpy": "2.5.4",
+                "library:scikit-learn": "1.9.1",
+                "library:tokenizers": "0.23.3",
+                "library:torch": "2.14.1",
+                "library:transformers": "5.20.2",
+                "image_digest": "sha256:5385631f01e4d67765231145bcb066d51679c99a01770916bee391662e064559",
+                "check_benchmark": "passed",
+                "environment:os": "macOS 27.0.1 (build 26A434)",
+                "environment:chip": "Apple M5 Pro"
+              },
+              "reported": {}
+            }
+          },
+          {
+            "name": "sealed_store_sha256",
+            "detail": {
+              "sha256": "2ea23b7e20a847d2f18a8efa2b1d19c4205b10145ddd52e69f84b405fa2d2d58"
+            }
+          }
+        ]
+      },
+      "stopped": null,
+      "steps": [
+        {
+          "name": "unlock",
+          "started": "2026-11-20T04:47:04+00:00",
+          "ended": "2026-11-20T05:16:41+00:00",
+          "status": "done",
+          "requests": {
+            "sent": 0,
+            "stored": 0
+          },
+          "detail": {}
+        },
+        {
+          "name": "liveness",
+          "started": "2026-11-20T05:16:41+00:00",
+          "ended": "2026-11-20T05:16:48+00:00",
+          "status": "done",
+          "requests": {
+            "sent": 2,
+            "stored": 0
+          },
+          "detail": {
+            "models": {
+              "haiku": "claude-haiku-5-5",
+              "opus": "claude-opus-5-5"
+            },
+            "spend": {
+              "calls": {
+                "cap": 25.0,
+                "recorded": 0.0,
+                "projected": 16.477856268824585
+              },
+              "live": {
+                "cap": 12.0,
+                "recorded": 0.0,
+                "projected": 7.7998270000000005
+              }
+            }
+          }
+        },
+        {
+          "name": "drift_trained_router",
+          "started": "2026-11-20T05:16:48+00:00",
+          "ended": "2026-11-20T05:17:16+00:00",
+          "status": "done",
+          "requests": {
+            "sent": 0,
+            "stored": 0
+          },
+          "detail": {
+            "largest_difference": 0.0,
+            "drift_limit": 4.32e-05,
+            "report_above": 1e-06,
+            "flips": [
+              {
+                "threshold": 0.919350946875654,
+                "points": [
+                  "realistic 99%"
+                ],
+                "count": 0,
+                "items": []
+              },
+              {
+                "threshold": 0.9021524030177893,
+                "points": [
+                  "uniform 97%"
+                ],
+                "count": 0,
+                "items": []
+              },
+              {
+                "threshold": 0.8972805444688713,
+                "points": [
+                  "realistic 97%"
+                ],
+                "count": 0,
+                "items": []
+              }
+            ]
+          }
+        },
+        {
+          "name": "drift_jev_router",
+          "started": "2026-11-20T05:17:16+00:00",
+          "ended": "2026-11-20T05:17:38+00:00",
+          "status": "done",
+          "requests": {
+            "sent": 200,
+            "stored": 0
+          },
+          "detail": {
+            "routers": {
+              "G": {
+                "pin": "jev-1.14.0",
+                "model_ids": [
+                  "jev-1.14.0"
+                ],
+                "d8_factor": 3.0,
+                "measures": {
+                  "haiku": {
+                    "d6": 0.011899999999999997,
+                    "d8": 0.012099999999999998,
+                    "shift": -0.0004999999999999971
+                  },
+                  "sonnet": {
+                    "d6": 0.011999999999999997,
+                    "d8": 0.011099999999999999,
+                    "shift": -0.0001000000000000012
+                  },
+                  "opus_low": {
+                    "d6": 0.011199999999999998,
+                    "d8": 0.0111,
+                    "shift": -0.0016999999999999988
+                  }
+                },
+                "flips": [
+                  {
+                    "threshold": 0.93,
+                    "points": [
+                      "realistic 100%",
+                      "uniform 100%"
+                    ],
+                    "count": 6,
+                    "items": [
+                      "banking77:test-0356",
+                      "banking77:test-0383",
+                      "banking77:test-0366",
+                      "banking77:test-2921",
+                      "mbppplus:474",
+                      "mmlu_pro:6263"
+                    ]
+                  },
+                  {
+                    "threshold": 0.88,
+                    "points": [
+                      "realistic 99%"
+                    ],
+                    "count": 3,
+                    "items": [
+                      "banking77:test-2359",
+                      "banking77:test-0765",
+                      "mmlu_pro:8712"
+                    ]
+                  },
+                  {
+                    "threshold": 0.85,
+                    "points": [
+                      "uniform 99%"
+                    ],
+                    "count": 2,
+                    "items": [
+                      "ifeval:1645",
+                      "mbppplus:278"
+                    ]
+                  },
+                  {
+                    "threshold": 0.76,
+                    "points": [
+                      "realistic 97%",
+                      "uniform 97%"
+                    ],
+                    "count": 3,
+                    "items": [
+                      "ifeval:371",
+                      "ifeval:251",
+                      "ifeval:2034"
+                    ]
+                  }
+                ],
+                "resent": 100,
+                "stored": 0
+              },
+              "G+": {
+                "pin": "jev-1.14.0",
+                "model_ids": [
+                  "jev-1.14.0"
+                ],
+                "d8_factor": 3.0,
+                "measures": {
+                  "haiku": {
+                    "d6": 0.011792571213377335,
+                    "d8": 0.010857903062081262,
+                    "shift": 1.4411788800806624e-05
+                  },
+                  "sonnet": {
+                    "d6": 0.007543668022246554,
+                    "d8": 0.007466514882806561,
+                    "shift": -0.0006476043639295037
+                  },
+                  "opus_low": {
+                    "d6": 0.0046050561337669035,
+                    "d8": 0.004203153247390781,
+                    "shift": 0.0002680257701167732
+                  }
+                },
+                "flips": [
+                  {
+                    "threshold": 0.973857924222725,
+                    "points": [
+                      "uniform 100%"
+                    ],
+                    "count": 2,
+                    "items": [
+                      "banking77:test-0689",
+                      "mbppplus:435"
+                    ]
+                  },
+                  {
+                    "threshold": 0.9226055072679061,
+                    "points": [
+                      "realistic 99%",
+                      "uniform 99%"
+                    ],
+                    "count": 9,
+                    "items": [
+                      "banking77:test-0765",
+                      "ifeval:1893",
+                      "ifeval:321",
+                      "ifeval:1094",
+                      "ifeval:1834",
+                      "ifeval:2628",
+                      "mbppplus:775",
+                      "mbppplus:614",
+                      "mmlu_pro:10384"
+                    ]
+                  },
+                  {
+                    "threshold": 0.8397857135145905,
+                    "points": [
+                      "realistic 97%",
+                      "uniform 97%"
+                    ],
+                    "count": 4,
+                    "items": [
+                      "banking77:test-1837",
+                      "banking77:test-1210",
+                      "banking77:test-2810",
+                      "mbppplus:278"
+                    ]
+                  }
+                ],
+                "resent": 100,
+                "stored": 0
+              }
+            }
+          }
+        },
+        {
+          "name": "drift_jev_gate",
+          "started": "2026-11-20T05:17:38+00:00",
+          "ended": "2026-11-20T05:17:44+00:00",
+          "status": "done",
+          "requests": {
+            "sent": 100,
+            "stored": 0
+          },
+          "detail": {
+            "pin": "jev-1.14.0",
+            "model_ids": [
+              "jev-1.14.0"
+            ],
+            "d8_factor": 3.0,
+            "measures": {
+              "haiku": {
+                "d6": 0.014373924966710711,
+                "d8": 0.012935918684282068,
+                "shift": -0.002393132420244962
+              }
+            },
+            "flips": [
+              {
+                "cutoff": 0.9540063295697989,
+                "points": [
+                  "haiku/Jev realistic 100%",
+                  "haiku/Jev uniform 100%"
+                ],
+                "count": 0,
+                "items": []
+              },
+              {
+                "cutoff": 0.8149190161607497,
+                "points": [
+                  "haiku/Jev realistic 99%"
+                ],
+                "count": 4,
+                "items": [
+                  "ifeval:1237 haiku",
+                  "ifeval:3653 haiku",
+                  "banking77:test-0928 haiku",
+                  "mbppplus:558 haiku"
+                ]
+              },
+              {
+                "cutoff": 0.8097612537302109,
+                "points": [
+                  "E/Jev realistic 97%",
+                  "E/Jev realistic 99%",
+                  "E/Jev uniform 97%",
+                  "E/Jev uniform 99%",
+                  "F/Jev realistic 97%",
+                  "F/Jev realistic 99%",
+                  "F/Jev uniform 97%",
+                  "F/Jev uniform 99%",
+                  "G/Jev realistic 100%",
+                  "G/Jev realistic 97%",
+                  "G/Jev realistic 99%",
+                  "G/Jev uniform 100%",
+                  "G/Jev uniform 97%",
+                  "G/Jev uniform 99%",
+                  "G+/Jev realistic 97%",
+                  "G+/Jev realistic 99%",
+                  "G+/Jev uniform 100%",
+                  "G+/Jev uniform 97%",
+                  "G+/Jev uniform 99%"
+                ],
+                "count": 2,
+                "items": [
+                  "ifeval:3653 haiku",
+                  "mmlu_pro:4739 haiku"
+                ]
+              },
+              {
+                "cutoff": 0.7307604185714591,
+                "points": [
+                  "haiku/Jev uniform 99%"
+                ],
+                "count": 5,
+                "items": [
+                  "ifeval:2395 haiku",
+                  "banking77:test-0196 haiku",
+                  "banking77:test-0849 haiku",
+                  "mbppplus:564 haiku",
+                  "mbppplus:607 haiku"
+                ]
+              },
+              {
+                "cutoff": 0.6333807685183769,
+                "points": [
+                  "haiku/Jev realistic 97%"
+                ],
+                "count": 2,
+                "items": [
+                  "ifeval:2590 haiku",
+                  "banking77:test-0829 haiku"
+                ]
+              },
+              {
+                "cutoff": 0.5414067403925006,
+                "points": [
+                  "haiku/Jev uniform 97%"
+                ],
+                "count": 0,
+                "items": []
+              }
+            ],
+            "answers": 100
+          }
+        },
+        {
+          "name": "drift_sonnet_gate",
+          "started": "2026-11-20T05:17:44+00:00",
+          "ended": "2026-11-20T05:22:36+00:00",
+          "status": "done",
+          "requests": {
+            "sent": 80,
+            "stored": 0
+          },
+          "detail": {
+            "pin": "claude-sonnet-5-5",
+            "model_ids": [
+              "claude-sonnet-5-5"
+            ],
+            "d8_factor": 3.0,
+            "measures": {
+              "haiku": {
+                "d6": 0.026623376623376615,
+                "d8": 0.024545454545454544,
+                "shift": -0.0053246753246753206
+              }
+            },
+            "flips": [
+              {
+                "cutoff": 0.77,
+                "points": [
+                  "G/Sonnet realistic 100%",
+                  "G/Sonnet realistic 97%",
+                  "G/Sonnet realistic 99%",
+                  "G/Sonnet uniform 100%",
+                  "G/Sonnet uniform 97%",
+                  "G/Sonnet uniform 99%",
+                  "G+/Sonnet realistic 100%",
+                  "G+/Sonnet realistic 97%",
+                  "G+/Sonnet realistic 99%"
+                ],
+                "count": 3,
+                "items": [
+                  "mmlu_pro:98 haiku",
+                  "mbppplus:247 haiku",
+                  "mmlu_pro:11735 haiku"
+                ]
+              },
+              {
+                "cutoff": 0.5,
+                "points": [
+                  "haiku/Sonnet realistic 97%"
+                ],
+                "count": 6,
+                "items": [
+                  "ifeval:2395 haiku",
+                  "mmlu_pro:98 haiku",
+                  "mbppplus:247 haiku",
+                  "banking77:test-2258 haiku",
+                  "ifeval:3653 haiku",
+                  "mmlu_pro:11735 haiku"
+                ]
+              },
+              {
+                "cutoff": 0.3,
+                "points": [
+                  "haiku/Sonnet uniform 97%"
+                ],
+                "count": 5,
+                "items": [
+                  "ifeval:2395 haiku",
+                  "mmlu_pro:98 haiku",
+                  "mbppplus:247 haiku",
+                  "mmlu_pro:5156 haiku",
+                  "mmlu_pro:11735 haiku"
+                ]
+              }
+            ],
+            "answers": 80,
+            "unscored": {
+              "haiku": 3
+            }
+          }
+        },
+        {
+          "name": "calls_rules_trained",
+          "started": "2026-11-20T05:22:36+00:00",
+          "ended": "2026-11-20T05:23:04+00:00",
+          "status": "done",
+          "requests": {
+            "sent": 743,
+            "stored": 0
+          },
+          "detail": {
+            "items": 743,
+            "stored": false
+          }
+        },
+        {
+          "name": "calls_jev_router",
+          "started": "2026-11-20T05:23:04+00:00",
+          "ended": "2026-11-20T05:25:12+00:00",
+          "status": "done",
+          "requests": {
+            "sent": 1486,
+            "stored": 0
+          },
+          "detail": {
+            "first_test_jev_date": "Fri, 20 Nov 2026 05:23:08 GMT",
+            "first_test_jev_date_parsed": "2026-11-20T05:23:08+00:00",
+            "first_test_jev_router": "G",
+            "spend": {
+              "calls": {
+                "cap": 25.0,
+                "recorded": 0.6297506039999999,
+                "projected": 15.341137466
+              },
+              "live": {
+                "cap": 12.0,
+                "recorded": 0.0002004,
+                "projected": 7.7998270000000005
+              }
+            }
+          }
+        },
+        {
+          "name": "calls_free_checks",
+          "started": "2026-11-20T05:25:12+00:00",
+          "ended": "2026-11-20T05:26:40+00:00",
+          "status": "done",
+          "requests": {
+            "sent": 2972,
+            "stored": 0
+          },
+          "detail": {}
+        },
+        {
+          "name": "calls_jev_gate",
+          "started": "2026-11-20T05:26:40+00:00",
+          "ended": "2026-11-20T05:30:05+00:00",
+          "status": "done",
+          "requests": {
+            "sent": 2967,
+            "stored": 0
+          },
+          "detail": {}
+        },
+        {
+          "name": "calls_sonnet_gate",
+          "started": "2026-11-20T05:30:05+00:00",
+          "ended": "2026-11-20T05:35:12+00:00",
+          "status": "done",
+          "requests": {
+            "sent": 2225,
+            "stored": 0
+          },
+          "detail": {
+            "batches": [
+              {
+                "id": "msgbatch_01KzRBWJEa38jy1TX5sWnWdQ",
+                "created_at": "2026-11-20T05:30:08.092154+00:00",
+                "request_count": 2225,
+                "counts": {
+                  "succeeded": 2225
+                }
+              }
+            ],
+            "batch_resent": 0,
+            "model_ids": [
+              "claude-sonnet-5-5"
+            ]
+          }
+        },
+        {
+          "name": "grading",
+          "started": "2026-11-20T05:35:12+00:00",
+          "ended": "2026-11-20T05:38:50+00:00",
+          "status": "done",
+          "requests": {
+            "sent": 0,
+            "stored": 0
+          },
+          "detail": {
+            "stored": 2972,
+            "already_graded": 0,
+            "graded": 2972,
+            "seconds": 217.8
+          }
+        },
+        {
+          "name": "tables",
+          "started": "2026-11-20T05:38:50+00:00",
+          "ended": "2026-11-20T05:39:21+00:00",
+          "status": "done",
+          "requests": {
+            "sent": 0,
+            "stored": 0
+          },
+          "detail": {
+            "file": "tables_test.json",
+            "items": 743,
+            "extras": {
+              "trained_facts": {
+                "items": 743,
+                "fold_counts": {
+                  "0": 148,
+                  "1": 135,
+                  "2": 147,
+                  "3": 163,
+                  "4": 150
+                },
+                "fold_shares": {
+                  "0": 0.19919246298788695,
+                  "1": 0.1816958277254374,
+                  "2": 0.19784656796769853,
+                  "3": 0.2193808882907133,
+                  "4": 0.2018842530282638
+                },
+                "truncated": 0,
+                "emptied": 0
+              },
+              "jev_facts": {
+                "G": {
+                  "calls": 743,
+                  "refused": 0,
+                  "cut": 0,
+                  "hash_mismatches": 0,
+                  "models": [
+                    "jev-1.14.0"
+                  ]
+                },
+                "G+": {
+                  "calls": 743,
+                  "refused": 0,
+                  "cut": 0,
+                  "hash_mismatches": 0,
+                  "models": [
+                    "jev-1.14.0"
+                  ]
+                }
+              },
+              "gate_table": {
+                "haiku": {
+                  "answers": 743,
+                  "rejected": 1,
+                  "failed_first": {
+                    "stop": 0,
+                    "schema": 0,
+                    "code": 1
+                  },
+                  "failing": {
+                    "stop": 0,
+                    "schema": 0,
+                    "code": 1
+                  },
+                  "jev_calls": 742,
+                  "jev_refused": 0,
+                  "jev_cut": 0,
+                  "jev_retries": 0,
+                  "jev_failed_attempts": 0,
+                  "sonnet_calls": 742,
+                  "sonnet_refused": 22,
+                  "sonnet_cap_stops": 22
+                },
+                "sonnet": {
+                  "answers": 743,
+                  "rejected": 2,
+                  "failed_first": {
+                    "stop": 2,
+                    "schema": 0,
+                    "code": 0
+                  },
+                  "failing": {
+                    "stop": 2,
+                    "schema": 0,
+                    "code": 0
+                  },
+                  "jev_calls": 741,
+                  "jev_refused": 0,
+                  "jev_cut": 0,
+                  "jev_retries": 0,
+                  "jev_failed_attempts": 0,
+                  "sonnet_calls": 741,
+                  "sonnet_refused": 15,
+                  "sonnet_cap_stops": 15
+                },
+                "opus_low": {
+                  "answers": 743,
+                  "rejected": 1,
+                  "failed_first": {
+                    "stop": 1,
+                    "schema": 0,
+                    "code": 0
+                  },
+                  "failing": {
+                    "stop": 1,
+                    "schema": 0,
+                    "code": 0
+                  },
+                  "jev_calls": 742,
+                  "jev_refused": 0,
+                  "jev_cut": 0,
+                  "jev_retries": 0,
+                  "jev_failed_attempts": 0,
+                  "sonnet_calls": 742,
+                  "sonnet_refused": 16,
+                  "sonnet_cap_stops": 16
+                },
+                "opus": {
+                  "answers": 743,
+                  "rejected": 1,
+                  "failed_first": {
+                    "stop": 1,
+                    "schema": 0,
+                    "code": 0
+                  },
+                  "failing": {
+                    "stop": 1,
+                    "schema": 0,
+                    "code": 0
+                  },
+                  "jev_calls": 742,
+                  "jev_refused": 0,
+                  "jev_cut": 0,
+                  "jev_retries": 0,
+                  "jev_failed_attempts": 0,
+                  "sonnet_calls": 0,
+                  "sonnet_refused": 0,
+                  "sonnet_cap_stops": 0
+                }
+              }
+            },
+            "stops": {
+              "haiku": {},
+              "sonnet": {
+                "refusal": 2
+              },
+              "opus_low": {
+                "refusal": 1
+              },
+              "opus": {
+                "refusal": 1
+              }
+            },
+            "target_met": {
+              "points": 114,
+              "routes": 72,
+              "met": 57,
+              "missed": 15,
+              "falls_back": 42
+            },
+            "headline": "met",
+            "figures": [
+              "pareto_test.json",
+              "pareto_tasks_test.json",
+              "pareto_routed_test.json",
+              "pareto_test.png",
+              "pareto_tasks_test.png",
+              "pareto_routed_test.png"
+            ]
+          }
+        },
+        {
+          "name": "replay",
+          "started": "2026-11-20T05:39:21+00:00",
+          "ended": "2026-11-20T06:10:52+00:00",
+          "status": "done",
+          "requests": {
+            "sent": 300,
+            "stored": 0
+          },
+          "detail": {
+            "cascade": "cascade_haiku_jev",
+            "rule": "A17 item 24, applied to dev's table v4 by final_headline.best_cascade, the headline's own choice",
+            "policies": [
+              {
+                "key": "A",
+                "label": "A",
+                "section": null,
+                "start": null,
+                "gate": null,
+                "threshold": null,
+                "cutoff": null
+              },
+              {
+                "key": "cascade_haiku_jev/realistic/99%",
+                "label": "haiku/Jev realistic 99%",
+                "section": "cascade_haiku_jev",
+                "start": "haiku",
+                "gate": "jev",
+                "threshold": null,
+                "cutoff": 0.8149190161607497
+              },
+              {
+                "key": "cascade_haiku_jev/realistic/97%",
+                "label": "haiku/Jev realistic 97%",
+                "section": "cascade_haiku_jev",
+                "start": "haiku",
+                "gate": "jev",
+                "threshold": null,
+                "cutoff": 0.6333807685183769
+              }
+            ],
+            "skipped": [],
+            "items": 100,
+            "per_task": {
+              "banking77": 25,
+              "ifeval": 25,
+              "mbppplus": 25,
+              "mmlu_pro": 25
+            },
+            "conditions": {
+              "machine": "Apple M5 Pro, Darwin 27.0.0 arm64, Python 3.13.13",
+              "network": "Wi-Fi (en0) behind a private gateway, no network name or address recorded",
+              "go_started": "2026-11-20T05:39:21+00:00",
+              "go_ended": "2026-11-20T06:10:18+00:00"
+            },
+            "results": {
+              "A": {
+                "label": "A",
+                "live": {
+                  "requests": 100,
+                  "kept": 99,
+                  "median_s": 2.461370832985267,
+                  "p90_s": 14.902766849892213,
+                  "first_call_s": [
+                    2.48873258382082
+                  ],
+                  "reconnects_s": [],
+                  "interrupted_s": [],
+                  "cost_per_request": 0.01093184,
+                  "escalation_rate": 0.0,
+                  "quality": {
+                    "value": 0.82,
+                    "n": 100
+                  },
+                  "quality_by_task": {
+                    "banking77": {
+                      "value": 0.76,
+                      "n": 25
+                    },
+                    "ifeval": {
+                      "value": 0.84,
+                      "n": 25
+                    },
+                    "mbppplus": {
+                      "value": 0.84,
+                      "n": 25
+                    },
+                    "mmlu_pro": {
+                      "value": 0.84,
+                      "n": 25
+                    }
+                  },
+                  "retries": 0,
+                  "configs_called": {
+                    "opus": 100
+                  }
+                },
+                "offline": {
+                  "n": 100,
+                  "cost_per_request": 0.01133024,
+                  "escalation_rate": 0.0,
+                  "quality": 0.81,
+                  "quality_by_task": {
+                    "banking77": [
+                      0.72,
+                      25
+                    ],
+                    "ifeval": [
+                      0.84,
+                      25
+                    ],
+                    "mbppplus": [
+                      0.84,
+                      25
+                    ],
+                    "mmlu_pro": [
+                      0.84,
+                      25
+                    ]
+                  },
+                  "latency_median_s": 3.95,
+                  "latency_p90_s": 14.0
+                }
+              },
+              "cascade_haiku_jev/realistic/99%": {
+                "label": "haiku/Jev realistic 99%",
+                "live": {
+                  "requests": 100,
+                  "kept": 99,
+                  "median_s": 3.4925832089502364,
+                  "p90_s": 21.533346858434385,
+                  "first_call_s": [
+                    2.113626457983628
+                  ],
+                  "reconnects_s": [],
+                  "interrupted_s": [],
+                  "cost_per_request": 0.00689573102,
+                  "escalation_rate": 0.46,
+                  "quality": {
+                    "value": 0.83,
+                    "n": 100
+                  },
+                  "quality_by_task": {
+                    "banking77": {
+                      "value": 0.76,
+                      "n": 25
+                    },
+                    "ifeval": {
+                      "value": 0.88,
+                      "n": 25
+                    },
+                    "mbppplus": {
+                      "value": 0.84,
+                      "n": 25
+                    },
+                    "mmlu_pro": {
+                      "value": 0.84,
+                      "n": 25
+                    }
+                  },
+                  "retries": 0,
+                  "configs_called": {
+                    "haiku": 100,
+                    "opus": 46
+                  }
+                },
+                "offline": {
+                  "n": 100,
+                  "cost_per_request": 0.00785893428,
+                  "escalation_rate": 0.48,
+                  "quality": 0.83,
+                  "quality_by_task": {
+                    "banking77": [
+                      0.72,
+                      25
+                    ],
+                    "ifeval": [
+                      0.84,
+                      25
+                    ],
+                    "mbppplus": [
+                      0.88,
+                      25
+                    ],
+                    "mmlu_pro": [
+                      0.88,
+                      25
+                    ]
+                  },
+                  "latency_median_s": 4.2637797079980375,
+                  "latency_p90_s": 20.963579375040716
+                }
+              },
+              "cascade_haiku_jev/realistic/97%": {
+                "label": "haiku/Jev realistic 97%",
+                "live": {
+                  "requests": 100,
+                  "kept": 100,
+                  "median_s": 2.568749687517993,
+                  "p90_s": 14.795535507891328,
+                  "first_call_s": [],
+                  "reconnects_s": [],
+                  "interrupted_s": [],
+                  "cost_per_request": 0.0048401642,
+                  "escalation_rate": 0.22,
+                  "quality": {
+                    "value": 0.82,
+                    "n": 100
+                  },
+                  "quality_by_task": {
+                    "banking77": {
+                      "value": 0.72,
+                      "n": 25
+                    },
+                    "ifeval": {
+                      "value": 0.8,
+                      "n": 25
+                    },
+                    "mbppplus": {
+                      "value": 0.88,
+                      "n": 25
+                    },
+                    "mmlu_pro": {
+                      "value": 0.88,
+                      "n": 25
+                    }
+                  },
+                  "retries": 0,
+                  "configs_called": {
+                    "haiku": 100,
+                    "opus": 22
+                  }
+                },
+                "offline": {
+                  "n": 100,
+                  "cost_per_request": 0.00457133428,
+                  "escalation_rate": 0.21,
+                  "quality": 0.79,
+                  "quality_by_task": {
+                    "banking77": [
+                      0.72,
+                      25
+                    ],
+                    "ifeval": [
+                      0.76,
+                      25
+                    ],
+                    "mbppplus": [
+                      0.84,
+                      25
+                    ],
+                    "mmlu_pro": [
+                      0.84,
+                      25
+                    ]
+                  },
+                  "latency_median_s": 4.060742687492166,
+                  "latency_p90_s": 20.963579375040716
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "record",
+          "started": "2026-11-20T06:10:52+00:00",
+          "ended": "2026-11-20T06:10:52+00:00",
+          "status": "done",
+          "requests": {
+            "sent": 0,
+            "stored": 0
+          },
+          "detail": {
+            "file": "final_record.json",
+            "spend": {
+              "calls": {
+                "cap": 25.0,
+                "recorded": 9.368161744000002,
+                "projected": 0
+              },
+              "live": {
+                "cap": 12.0,
+                "recorded": 2.266973922,
+                "projected": 0
+              }
+            },
+            "files": {
+              "final/liveness.jsonl": {
+                "sha256": "03fdf7ba91b4b0681fbc92a4858a9a83e5fcb7e7a7070f3b240a7ec627e99a3f",
+                "bytes": 2556
+              },
+              "final/replay.jsonl": {
+                "sha256": "34871887c418df929de61fe0707fc154571399177fdd72d0c8044c49fadec4d2",
+                "bytes": 2043796
+              },
+              "final/replay_requests.jsonl": {
+                "sha256": "931d164dc349de18bbc1d0e9fc51274d0e0ef2f1eae1e1949cdc8fd486b19272",
+                "bytes": 133742
+              },
+              "final/sonnet_batches_test.json": {
+                "sha256": "1e9f9a3febcc99d57f0d94d0a7a49c4ac3ed6c6dc9eabbab82273e0ed1782ced",
+                "bytes": 88737
+              },
+              "final/tables_test.json": {
+                "sha256": "f99214e56b2f00e9a76c4569f4eaff61d73e6ac9b9f6053c8c3b8ff86678fc39",
+                "bytes": 1541821
+              },
+              "gates/free_checks_test.jsonl": {
+                "sha256": "e6fdf5c7b1fd889976c8802ece9e5601e169ae96befe6ae305755679251bc289",
+                "bytes": 1480019
+              },
+              "gates/jev_gate_drift.jsonl": {
+                "sha256": "d645d1aae0c593c57f61cfdc3807760c01e2e93a7c928049fddd959e20873183",
+                "bytes": 82732
+              },
+              "gates/jev_gate_test.jsonl": {
+                "sha256": "09320ed5623b17ac54a62b4b57698c55196738f16c25037723d7778513d30c96",
+                "bytes": 2456157
+              },
+              "gates/sonnet_gate_drift.jsonl": {
+                "sha256": "6b02862e257ddc3c52d7118fecbbb57c4e1fabc9fe276443288f80324489c33e",
+                "bytes": 204012
+              },
+              "gates/sonnet_gate_test.jsonl": {
+                "sha256": "2f7a1869a20159ee14787922329b840f69d361f7b492148a1860fcce7636ea08",
+                "bytes": 5381889
+              },
+              "jev/jev_bolstered_drift.jsonl": {
+                "sha256": "64c7f6f85b53befca1789f068592bd84e4a73dfdbdd00ed2a192762fde341549",
+                "bytes": 173639
+              },
+              "jev/jev_bolstered_test.jsonl": {
+                "sha256": "0374998be70a909869b3b83e4ca174c08983e3221582336112f584e315194714",
+                "bytes": 1291373
+              },
+              "jev/jev_drift.jsonl": {
+                "sha256": "0d3f6def69742c3f9fdf0369d484178c2e650069e39a0ff75fc53862abc86c3b",
+                "bytes": 74897
+              },
+              "jev/jev_test.jsonl": {
+                "sha256": "670be882d638a9c85ee83a7ebdce7ca4c7ffad0b6fd329537777da1ee24ceb5f",
+                "bytes": 556413
+              },
+              "test_matrix.sqlite": {
+                "sha256": "a06e1b06e9b1b5a5c31392300e12a460b01c10536f90b3cfda004fe7f4a34910",
+                "bytes": 3559424
+              },
+              "test_router_scores.json": {
+                "sha256": "0f8b891867d00ff64f8ea25716307e4cb35a32e67e490bfe8b958cdf914edee0",
+                "bytes": 204736
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
